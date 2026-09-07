@@ -1,0 +1,48 @@
+{
+  "occupancy_code": "A",
+  "occupancy_name": "Residential Buildings",
+  "source": "Table 7 (single unified table), pages 1-3 of the 11-page source image sequence",
+  "extraction_confidence": "needs_verification - OCR of raster table images; see table7_firefighting_installations/_columns_and_notes.json for the full caveat and the 8-boolean-then-4-numeric column pattern this reconstruction assumes.",
+  "column_order_assumed": ["fire_extinguisher","first_aid_hose_reel","wet_riser","down_comer","yard_hydrant","automatic_sprinkler_system","moefa","automatic_detection_and_alarm","underground_tank_litre","terrace_tank_litre","pump_near_underground_tank_lpm","pump_at_terrace_lpm"],
+  "bands": [
+    {
+      "subdivision": "A-1", "subdivision_name": "Lodging and Rooming Houses",
+      "applicability_cap": "Buildings above 15 m in height not permitted for A-1 (Note 3).",
+      "sub_bands": [
+        { "condition": "Less than 15 m height, up to 15 rooms", "ordered_ocr_tokens": ["fire_extinguisher=R", "value=5000 (see Note 4)(see Note 5)"], "column_mapping_attempted": null, "mapping_note": "Too few legible tokens to confidently split across the 12-column pattern; only fire_extinguisher=R and one water-quantity figure of 5000 litres (basement-conditional per Notes 4/5) were legible." },
+        { "condition": "Less than 15 m height, more than 15 and up to 30 rooms", "ordered_ocr_tokens": ["fire_extinguisher=R", "5000", "450", "(+5000 if basement>200sqm, Note 6)", "(+450 if basement>200sqm, Note 6)"], "column_mapping_attempted": { "fire_extinguisher": "R" }, "mapping_note": "Two numeric figures legible (5000 litre storage, 450 lpm pump), each with a Note-6 basement addition of the same figure; could not confidently confirm which is underground tank vs terrace tank vs pump-location." },
+        { "condition": "Less than 15 m height, more than 30 rooms", "ordered_ocr_tokens": ["fire_extinguisher=R", "first_aid_hose_reel=R", "10000", "450", "(+5000 Note 6)", "(+450 Note 6)"], "column_mapping_attempted": { "fire_extinguisher": "R", "first_aid_hose_reel": "R" } }
+      ]
+    },
+    {
+      "subdivision": "A-2", "subdivision_name": "One or Two Family Private Dwellings",
+      "applicability_cap": "Buildings above 15 m in height not permitted for A-2 (Note 3).",
+      "finding": "No distinct data row was found under A-2 in the OCR'd table (the heading appears with no sub-bullets, unlike A-1/A-3/A-4/A-5). This may mean A-2 carries no additional Table 7 installation requirement beyond whatever baseline applies, or that its row was on a page boundary / not legible. Flagged for verification rather than guessed."
+    },
+    {
+      "subdivision": "A-3 / A-4", "subdivision_name": "Dormitories and Apartment Houses",
+      "sub_bands": [
+        { "condition": "Less than 15 m height", "ordered_ocr_tokens": ["fire_extinguisher=R", "5000", "450", "(+5000 Note 6)", "(+450 Note 6)"], "column_mapping_attempted": { "fire_extinguisher": "R" } },
+        { "condition": "15 m and above but not exceeding 35 m height", "ordered_ocr_tokens": ["R","R","NR","R","NR","R","R","NR","NR","25000","NR","900"], "notes_referenced": [4,8], "column_mapping_attempted": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "wet_riser": "NR", "down_comer": "R", "yard_hydrant": "NR", "automatic_sprinkler_system": "R", "moefa": "R", "automatic_detection_and_alarm": "NR" }, "numeric_columns_mapping_note": "Trailing 4 tokens (NR, 25000, NR, 900) could not be confidently split across underground_tank/terrace_tank/pump_near_tank/pump_at_terrace - reported as an ordered sequence only." },
+        { "condition": "Above 35 m but not exceeding 45 m height", "ordered_ocr_tokens": ["fire_extinguisher=R","75000","5000","NR"], "notes_referenced": [9,10], "mapping_note": "Sparse legibility; 75000 and 5000 are almost certainly underground-tank and terrace-tank litre figures respectively given the magnitude jump from the lower band, but column identity not independently confirmed." },
+        { "condition": "Above 45 m but not exceeding 60 m height", "ordered_ocr_tokens": ["150000","10000"], "notes_referenced": [11] },
+        { "condition": "Above 60 m height", "ordered_ocr_tokens": ["200000","10000"], "notes_referenced": [12, 13] }
+      ]
+    },
+    {
+      "subdivision": "A-5", "subdivision_name": "Hotels (up to Four Star)",
+      "sub_bands": [
+        { "condition": "Floor area not exceeding 300 sqm on any floor", "ordered_ocr_tokens": ["fire_extinguisher=R","5000","450","(+5000 Note 6)","(+450 Note 6)"] },
+        { "condition": "Floor area exceeding 300 sqm but not more than 1000 sqm on any floor", "ordered_ocr_tokens": ["R","NR","NR","R","10000_per_500sqm_min_50000","10000","450","(+5000 Note 6)","(+450 Note 6)"], "notes_referenced": [4,6,7,14], "mapping_note": "This band's underground tank sizing is a RATE rule (10 000 litre for every 500 sqm of floor area, subject to a minimum of 50 000 litre) rather than a flat figure - captured verbatim from OCR text, high confidence this specific formula is correctly read since it appeared clearly across the page." },
+        { "condition": "Floor area exceeding 1000 sqm on any floor", "ordered_ocr_tokens": ["R","NR","R","100000","10000"], "notes_referenced": [1,4,14,15] }
+      ]
+    },
+    {
+      "subdivision": "A-6", "subdivision_name": "Starred (Five Star and above) Hotels",
+      "sub_bands": [
+        { "condition": "All Starred Hotels (single band; no height/area split found)", "ordered_ocr_tokens": ["R","R","R","NR","R","R","R","R","250000","20000","(see Note 12)","NR"], "column_mapping_attempted": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "wet_riser": "R", "down_comer": "NR", "yard_hydrant": "R", "automatic_sprinkler_system": "R", "moefa": "R", "automatic_detection_and_alarm": "R", "underground_tank_litre": 250000, "terrace_tank_litre": 20000, "pump_near_underground_tank_lpm": "see Note 12 (2850 lpm electric+diesel standby pair, per Note 12 text)", "pump_at_terrace_lpm": "NR" }, "extraction_confidence": "medium-high - this row's 12 tokens split cleanly into the assumed 8-boolean+4-numeric pattern with no ambiguity, used as the validation template for the column-order hypothesis applied to the rest of this dataset." }
+      ]
+    }
+  ],
+  "comparison_to_2026_table7a": "2026's Table 7A (residential) uses protection-level codes HL-1/HL-2/HL-3/CL-3/CL-4/CL-5 keyed to specific subdivisions and height/area bands, referencing separate Table 7K/7M for the underlying water/pump numbers. 2016 instead states the litre/lpm figures directly in the same row as the R/NR installation flags, with no intermediate protection-level code. Where comparable, the qualitative shape is similar (higher/taller buildings need more installations and more water), but a literal number-for-number comparison was not attempted given this dataset's OCR confidence limits - only the underlying rule structure comparison above is asserted with confidence."
+}

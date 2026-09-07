@@ -1,0 +1,14 @@
+{
+  "occupancy_code": "E",
+  "occupancy_name": "Business Buildings",
+  "source": "Table 7 (single unified table), page 6 of the 11-page source image sequence",
+  "extraction_confidence": "needs_verification - see _columns_and_notes.json.",
+  "bands": [
+    { "condition": "Less than 10 m height", "ordered_ocr_tokens": ["R","R","NR","R","NR","R","R","NR","NR","10000","NR","450"], "notes_referenced": [4,6], "column_mapping_attempted": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "wet_riser": "NR", "down_comer": "R", "yard_hydrant": "NR", "automatic_sprinkler_system": "R", "moefa": "R", "automatic_detection_and_alarm": "NR" }, "extraction_confidence_this_row": "medium-high - clean 12-token row." },
+    { "condition": "Above 10 m but not exceeding 15 m height", "ordered_ocr_tokens": ["fire_extinguisher=R","50000","5000"], "notes_referenced": [4,6,14] },
+    { "condition": "Above 15 m and up to 24 m height", "ordered_ocr_tokens": ["100000","10000"], "notes_referenced": [10] },
+    { "condition": "Above 24 m and up to 30 m height", "ordered_ocr_tokens": ["150000","20000"], "notes_referenced": [11] },
+    { "condition": "Above 30 m in height", "ordered_ocr_tokens": ["R","R","R","NR","R","R","R","R","200000","20000"], "notes_referenced": [12], "column_mapping_attempted": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "wet_riser": "R", "down_comer": "NR", "yard_hydrant": "R", "automatic_sprinkler_system": "R", "moefa": "R", "automatic_detection_and_alarm": "R" }, "extraction_confidence_this_row": "medium-high - clean row matching the validated pattern." }
+  ],
+  "note": "No E-1..E-5 subdivision split found in Table 7 itself - Business is treated as one flat occupancy band-set in Table 7, unlike its 5-way subdivision in the classification clause. Matches 2026's approach where Table 7E's self-certification threshold and bands likewise don't subdivide by E-I/E-II beyond a top-level Datacentre carve-out (which 2016 has no equivalent of at all - Group E-3 electronic data processing centres get no distinct Table 7 treatment in 2016)."
+}

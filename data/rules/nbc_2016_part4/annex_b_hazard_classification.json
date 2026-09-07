@@ -1,0 +1,76 @@
+{
+  "annex": "B",
+  "source_clause": "3.1.8",
+  "title": "Broad Classification of Industrial Occupancies into Different Degree of Hazard",
+  "extraction_method_and_confidence_warning": "Like Table 7, Annex B is embedded as full-page RASTER IMAGES in the source .docx (3 portrait pages), not as editable text. Recovered via Tesseract OCR (upscaled 1.5x). OCR of this three-column, small-font list is generally legible but individual entries may contain misread characters (e.g. 'GCCUPANCIES' for 'OCCUPANCIES', 'Bakenies' for 'Bakeries') which have been corrected below where the intended word was obvious from context; a small number of column-boundary misreads (a term captured with an extra trailing/leading word from an adjacent column) are possible and this list should be spot-checked against the source PDF before production use, consistent with the 'needs_verification' flag the 2026 dataset also carries for its own Annex B.",
+  "extraction_confidence": "needs_verification",
+  "terminology_note": "2016 labels its three columns 'Light Hazard', 'Moderate Hazard', and 'High Hazard' directly (not 'G-1/G-2/G-3'), but these map one-to-one onto the G-1 (Low/Light), G-2 (Moderate), G-3 (High) subdivisions defined in the classification clause (3.1.8) and used throughout Table 7's Industrial section.",
+  "usage_note": "This Annex covers fire-hazard-only classification. Any occupancy not covered here shall be classified in the most appropriate class by resemblance to the proposed occupancy (identical rule to 2026's usage_note, worded almost identically).",
+  "g1_low_light_hazard_examples": [
+    "Abrasive manufacturing premises", "Aerated water factories", "Agarbatti manufacturing", "Areca nut slicing and/or betel nut factories",
+    "Analytical and/or quality control laboratories", "Asbestos steam packing and lagging manufacturing", "Battery charging/battery service stations",
+    "Battery manufacturing", "Breweries", "Brick works", "Canning factories", "Cardamom factories",
+    "Cement factories and/or asbestos or concrete products manufacturing", "Ceramic factories and crockery and stoneware pipe manufacturing",
+    "Clay works", "Clock and watch manufacturing", "Coffee curing, roasting and grinding premises",
+    "Condensed milk factories, milk pasteurising plant and dairies", "Confectionery manufacturing",
+    "Electric generating houses (hydro electric)", "Electric lamps (incandescent and fluorescent) and TV picture tube manufacturing",
+    "Electro plating works", "Engineering workshops", "Flour mills", "Fruits and vegetables dehydrating and drying factories",
+    "Fruit products and condiment factories", "Glass and glass fibre manufacturing", "Godowns and warehouses storing non-combustible goods only",
+    "Green houses", "Gold thread/gilding factories", "Gum and/or glue and gelatine manufacturing", "Ice, ice candy and ice-cream manufacturing",
+    "Ink (excluding printing ink) factories", "Mica products manufacturing", "Pottery works", "Poultry farms",
+    "Salt crushing factories and refineries", "Stables", "Sugar candy manufacturing", "Tanneries/leather goods manufacturers",
+    "Umbrella assembling factories", "Vermicelli factories", "Water treatment/filtration plants and water pump houses", "Zinc/copper factories"
+  ],
+  "g2_moderate_hazard_examples": [
+    "Aluminium factories", "Atta and cereal grinding units", "Bakeries and biscuit factories", "Beedi factories", "Bobbin factories",
+    "Bookbinders, envelopes and paper bag manufacturing", "Cable manufacturing", "Camphor boiling", "Candle works",
+    "Carbon paper/typewriter ribbon manufacturing", "Cardboard box manufacturing", "Carpenters, wood wool and furniture manufacturing",
+    "Carpet and durries factories", "Cashewnut factories", "Chemical manufacturing using raw materials having flash points above 23 C",
+    "Cigar and cigarette factories", "Coir factories", "Coir carpets, rugs, tobacco, hides and skin presses", "Cold storage premises",
+    "Cork products manufacturing", "Dry cleaning, dyeing and laundries", "Electric substations/distribution stations",
+    "Electric generating stations (other than underground power houses)", "Enamelware factories", "Filter and wax paper manufacturing",
+    "Garages", "Garment makers", "Ghee factories (other than vegetable)", "Godowns and warehouses (other than light and high hazard categories)",
+    "Grain and/or seeds disintegrating and/or crushing factories", "Grease manufacturing", "Hosiery, lace, embroidery and thread factories",
+    "Incandescent gas mantle manufacturing", "Industrial gas manufacturing (inert/halogenated hydrocarbon gases)",
+    "Ink (excluding printing ink) factories - variant listing", "Man-made yarn/fibre manufacturing (other than acrylic fibres/yarn manufacturing)",
+    "Manure and fertilizer works (blending, mixing and granulating)", "Mineral oil blending and processing",
+    "Oil and leather cloth factories", "Oil terminals/depots other than those categorised under High Hazard A",
+    "Open storage of flammable liquids in drums, cans, etc", "Oxygen plants", "Paper and cardboard mills without raw material yards",
+    "Piers, wharves, jetties and dockyards other than those categorized under High Hazard A", "Plastic goods manufacturing",
+    "Plywood/wood veneering factories", "Printing press premises", "Pulverising and crushing mills", "Rice mills", "Rope works",
+    "Rubber goods manufacturing", "Rubber tyres and tubes manufacturing", "Shellac factories", "Silk filatures",
+    "Soaps and glycerine factories", "Spray painting", "Starch factories", "Tea factories", "Textile mills",
+    "Tobacco (chewing) and pan-masala making", "Tobacco grinding and crushing", "Tobacco redrying factories", "Woollen mills"
+  ],
+  "g3_high_hazard_examples": {
+    "sub_category_a": [
+      "Aircraft hangers", "Aluminium/magnesium powder plants", "Battery charging/battery service stations (cross-listed)",
+      "Bituminised paper and/or hessian cloth/tar felt manufacturing", "Cotton waste factories", "Chemical manufacturing using raw materials having flash points below 23 C",
+      "Cigarette filter manufacturing", "Cinema films and TV production studios", "Coal and/or coke and/or charcoal ball and briquettes manufacturing",
+      "Collieries", "Fire-works manufacturing", "Foam plastics manufacturing and/or converting plants", "Godowns and warehouses (storing combustible/flammable goods)",
+      "Grass, hay, fodder and bhoosa (chaff) pressing factories", "Industrial gas manufacturing (other than inert/halogenated hydrocarbon gases)",
+      "Jute mills and jute presses", "Linoleum factories", "LPG bottling plants (mini)", "Man made fibres (acrylic fibres/yarn manufacturing)",
+      "Match factories", "Mattress and pillow making", "Metal or tin printers (where more than 50 percent of floor area is occupied as engineering workshop, may be taken as ordinary hazard risk)",
+      "Oil mills", "Oil extraction plants", "Oil terminals/depots handling flammable liquids having flash point of 23 C and below",
+      "Paints and varnish factories", "Paper and cardboard mills having raw material yards", "Piers, wharves and jetties handling extra hazardous materials",
+      "Printing ink manufacturing", "Rosin lamp-black and turpentine factories", "Saw mills", "Sponge iron steel plants (gas based)",
+      "Surgical cotton manufacturing", "Tarpaulin and canvas proofing factories", "Turpentine and rosin distilleries", "Tyre retreading and resoling factories"
+    ],
+    "sub_category_b": [
+      "Ammonia and urea synthesis plants", "CNG compressing and bottling plants", "Coal based methane plants", "Explosive factories"
+    ],
+    "sub_category_b_note": "NOTE from source: 'In case of complexes having separate plants having varying degrees of hazard, authority having jurisdiction shall be consulted to decide on level of protection to be provided.'"
+  },
+  "entries_present_in_2026_annex_b_but_not_found_in_2016": {
+    "note": "These items appear in the NBCS 2026 dataset's annex_b_hazard_classification.json but were NOT found anywhere in the 2016 Annex B OCR output. Treated as genuine 2026 additions reflecting occupancy types that either did not exist, or were not separately hazard-classified, in 2016 - a concrete, useful delta for the product's edition-comparison logic.",
+    "new_hazard_categories_in_2026": [
+      "Multiple block apartment buildings / Multiple block business buildings / Multiple block star hotel buildings (G-1/G-2) - cluster-building classification not present in 2016",
+      "Open large atriums (G-1) - no 2016 equivalent",
+      "QA/QC laboratories as a distinct duplicate entry, Electrical appliances manufacturing, Electronic products manufacturing (G-2) - not found in 2016",
+      "Indoor dry transformer room, MRI/scanning room, Network/electrical room, Operation theatre rooms, Optical goods facilities, Semiconductors manufacturing, Solar cells and modules manufacturing, UPS room without batteries (G-2) - entirely new hazard categories in 2026, reflecting modern building-services/medical/electronics occupancies not contemplated by the 2016 list",
+      "Automobiles and other motor vehicles powered by lithium/lithium-ion batteries manufacturing, Battery room with lithium-ion batteries, Diesel generator room, Hydrogenation rooms, Lithium ion battery manufacturing plants, LPG bullets, Oil fire boiler room/oil quenching tank, Oil transformer room, Paint booths, Paint/varnish storage, Server room, Tanker loading/unloading bay, Tunnel protection, UPS room with batteries (G-3) - a substantial new EV/lithium-ion-battery and data-centre-adjacent (server room) hazard category cluster with no 2016 counterpart at all",
+      "Outdoor oil transformer room (G-3 sub-category B) - not found in 2016"
+    ],
+    "significance": "The EV/lithium-ion battery and server-room additions in particular track directly with 2026's other new features noted elsewhere in this dataset (Group K Mixed Use, E-II Datacentre sub-occupancy) - 2026's Annex B was clearly revised specifically to catch up with building types (EV charging/parking, data centres) that were niche or nonexistent when NBC 2016 was drafted."
+  }
+}

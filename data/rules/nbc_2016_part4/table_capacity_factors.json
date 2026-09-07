@@ -1,0 +1,21 @@
+{
+  "table_name": "Table 4 - Capacity Factors",
+  "source_2016_table_number": 4,
+  "note_on_table_numbering": "This is 2016's Table 4. The equivalent table in the 2026 dataset is called 'Table 3'.",
+  "source_clauses": ["4.4.2.1", "4.4.2.3(c)", "4.4.2.4.2(a)"],
+  "unit": "mm_width_per_person",
+  "rows": [
+    { "occupancy": "Residential", "occupancy_code": "A", "stairways_mm": 10, "level_and_ramps_mm": 6.5 },
+    { "occupancy": "Educational", "occupancy_code": "B", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "Merged/blank cell in the OCR'd/extracted table structure, same issue the 2026 dataset flags for its own Educational row - could not be individually distinguished from adjacent rows." },
+    { "occupancy": "Institutional", "occupancy_code": "C", "stairways_mm": 15, "level_and_ramps_mm": 13 },
+    { "occupancy": "Assembly", "occupancy_code": "D", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "Merged/blank cell - NOTE this differs from the 2026 dataset, which reports Assembly as cleanly extracted at 10/6.5. Since 2016 and 2026 use structurally similar tables, it is likely Assembly's true 2016 value is also 10/6.5, but this dataset does not assert that number because it was not legible in this document's extraction - treat as needs_verification, not as confirmed identical to 2026." },
+    { "occupancy": "Business", "occupancy_code": "E", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "Merged/blank cell." },
+    { "occupancy": "Mercantile", "occupancy_code": "F", "stairways_mm": 10, "level_and_ramps_mm": 6.5 },
+    { "occupancy": "Industrial", "occupancy_code": "G", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "Merged/blank cell." },
+    { "occupancy": "Storage", "occupancy_code": "H", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "Merged/blank cell." },
+    { "occupancy": "Hazardous", "occupancy_code": "J", "stairways_mm": 18, "level_and_ramps_mm": 10 }
+  ],
+  "extraction_confidence": "needs_verification",
+  "extraction_confidence_note": "Same merged-cell extraction problem the 2026 dataset documents for its own Table 3 (Educational/Business/Mercantile/Industrial/Storage rows undelineated) - in 2016's source, Mercantile happened to extract cleanly (10/6.5) where in 2026 it did not need separate listing (Assembly covers that value), while Assembly did NOT extract cleanly here despite extracting cleanly in 2026. The rows that DID extract cleanly (Residential 10/6.5, Institutional 15/13, Mercantile 10/6.5, Hazardous 18/10) are IDENTICAL in value to the corresponding 2026 rows - strong circumstantial evidence this whole table is UNCHANGED between the two editions, but the blank rows should still be verified against the original PDF layout rather than assumed equal.",
+  "comparison_to_2026": "Every value that extracted cleanly in both editions matches exactly (Residential 10/6.5, Institutional 15/13, Hazardous 18/10). No confirmed numeric difference found in this table between 2016 and 2026 - this table appears stable across editions, unlike Table 4/5 Travel Distance (see table_travel_distance.json) which changed materially."
+}

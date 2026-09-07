@@ -1,0 +1,13 @@
+{
+  "occupancy_code": "B",
+  "occupancy_name": "Educational Buildings",
+  "source": "Table 7 (single unified table), page 4 of the 11-page source image sequence",
+  "extraction_confidence": "needs_verification - see _columns_and_notes.json.",
+  "applicability_cap": "Buildings above 30 m in height not permitted for Group B (Note 16).",
+  "bands": [
+    { "condition": "Less than 15 m height, ground plus one or more storeys", "ordered_ocr_tokens": ["NR","NR","NR","R","NR","10000","NR","450"], "notes_referenced": [4,6], "mapping_note": "First four legible flags read NR/NR/NR/R suggesting only one of the first four installation columns (likely yard_hydrant or automatic_sprinkler_system, position 4 or 5) is Required at this lowest band - exact column identity not confirmed." },
+    { "condition": "15 m and above but not exceeding 24 m height", "ordered_ocr_tokens": ["fire_extinguisher=R","25000","900"], "notes_referenced": [4] },
+    { "condition": "Above 24 m but not exceeding 30 m height", "ordered_ocr_tokens": ["R","NR","R","50000","5000"], "notes_referenced": [4,6,14] }
+  ],
+  "comparison_to_2026": "2026's Table 7B (Educational) organizes by self-certification threshold and HL/CL protection codes rather than a flat litre/lpm figure per band. Height bands broadly track the same idea (low-rise minimal, 15-24m adds sprinkler/hydrant infrastructure, above 24-30m adds more) but a literal side-by-side number comparison was not attempted given OCR confidence limits on this occupancy's rows."
+}

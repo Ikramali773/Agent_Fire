@@ -1,0 +1,137 @@
+{
+  "source_clauses": "3.1.1 to 3.1.12 (inferred sub-clause numbers 3.1.2-3.1.10 per group are extrapolated from sequential position and from the one directly-confirmed tag - Annex B is explicitly headed '(Clause 3.1.8)' and sits inside the Group G section, and the source explicitly cross-references 'shall comply with 3.1.12' for Mixed Occupancy - the numbers for Groups A-F, H, J below follow the same sequential pattern the 2026 dataset also uses for H (3.1.9) and J (3.1.10) and should be treated as high-confidence but not each individually clause-stamped in the source text)",
+  "groups_count_note": "NBC 2016 defines 9 occupancy groups: A through J (no I - the letter I is skipped, same as in 2026). There is NO Group K. 'Mixed Use' as a directly-selectable primary occupancy group is confirmed NEW IN 2026 - in 2016, mixed occupancy is handled purely as a cross-cutting compliance rule (clause 3.1.12) layered on top of whichever component groups A-J are actually present, never as its own selectable occupancy group with its own subdivisions, own Table 7 letter, or own applicability threshold row.",
+  "groups": [
+    {
+      "code": "A",
+      "name": "Residential",
+      "definition": "Any building in which sleeping accommodation is provided for normal residential purposes with or without cooking or dining or both facilities, except any building classified under Group C.",
+      "subdivisions": [
+        { "code": "A-1", "name": "Lodging and rooming houses", "definition": "Any building or group of buildings under the same management, in which separate sleeping accommodation on a transient or permanent basis, with or without dining facilities but without cooking facilities for individuals, is provided.", "examples": ["Inns", "clubs", "motels", "guest houses"], "note": "Classified as a dwelling in A-2 instead if no room in any of its private dwelling units is rented to more than three persons." },
+        { "code": "A-2", "name": "One or two family private dwellings", "definition": "Any private dwelling occupied by members of one or two families with total sleeping accommodation for not more than 20 persons; if rooms are rented to outsiders, not more than three persons per room.", "note": "If sleeping accommodation for more than 20 persons is provided, classify as A-1 or A-4 as the case may be. This subdivision does not exist in the NBCS 2026 dataset's Group A subdivision list (2026 has A-I through A-V, with no direct one/two-family-dwelling equivalent called out separately) - verify against the full 2026 source before assuming A-2 was simply dropped." },
+        { "code": "A-3", "name": "Dormitories", "examples": ["School/college dormitories", "student and other hostels", "military barracks"] },
+        { "code": "A-4", "name": "Apartment houses", "examples": ["Apartment houses", "mansions", "chawls"], "note": "3 or more families living independently with independent cooking facilities." },
+        { "code": "A-5", "name": "Hotels", "note": "Hotels up to Four Star category." },
+        { "code": "A-6", "name": "Starred hotels", "note": "Five Star and above hotels, duly approved by the concerned authorities." }
+      ]
+    },
+    {
+      "code": "B",
+      "name": "Educational",
+      "definition": "Any building used for school, college, or other training institutions involving assembly for instruction, education or recreation for not less than 20 students.",
+      "subdivisions": [
+        { "code": "B-1", "name": "Schools up to senior secondary level", "note": "Building or group of buildings under single management used for not less than 20 students." },
+        { "code": "B-2", "name": "All others / training institutions", "note": "Building or group of buildings under single management used for not less than 100 students." }
+      ],
+      "note": "Residential accommodation within an educational building is classified as Subdivision A-3."
+    },
+    {
+      "code": "C",
+      "name": "Institutional",
+      "definition": "Any building or part thereof used for medical or other treatment or care of persons suffering from physical or mental illness, disease or infirmity; care of infants, convalescents or aged persons; or for penal or correctional detention in which the liberty of the inmates is restricted. Institutional buildings ordinarily provide sleeping accommodation for the occupants.",
+      "subdivisions": [
+        { "code": "C-1", "name": "Hospitals and sanatoria", "examples": ["Hospitals", "infirmaries", "sanatoria", "nursing homes"] },
+        { "code": "C-2", "name": "Custodial institutions", "examples": ["Homes for the aged and infirm", "convalescent homes", "orphanages"] },
+        { "code": "C-3", "name": "Penal and mental institutions", "examples": ["Jails", "prisons", "mental hospitals/sanatoria", "reformatories"] }
+      ]
+    },
+    {
+      "code": "D",
+      "name": "Assembly",
+      "definition": "Any building or part of a building where not less than 50 persons congregate or gather for amusement, recreation, social, religious, patriotic, civil, travel and similar purposes.",
+      "examples": ["Theatres", "motion picture houses", "assembly halls", "auditoria", "exhibition halls", "museums", "skating rinks", "gymnasiums", "restaurants", "places of worship", "dance halls", "club rooms", "passenger stations/terminals of air, surface and marine public transportation", "stadia"],
+      "subdivisions": [
+        { "code": "D-1", "name": "Theatrical/motion-picture/other stage buildings, fixed seats for over 1000 persons", "examples": ["Theatres", "motion picture houses", "auditoria", "concert halls", "TV/radio studios admitting an audience"] },
+        { "code": "D-2", "name": "Theatrical/motion-picture/other stage buildings, fixed seats up to 1000 persons" },
+        { "code": "D-3", "name": "No permanent stage, accommodation for 300 or more persons, no permanent seating", "examples": ["Dance halls", "night clubs", "art galleries", "community halls", "marriage halls", "places of worship", "museums", "lecture halls", "passenger terminals", "heritage/archaeological monuments", "pool/billiard parlours", "bowling alleys", "courtrooms", "gymnasiums (no spectator seating)", "indoor swimming pools (no spectator seating)", "indoor tennis courts (no spectator seating)"] },
+        { "code": "D-4", "name": "No permanent stage, accommodation for less than 300 persons, no permanent seating" },
+        { "code": "D-5", "name": "All other assembly structures not covered by D-1 to D-4, at ground level", "examples": ["Grandstands", "stadia", "amusement park structures", "reviewing stands", "circus tents", "arenas", "external swimming pools", "tennis/similar courts"] },
+        { "code": "D-6", "name": "Mixed assembly and mercantile occupancies", "examples": ["Shopping malls with cinema theatres, multiplexes, restaurants/food courts"], "note": "This is a NAMED SUBDIVISION of Group D for a specific two-occupancy combination (assembly + mercantile), which is structurally different from 2026's general-purpose Group K 'Mixed Use'. D-6 does not cover arbitrary occupancy combinations - only the assembly/mercantile shopping-mall pattern - and remains a subdivision of D (Assembly), not an independent group." },
+        { "code": "D-7", "name": "Underground and elevated mass rapid transit system", "examples": ["Underground/elevated railways"] }
+      ]
+    },
+    {
+      "code": "E",
+      "name": "Business",
+      "definition": "Any building or part thereof used for transaction of business, keeping of accounts and records, professional establishments, service facilities, etc. City halls, town halls, courthouses and libraries are classified here so far as their principal function is transaction of public business and keeping of records.",
+      "subdivisions": [
+        { "code": "E-1", "name": "Offices, banks, professional establishments", "examples": ["Offices of architects, engineers, doctors, lawyers", "post offices", "police stations"] },
+        { "code": "E-2", "name": "Laboratories, outpatient clinics, research establishments, libraries, test houses" },
+        { "code": "E-3", "name": "Electronic data processing centres, computer installations, IT parks, call centres" },
+        { "code": "E-4", "name": "Telephone exchanges" },
+        { "code": "E-5", "name": "Broadcasting stations, TV stations, air traffic control towers" }
+      ],
+      "note": "No dedicated Datacentre sub-occupancy label (2026 introduces E-II 'Datacentres (machine environment)' as an explicit E sub-occupancy with its own Annex F treatment). In 2016, a data-processing/computer-installation building is simply E-3 with no server-hall-specific fire engineering treatment called out separately."
+    },
+    {
+      "code": "F",
+      "name": "Mercantile",
+      "definition": "Any building or part thereof used as shops, stores, market, for display and sale of merchandise, wholesale or retail. Storage and service facilities incidental to the sale of merchandise, located in the same building, are also included.",
+      "subdivisions": [
+        { "code": "F-1", "name": "Shops, stores, departmental stores, markets - covered area up to 500 sqm" },
+        { "code": "F-2", "name": "Shops, stores, departmental stores, markets - covered area more than 500 sqm" },
+        { "code": "F-3", "name": "Underground shopping centres" }
+      ],
+      "note": "2016 splits mercantile by covered-area size directly into F-1/F-2 (500 sqm breakpoint); 2026 instead uses a single Mercantile group with F-I 'Shops/stores/markets' and F-II 'Underground shopping centres' and pushes the area distinction into the Table 7 bands rather than the subdivision code itself.",
+      "exception": "Any mercantile occupancy where goods of a highly hazardous nature are predominant is considered under Group J (Hazardous) instead."
+    },
+    {
+      "code": "G",
+      "name": "Industrial",
+      "definition": "Any building or part of a building or structure in which products or materials of all kinds and properties are fabricated, assembled, manufactured or processed.",
+      "examples": ["Assembly plants", "industrial laboratories", "dry cleaning plants", "power plants", "generating units", "pumping stations", "fumigation chambers", "laundries", "gas plant/refinery structures", "dairies", "saw-mills"],
+      "hazard_subdivisions_mandatory": true,
+      "subdivisions": [
+        { "code": "G-1", "name": "Low hazard industries", "definition": "Contents of comparatively low combustibility; processes such that there is hardly any possibility of self-propagating fire; danger, if any, arises only from panic, fumes/smoke, or fire from an external source." },
+        { "code": "G-2", "name": "Moderate hazard industries", "definition": "Contents/processes liable to give rise to a fire burning with moderate rapidity or other hazardous situation, may give off considerable smoke, but neither toxic fumes nor explosions are to be feared." },
+        { "code": "G-3", "name": "High hazard industries", "definition": "Contents/processes liable to give rise to a fire burning with extreme rapidity, or other hazardous situation, or from which poisonous fumes or explosions are to be feared." }
+      ],
+      "hazard_determination": "Hazard of occupancy is determined by the Authority on the basis of fire loads of contents and the processes/operations conducted, guided by Annex A (calorific values) and Annex B (broad classification into low/moderate/high). Where combustibility, flame-spread rating, or other features involve a greater hazard than the occupancy class implies, the greater hazard governs. Where different hazard degrees exist in different parts of a building, the most hazardous governs unless hazardous areas are segregated/protected.",
+      "classification_source": "Annex B, clause 3.1.8 - a broad, non-exhaustive classification of industrial occupancies by fire hazard into Light/Moderate/High (mapping to G-1/G-2/G-3). Any occupancy not covered should be classified in the most appropriate class by resemblance."
+    },
+    {
+      "code": "H",
+      "name": "Storage",
+      "definition": "Any building or part of a building used primarily for the storage or sheltering (including servicing, processing or repairs incidental to storage) of goods, ware or merchandise (except those involving highly combustible or explosive products/materials), vehicles or animals.",
+      "examples": ["Warehouses", "cold storages", "freight depots", "transit sheds", "storehouses", "truck and marine terminals", "garages", "hangars", "grain elevators", "barns", "stables"],
+      "definitive_clause": "3.1.9 (inferred, sequential)",
+      "note": "Storage properties are characterized by relatively few persons in proportion to area. Any new use increasing occupant density to a figure comparable with other occupancy classes changes the building's classification to that new use (for example, hangar used for assembly, warehouse used for office purposes, garage used for manufacturing).",
+      "labeling_check": "NOT mislabeled anywhere in the 2016 source - both the clause 3.1.1 summary list and the detailed clause agree this group is Storage. See meta.json's known_source_document_inconsistency field for the contrast with 2026."
+    },
+    {
+      "code": "J",
+      "name": "Hazardous",
+      "definition": "Any building or part thereof used for storage, handling, manufacture or processing of highly combustible or explosive materials/products liable to burn with extreme rapidity and/or produce poisonous fumes or explosions, or involving highly corrosive/toxic/noxious alkalis, acids, or other liquids/chemicals producing flame, fumes, and explosive/poisonous/irritant/corrosive gases; and storage, handling or processing of any material producing explosive dust.",
+      "examples": [
+        "Storage under pressure of more than 0.1 N/mm2 and in quantities exceeding 70 m3 of acetylene, hydrogen, illuminating/natural gases, ammonia, chlorine, phosgene, sulphur dioxide, carbon dioxide, methyl oxide, cryogenic gases, etc",
+        "Storage and handling of hazardous and highly flammable liquids, liquefiable gases like LPG, rocket propellants",
+        "Storage and handling of hazardous and highly flammable or explosive materials (other than liquids)",
+        "Manufacture of artificial flowers, synthetic leather, ammunition, explosives, fireworks"
+      ],
+      "definitive_clause": "3.1.10 (inferred, sequential)",
+      "labeling_check": "NOT mislabeled anywhere in the 2016 source - see meta.json's known_source_document_inconsistency field.",
+      "legal_reference_note": "A list of hazardous substances (quantities triggering coverage under the Public Liability Insurance Act, 1991) was notified under the 'Rules on Emergency Planning, Preparedness and Response for Chemical Accidents', MoEF Notification G.S.R. 347(E) dated 01 August 1996 - identical citation to the one carried forward into the 2026 dataset."
+    }
+  ],
+  "no_group_k_confirmation": {
+    "checked": true,
+    "finding": "Confirmed by direct read: the 2016 general classification list (clause 3.1.1) enumerates exactly Groups A, B, C, D, E, F, G, H, J. There is no Group K anywhere in the source (no table of contents entry, no clause, no Table 7 section, no applicability-threshold row). Group K 'Mixed Use' is a NBCS-2026-only addition, exactly as the product scope doc states."
+  },
+  "minor_occupancy_rule": {
+    "rule": "An occupancy purely incidental to operations in a main occupancy is classified under the main occupancy's group.",
+    "difference_from_2026": "2016's minor-occupancy clause, as extracted, does not state a numeric floor-area percentage threshold (2026's equivalent clause 3.1.1.1 caps 'minor/incidental' at 30 percent of floor area before it must be treated as mixed occupancy). No percentage figure for the minor-occupancy cutoff was found in the 2016 source text extracted; this should be verified against the full clause 3.1.1 text in the original PDF layout before assuming 2016 has no such cap at all - it is also plausible the number sits in a part of the clause that did not survive extraction cleanly."
+  },
+  "mixed_occupancy_rule": {
+    "clause": "3.1.12",
+    "rule": "Where two or more types of occupancy intermingle in the same building, the ENTIRE building is treated as mixed occupancy. For fire protection purposes, all occupancies / the entire building is governed by the MOST RESTRICTIVE provisions of the Code among those applicable to the individual occupancies present. Life-safety provisions for each individual occupancy, however, still apply to their respective occupancies. Exits must be arranged so means of egress is not decreased in the direction of egress travel. The differing occupancies must additionally be separated (horizontally and/or vertically) by a 240 min fire-resistance rating.",
+    "structural_difference_from_2026": "This is a fundamentally different mechanism from 2026's Group K. 2016 mixed occupancy: (a) has no dedicated occupancy code of its own, (b) is governed by the SINGLE most restrictive occupancy's requirements applied to the WHOLE building (not a per-zone union of requirements), (c) mandates a flat 240 min separation between the differing occupancies with no zone-by-zone nuance, and (d) has no own Table 7 letter or applicability threshold. 2026's Group K, by contrast, is a directly selectable occupancy with its own applicability threshold (15 m / 1000 sqm) and its own governing rule that the most restrictive CO-EXISTING occupancy governs each OVERLAPPING ZONE (not the whole building uniformly), per 2026 clause 3.1.11.2 - a materially more granular (and more permissive for well-separated mixed-use buildings) approach than 2016's whole-building most-restrictive rule."
+  },
+  "occupancy_change_rule": {
+    "rule": "Where a change of occupancy places a building in a different group or subdivision, the building must comply with the Code's requirements for the new group/subdivision - UNLESS the new occupancy is less hazardous (by life and fire risk) than the existing one, in which case compliance with the new group's requirements is not necessary. A certificate of occupancy (per Part 2 'Administration') is required before any occupancy change takes effect.",
+    "comparison_to_2026": "Textually identical rule to the 2026 dataset's occupancy_change_rule - this provision appears unchanged between editions."
+  },
+  "fire_zones_concept": {
+    "clauses": "3.2.1-3.2.5",
+    "note_2016_only_concept": "NBC 2016 additionally defines a city/area-level 'Fire Zone' concept (Fire Zone No. 1/2/3, grouping occupancies by inherent fire hazard) used to restrict permitted CONSTRUCTION TYPES (Type 1-4) and temporary-structure siting within a municipality's land-use plan. Fire Zone 1 = Groups A, B, C, D, small business (E-1), F. Fire Zone 2 = business (E-2 to E-5) and industrial G-1/G-2. Fire Zone 3 = high-hazard industrial G-3, Storage (H), Hazardous (J). No equivalent 'Fire Zone' concept was found described in the 2026 README/JSON files reviewed for this task - flagging as a possible 2016-only planning-level construct that may have been dropped, folded into local development-control rules, or simply not yet digitized on the 2026 side. Not otherwise modeled in this dataset since it governs land-use zoning rather than per-building classification."
+  }
+}

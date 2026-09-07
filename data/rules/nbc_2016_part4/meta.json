@@ -1,0 +1,17 @@
+{
+  "code_edition": "2016",
+  "source_document": "National Building Code of India (NBC) 2016, Part 4 - Fire and Life Safety",
+  "publisher": "Bureau of Indian Standards (BIS), National Building Code Sectional Committee CED 46",
+  "status": "legacy_reference",
+  "live_edition": "2026",
+  "live_edition_note": "NBCS 2026 Part F is the platform's primary/live rule source (see /data/rules/nbcs_2026_partf/). This NBC 2016 Part 4 dataset is retained ONLY as a secondary/legacy reference for buildings designed, approved, or last certified under the 2016 edition and not yet reassessed against 2026. Retrieval should default to 2026 unless the case file indicates a 2016-certified building. Every fact in this directory is 2016-specific - never merge a 2016 number with a 2026 field, or vice versa, without an explicit edition tag on the merged record.",
+  "extraction_source_note": "Digitized from the source .docx supplied by the user (~116 pages) via XML text/table extraction, the same method used for the 2026 dataset. IMPORTANT DIFFERENCE FROM THE 2026 EXTRACTION: this source .docx appears to be a PDF-to-Word conversion in which most narrative text and the small numbered tables (Table 1, 2, 3, 4, 5, 6, 8, 9) are native, editable Word tables/paragraphs, but the large multi-page grid tables (Table 7 - Minimum Requirements for Firefighting Installations, and Annex B - hazard classification, and Annex C - fire resistance data tables) are embedded as RASTER IMAGES (full page-scans), not as text. Table 7 and Annex B in this dataset were recovered by running OCR (Tesseract) against those page images, upscaled 1.5-2x first. OCR introduces materially higher uncertainty than the 2026 dataset's native-text extraction - every OCR-derived field in this dataset is flagged accordingly.",
+  "known_source_document_inconsistency": {
+    "topic": "Group H / Group J occupancy labeling",
+    "checked_against": "The same self-contradiction that was found and corrected in the NBCS 2026 dataset (2026's clause 3.1.1 summary list mislabeled Group H as 'Hazardous' and Group J as 'Storage', backwards from the detailed clauses).",
+    "finding": "NBC 2016 Part 4 does NOT have this error. Its own general classification summary list (clause 3.1.1, appearing on the page right before the detailed clauses) already reads 'Group H Storage' and 'Group J Hazardous' - consistent with the detailed defining clauses (Group H Storage Buildings; Group J Hazardous Buildings) and consistent with Table 7's occupancy section headers ('STORAGE BUILDINGS (H)', 'HAZARDOUS BUILDINGS (J)'). There is no internal contradiction in the 2016 source on this point.",
+    "conclusion": "The H/J summary-list mislabeling is a 2026-edition-only drafting error, apparently introduced during the 2026 revision, NOT an error inherited from 2016. Do not apply the 2026 'ingest off the detailed clause, not the summary list' guardrail to the 2016 dataset - it isn't needed here, both the 2016 summary and detail agree.",
+    "verified_by": "Direct read of 2016 source document lines describing the general classification list and Groups H and J (clauses 3.1.1, 3.1.9, 3.1.10) and of Table 7's occupancy section headers."
+  },
+  "last_verified": "2026-09-07"
+}

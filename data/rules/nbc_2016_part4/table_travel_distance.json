@@ -1,0 +1,44 @@
+{
+  "table_name": "Table 5 - Travel Distance (Based on Occupancy and Construction Type)",
+  "source_2016_table_number": 5,
+  "note_on_table_numbering": "This is 2016's Table 5. The equivalent table in the 2026 dataset is called 'Table 4' - confirms the product scope doc's statement that 'Table 4 travel distances were updated in 2026' refers to this table, which 2026 renumbered from 5 to 4 as part of the same revision.",
+  "source_clauses": ["4.4.2.1", "4.4.2.2(a)"],
+  "unit": "metres",
+  "rows": [
+    { "occupancy": "Residential", "occupancy_code": "A", "unsprinklered_type1_2": 30.0, "type3_4": 22.5 },
+    { "occupancy": "Educational", "occupancy_code": "B", "unsprinklered_type1_2": 30.0, "type3_4": 22.5 },
+    { "occupancy": "Institutional", "occupancy_code": "C", "unsprinklered_type1_2": 30.0, "type3_4": 22.5 },
+    { "occupancy": "Assembly", "occupancy_code": "D", "unsprinklered_type1_2": 30.0, "type3_4": 30.0 },
+    { "occupancy": "Business", "occupancy_code": "E", "unsprinklered_type1_2": 30.0, "type3_4": 30.0 },
+    { "occupancy": "Mercantile", "occupancy_code": "F", "unsprinklered_type1_2": 30.0, "type3_4": 30.0 },
+    { "occupancy": "Industrial G-1/G-2", "occupancy_code": "G-1/G-2", "unsprinklered_type1_2": 45.0, "type3_4": null, "note": "Type 3/4 construction not permitted for this occupancy (see Note 3)." },
+    { "occupancy": "Industrial G-3", "occupancy_code": "G-3", "unsprinklered_type1_2": 22.5, "type3_4": null, "note": "Type 3/4 construction not permitted for this occupancy (see Note 3)." },
+    { "occupancy": "Storage", "occupancy_code": "H", "unsprinklered_type1_2": 30.0, "type3_4": null },
+    { "occupancy": "Hazardous", "occupancy_code": "J", "unsprinklered_type1_2": 22.5, "type3_4": null }
+  ],
+  "sprinkler_bonus_rule_2016": {
+    "rule": "For a fully sprinklered building, the travel distance given above may be INCREASED BY 50 PERCENT of the value specified.",
+    "structural_difference_from_2026": "THIS IS THE KEY MECHANISM DIFFERENCE. 2016 uses a single FLAT +50% multiplier applied uniformly to every occupancy's unsprinklered figure. 2026 REPLACED this with explicit, occupancy-specific 'sprinklered_type1_2' figures published directly in the table (no multiplier - a flat number per occupancy). Applying the 2016 flat +50% rule to 2016's own unsprinklered figures and comparing the RESULT against 2026's published sprinklered figures shows the two editions are NOT equivalent - see 'sprinklered_equivalent_comparison' below. This is exactly the 'Table 4 travel distances were updated in 2026' change flagged in the product scope doc, now quantified."
+  },
+  "sprinklered_equivalent_comparison": [
+    { "occupancy_code": "A", "occupancy": "Residential", "2016_unsprinklered_x1.5": 45.0, "2026_sprinklered_published": 60.0, "delta": "2026 is MORE GENEROUS by 15 m." },
+    { "occupancy_code": "B", "occupancy": "Educational", "2016_unsprinklered_x1.5": 45.0, "2026_sprinklered_published": 45.0, "delta": "No change." },
+    { "occupancy_code": "C", "occupancy": "Institutional", "2016_unsprinklered_x1.5": 45.0, "2026_sprinklered_published": 45.0, "delta": "No change." },
+    { "occupancy_code": "D", "occupancy": "Assembly", "2016_unsprinklered_x1.5": 45.0, "2026_sprinklered_published": 45.0, "delta": "No change." },
+    { "occupancy_code": "E", "occupancy": "Business", "2016_unsprinklered_x1.5": 45.0, "2026_sprinklered_published": 60.0, "delta": "2026 is MORE GENEROUS by 15 m." },
+    { "occupancy_code": "F", "occupancy": "Mercantile", "2016_unsprinklered_x1.5": 45.0, "2026_sprinklered_published": 45.0, "delta": "No change." },
+    { "occupancy_code": "G-1/G-2", "occupancy": "Industrial low/moderate hazard", "2016_unsprinklered_x1.5": 67.5, "2026_sprinklered_published": 60.0, "delta": "2026 is MORE CONSERVATIVE (shorter) by 7.5 m - the only occupancy where 2026 tightened relative to a naive +50% reading of 2016." },
+    { "occupancy_code": "G-3", "occupancy": "Industrial high hazard", "2016_unsprinklered_x1.5": 33.75, "2026_sprinklered_published": 45.0, "delta": "2026 is MORE GENEROUS by 11.25 m." },
+    { "occupancy_code": "H", "occupancy": "Storage", "2016_unsprinklered_x1.5": 45.0, "2026_sprinklered_published": 90.0, "delta": "2026 is DRAMATICALLY MORE GENEROUS - double the 2016-equivalent figure." },
+    { "occupancy_code": "J", "occupancy": "Hazardous", "2016_unsprinklered_x1.5": 33.75, "2026_sprinklered_published": 30.0, "delta": "2026 is MORE CONSERVATIVE (shorter) by 3.75 m." }
+  ],
+  "unsprinklered_and_type3_4_figures_unchanged": "Every unsprinklered_type1_2 and type3_4 figure in this table is IDENTICAL to the corresponding 2026 figure. The entire change between editions for Travel Distance is in HOW the sprinklered bonus is computed/published, not in the baseline unsprinklered numbers.",
+  "notes_2016": [
+    "1. For a fully sprinklered building, the travel distance may be increased by 50 percent of the values specified.",
+    "2. A ramp shall not be counted as an exit in the case of basements below the first basement in car parking.",
+    "3. Construction of Type 3 or Type 4 is not permitted (for Industrial G occupancies, where type3_4 is null in this table)."
+  ],
+  "notes_present_in_2026_but_not_found_in_2016": [
+    "2026 adds a common-path-of-travel cap (50 percent of the travel distance value), a utility/equipment-area exemption note, and two ceiling-height-based travel-distance-increase allowances (>=10 m and >=17 m ceiling height, +100 percent) for large-volume spaces like airports/exhibition halls/mall atria. None of these four additional notes were found in the 2016 Table 5 text extracted - flagging as likely genuine 2026 additions rather than an extraction gap, since 2016's notes list (1-3 above) reads as complete and self-contained in the source."
+  ]
+}

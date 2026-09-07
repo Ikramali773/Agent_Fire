@@ -1,0 +1,29 @@
+{
+  "occupancy_code": "D",
+  "occupancy_name": "Assembly Buildings",
+  "source": "Table 7 (single unified table), pages 5-6 of the 11-page source image sequence",
+  "extraction_confidence": "needs_verification - see _columns_and_notes.json.",
+  "applicability_cap": "Buildings above 30 m in height not permitted for Group D (Note 16).",
+  "bands": [
+    {
+      "subdivision": "D-1 to D-5",
+      "sub_bands": [
+        { "condition": "Less than 10 m height, up to 300 persons", "ordered_ocr_tokens": ["fire_extinguisher=R","20000","450"], "notes_referenced": [4,6] },
+        { "condition": "Less than 10 m height, more than 300 persons", "ordered_ocr_tokens": ["NR","R","R","R","NR","NR","25000","NR","900"], "notes_referenced": [4,6] },
+        { "condition": "Above 10 m but not exceeding 15 m height", "ordered_ocr_tokens": ["R","NR","R","R","R","100000","5000"], "notes_referenced": [1,4,10] },
+        { "condition": "Above 15 m but not exceeding 24 m height", "ordered_ocr_tokens": ["fire_extinguisher=R","150000","10000"], "notes_referenced": [10] },
+        { "condition": "Above 24 m but not exceeding 30 m height", "ordered_ocr_tokens": ["fire_extinguisher=R","200000","20000"], "notes_referenced": [11] }
+      ]
+    },
+    {
+      "subdivision": "D-6", "subdivision_name": "Mixed assembly/mercantile (shopping malls)",
+      "sub_bands": [
+        { "condition": "Single band (no height/area split found in the OCR'd table for D-6)", "ordered_ocr_tokens": ["R","R","R","NR","R","R","R","R","200000","20000","(see Note 12)","NR"], "column_mapping_attempted": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "wet_riser": "R", "down_comer": "NR", "yard_hydrant": "R", "automatic_sprinkler_system": "R", "moefa": "R", "automatic_detection_and_alarm": "R", "underground_tank_litre": 200000, "terrace_tank_litre": 20000 }, "extraction_confidence": "medium-high - clean 12-token row matching the validated 8+4 pattern (see table7_residential.json's A-6 row for the same clean-row pattern)." }
+      ]
+    },
+    {
+      "subdivision": "D-7", "subdivision_name": "Underground and elevated mass rapid transit system",
+      "note": "Table 7 states 'For details see 6.6.4' (i.e. Annex J/K, Fire and Life Safety Requirements for Metro Stations/Trainways) rather than giving its own R/NR grid row - D-7 is fully delegated to the metro-specific annexes, which this dataset does not otherwise digitize (see README 'Not yet digitized')."
+    }
+  ]
+}

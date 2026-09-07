@@ -1,0 +1,13 @@
+{
+  "occupancy_code": "J",
+  "occupancy_name": "Hazardous Buildings",
+  "source": "Table 7 (single unified table), page 9 (final occupancy rows) of the 11-page source image sequence",
+  "extraction_confidence": "needs_verification - see _columns_and_notes.json.",
+  "applicability_cap": "Buildings above 15 m in height not permitted for Group J (Note 20).",
+  "bands": [
+    { "condition": "Up to 15 m height, single storey building", "requirement_text_form": "Fire extinguisher required. Minimum 240 min firefighting requirements (i.e. a flat 240-minute fire-resistance/firefighting-duration requirement is invoked directly by name rather than a litre/lpm figure).", "notes_referenced": [21] },
+    { "condition": "Up to 15 m height, more than one floor but not exceeding 15 m", "requirement_text_form": "Fire extinguisher required. Minimum 240 min firefighting requirements plus an underground static water storage tank of 50000 litre.", "notes_referenced": [21] }
+  ],
+  "note_on_qualitative_form": "Hazardous (J) is the one occupancy in Table 7 whose rows were captured as narrative text rather than a clean R/NR + litre/lpm grid - the OCR output for this section reads as prose ('Minimum 240 min firefighting requirements') rather than discrete cell values, which may reflect how the source itself presents J's requirements (given J is explicitly flagged elsewhere in this dataset - see occupancy_groups.json - as needing case-by-case treatment rather than a fully generic table lookup, consistent with 2026's Group J 'mandatory human/expert review' guardrail). Pump capacity for J is stated in Note 21 to be based on covered area of the building rather than a fixed figure or height band, unlike every other occupancy group in this table.",
+  "comparison_to_2026": "2026's Table 7J likewise carries the strongest 'mandatory expert review, do not auto-generate a checklist' guardrail among all occupancies. Both editions treat Hazardous as the occupancy least amenable to a simple lookup table - this qualitative pattern held constant across the two editions even where the exact numbers could not be reconciled."
+}

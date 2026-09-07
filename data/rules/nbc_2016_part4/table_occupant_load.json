@@ -1,0 +1,35 @@
+{
+  "table_name": "Table 3 - Occupant Load",
+  "source_2016_table_number": 3,
+  "note_on_table_numbering": "This is 2016's Table 3. The equivalent table in the 2026 dataset is called 'Table 2' (2026 renumbered the tables - see README for the full old-number/new-number map gathered from the 2026 Foreword text, e.g. 2026's own Foreword line notes 'erstwhile Table 23 and now Table 7' for the firefighting installations table).",
+  "source_clauses": ["4.3", "4.4.2.1"],
+  "unit": "sqm_per_person_gross_unless_marked_net",
+  "note": "Gross area is the floor area as defined in clause 2.35 (Floor Area, Gross). All factors are expressed in gross area unless marked net in the source (no rows in this table were marked net).",
+  "rows": [
+    { "occupancy": "Residential", "occupancy_code": "A", "factor": 12.5 },
+    { "occupancy": "Educational", "occupancy_code": "B", "factor": 4.0, "note_2026_comparison": "2026's equivalent Educational net_factor is 3.0 - a genuine numeric difference (2016 allows fewer people per sqm than 2026's assumption, i.e. 2016's factor of 4.0 implies FEWER occupants per unit area than 2026's 3.0)." },
+    { "occupancy": "Institutional - Indoor patients area", "occupancy_code": "C", "factor": 15.0, "extraction_note": "table text tag is '(see Note 2)'; see notes below." },
+    { "occupancy": "Institutional - Outdoor patients area", "occupancy_code": "C", "factor": 10.0 },
+    { "occupancy": "Assembly - Concentrated use without fixed seating", "occupancy_code": "D", "factor": 0.65 },
+    { "occupancy": "Assembly - Less concentrated use without fixed seating (gymnasium, table tennis room, billiard room and other gaming rooms, library, swimming pool and the like)", "occupancy_code": "D", "factor": 1.40 },
+    { "occupancy": "Assembly - Fixed seating", "occupancy_code": "D", "factor": "see_note_fixed_seating" },
+    { "occupancy": "Assembly - Dining areas and restaurants with seating and table", "occupancy_code": "D", "factor": 1.80 },
+    { "occupancy": "Mercantile - Street floor and sales basement", "occupancy_code": "F", "factor": 3.00 },
+    { "occupancy": "Mercantile - Upper sales floor", "occupancy_code": "F", "factor": 6.00 },
+    { "occupancy": "Mercantile - Storage/warehouse, receiving and the like", "occupancy_code": "F", "factor": 20.00 },
+    { "occupancy": "Business", "occupancy_code": "E", "factor": 10.00 },
+    { "occupancy": "Industrial", "occupancy_code": "G", "factor": 10.00, "note": "Single flat factor for all of Group G in 2016 (no G-1/G-2/G-3 split). 2026 splits this into G-1=20.0, G-2=15.0, G-3=10.0 - i.e. 2026's G-3 (high hazard) factor of 10.0 matches 2016's flat figure exactly, but 2026's G-1/G-2 allow MORE floor area per person (lower occupant density) than 2016 assumed for industrial generally." },
+    { "occupancy": "Storage", "occupancy_code": "H", "factor": 30.00, "extraction_note": "table text tag is '(see Note 5)' - matches the car-parking note below, not a unique storage note." },
+    { "occupancy": "Hazardous", "occupancy_code": "J", "factor": 10.00 }
+  ],
+  "extraction_confidence": "medium - this table's row values extracted from a single merged/concatenated table cell in the source XML (same structural issue the 2026 dataset's Table 2 had) but the numbers reconstructed unambiguously against the row labels; cross-checked for internal consistency. No Datacentre-equivalent sub-row exists in 2016 (E-3 'electronic data processing centres' is simply covered under the flat Business figure of 10.0 - 2016 has no data-hall-specific occupant load factor at all, unlike 2026's explicit E-II Datacentre admin/hall split).",
+  "special_notes": [
+    "Occupant load in dormitory portions of homes for the aged, orphanages, insane asylums, etc, where sleeping accommodation is provided, shall be calculated at not less than 7.5 sqm gross floor area/person. (Referenced by the Institutional row's 'see Note 2' tag.)",
+    "'Less concentrated use' rooms include gymnasium, table tennis room, billiard room and other gaming rooms, library, swimming pool and the like. (Referenced by the Assembly 'less concentrated use' row's 'see Note 3' tag.)",
+    "In case of assembly occupancy having fixed seats, the occupant load shall be determined by multiplying the number of seats by 1.2. (Referenced by the Assembly 'fixed seating' row's 'see Note 4' tag - identical rule to 2026.)",
+    "Car parking areas under occupancy other than storage shall also be 30 sqm per person. (Referenced by the Storage row's 'see Note 5' tag - identical rule and identical 30 sqm/person figure to 2026.)"
+  ],
+  "notes_not_found_in_2016_but_present_in_2026": [
+    "2026's table2_occupant_load.json lists a 'commercial kitchen: 9.3 sqm net floor area/person' special note and a 'mezzanine floor discharging to a floor below is added to that floor's occupancy' note. Neither was found in the 2016 Table 3 text extracted for this dataset - flagging as either a genuine 2026 addition, or text that exists elsewhere in the 2016 source (e.g. within Annex G Commercial Kitchens) that was not captured under Table 3 itself. Do not assume 2016 lacks a commercial-kitchen occupant-load rule entirely without checking Annex G."
+  ]
+}

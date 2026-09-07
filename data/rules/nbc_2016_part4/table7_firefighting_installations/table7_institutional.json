@@ -1,0 +1,31 @@
+{
+  "occupancy_code": "C",
+  "occupancy_name": "Institutional Buildings",
+  "source": "Table 7 (single unified table), pages 4-5 of the 11-page source image sequence",
+  "extraction_confidence": "needs_verification - see _columns_and_notes.json.",
+  "bands": [
+    {
+      "subdivision": "C-1", "subdivision_name": "Hospitals, Sanatoria and Nursing Homes",
+      "sub_bands": [
+        { "condition": "Less than 15 m height, plot area up to 1000 sqm, up to ground+1 storey, no beds", "ordered_ocr_tokens": ["NR","NR","NR","R","NR","5000","NR","450"], "notes_referenced": [4,6] },
+        { "condition": "Less than 15 m height, plot area up to 1000 sqm, up to ground+1 storey, WITH beds", "ordered_ocr_tokens": ["NR","NR","NR","R","NR","5000","NR","450"], "notes_referenced": [4,6], "mapping_note": "OCR text for this sub-band closely mirrors the 'no beds' row above; presence of beds may drive a stricter requirement not captured cleanly by OCR - flag for careful manual re-check, since a hospital ward with beds would ordinarily be expected to need MORE protection than a bed-less outpatient area, not the same." },
+        { "condition": "Less than 15 m height, plot area up to 1000 sqm, ground+2-or-more storeys, no beds", "ordered_ocr_tokens": ["fire_extinguisher=R","10000","900"], "notes_referenced": [4,6] },
+        { "condition": "Less than 15 m height, plot area up to 1000 sqm, ground+2-or-more storeys, WITH beds", "ordered_ocr_tokens": ["R","NR","NR","R","75000","10000"], "notes_referenced": [1,14] },
+        { "condition": "Less than 15 m height, plot area MORE than 1000 sqm", "ordered_ocr_tokens": ["R","NR","R","R","100000","10000"], "notes_referenced": [1,14] },
+        { "condition": "15 m and above but not exceeding 24 m height", "ordered_ocr_tokens": ["fire_extinguisher=R","150000","20000"], "notes_referenced": [10] },
+        { "condition": "Above 24 m but not exceeding 45 m height", "ordered_ocr_tokens": ["fire_extinguisher=R","200000","20000"], "notes_referenced": [11] }
+      ]
+    },
+    {
+      "subdivision": "C-2 / C-3", "subdivision_name": "Custodial, and Penal and Mental Institutions",
+      "sub_bands": [
+        { "condition": "Less than 10 m height, up to 300 persons", "ordered_ocr_tokens": ["NR","NR","NR","R","NR","10000","NR","450"], "notes_referenced": [4,6] },
+        { "condition": "Less than 10 m height, more than 300 persons", "ordered_ocr_tokens": ["NR","NR","NR","R","NR","fire_ext_or_storage=5000","NR","450"], "notes_referenced": [4,6], "mapping_note": "This sub-band's row was captured only from the tail end of a page image and is more fragmentary than the row above - treat with lower confidence." }
+      ]
+    },
+    { "condition": "(unattributed band, appears after C-2/C-3 rows) 10 m and above but not exceeding 15 m height", "ordered_ocr_tokens": ["R","R","100000","5000"], "notes_referenced": [4,10], "mapping_note": "Subdivision this band belongs to (C-1 continuation vs C-2/C-3) was not clearly legible from page-break context; captured as-is pending verification." },
+    { "condition": "15 m and above but not exceeding 24 m height (second instance, likely C-2/C-3 continuation)", "ordered_ocr_tokens": ["fire_extinguisher=R","150000","10000"], "notes_referenced": [11] },
+    { "condition": "24 m and above but not exceeding 30 m height", "ordered_ocr_tokens": ["fire_extinguisher=R","200000","20000"], "notes_referenced": [11] }
+  ],
+  "note_on_row_attribution": "Institutional (C) has the most page-boundary fragmentation of any occupancy in this OCR pass - several bands near the C-1/C-2/C-3 split could not be confidently attributed to the correct subdivision. All figures above were read directly off the page images; the SUBDIVISION LABEL on the last three bands is the least certain part of this file and should be the first thing verified against the source."
+}

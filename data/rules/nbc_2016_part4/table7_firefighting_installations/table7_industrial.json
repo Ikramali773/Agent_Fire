@@ -1,0 +1,41 @@
+{
+  "occupancy_code": "G",
+  "occupancy_name": "Industrial Buildings",
+  "source": "Table 7 (single unified table), pages 7-8 of the 11-page source image sequence",
+  "extraction_confidence": "needs_verification - see _columns_and_notes.json.",
+  "scope_caveat": "Note 17: 'The requirements given in this table for Group G Industrial Buildings are for small scale industry units. For other industries the requirements will have to be worked out on the basis of relevant Indian Standards and also in consultation with the local fire authorities.' - i.e. Table 7's G rows are explicitly NOT meant to cover large/heavy industry; this caveat has no stated equivalent found in the 2026 dataset reviewed for this task and is worth carrying forward as a difference.",
+  "bands": [
+    {
+      "subdivision": "G-1", "subdivision_name": "Low Hazard Industries",
+      "applicability_cap": "Buildings above 18 m in height not permitted for G-1 (Note 18).",
+      "sub_bands": [
+        { "condition": "Covered area up to 100 sqm", "ordered_ocr_tokens": ["NR","NR","5000","NR","450"], "notes_referenced": [4,5] },
+        { "condition": "Covered area more than 100 sqm and up to 500 sqm", "ordered_ocr_tokens": ["R","R","NR","R","NR","R","NR","NR","NR","20000","NR","450"], "notes_referenced": [4,6,8], "column_mapping_attempted": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "wet_riser": "NR", "down_comer": "R", "yard_hydrant": "NR", "automatic_sprinkler_system": "R", "moefa": "NR", "automatic_detection_and_alarm": "NR" }, "extraction_confidence_this_row": "medium-high - clean 12-token row." },
+        { "condition": "Covered area more than 500 sqm, building height up to 15 m", "ordered_ocr_tokens": ["NR","R","R","NR","20000","NR","450"], "notes_referenced": [4,6] },
+        { "condition": "Covered area more than 500 sqm, building height above 15 m", "ordered_ocr_tokens": ["fire_extinguisher=R","NR","R","75000","5000"], "notes_referenced": [4,6,14] }
+      ]
+    },
+    {
+      "subdivision": "G-2", "subdivision_name": "Moderate Hazard Industries",
+      "applicability_cap": "Buildings above 18 m in height not permitted for G-2 (Note 18).",
+      "sub_bands": [
+        { "condition": "Covered area up to 100 sqm", "ordered_ocr_tokens": [], "mapping_note": "Row heading present but data cells not legible in this OCR pass (page-break truncation)." },
+        { "condition": "Covered area more than 100 sqm and up to 500 sqm", "ordered_ocr_tokens": ["NR","NR","20000","900"] },
+        { "condition": "Covered area more than 500 sqm and up to 1000 sqm, height up to 15 m", "ordered_ocr_tokens": ["NR","R","50000","900"] },
+        { "condition": "Covered area more than 500 sqm and up to 1000 sqm, height above 15 m", "ordered_ocr_tokens": ["100000","10000"], "notes_referenced": [14] },
+        { "condition": "Covered area more than 1000 sqm", "ordered_ocr_tokens": ["R","R","R","NR","R","R","R","R","150000","20000"], "notes_referenced": [11], "column_mapping_attempted": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "wet_riser": "R", "down_comer": "NR", "yard_hydrant": "R", "automatic_sprinkler_system": "R", "moefa": "R", "automatic_detection_and_alarm": "R" }, "extraction_confidence_this_row": "medium-high." }
+      ]
+    },
+    {
+      "subdivision": "G-3", "subdivision_name": "High Hazard Industries",
+      "applicability_cap": "Buildings above 15 m in height not permitted for G-3 (Note 19).",
+      "sub_bands": [
+        { "condition": "Covered area up to 50 sqm", "ordered_ocr_tokens": [], "mapping_note": "Row heading present but data cells not legible." },
+        { "condition": "Covered area more than 50 sqm and up to 150 sqm", "ordered_ocr_tokens": ["25000","900"] },
+        { "condition": "Covered area more than 150 sqm and up to 300 sqm", "ordered_ocr_tokens": ["R","NR","50000","10000"], "notes_referenced": [14] },
+        { "condition": "Covered area more than 300 sqm and up to 500 sqm", "ordered_ocr_tokens": ["100000","20000"], "notes_referenced": [10] },
+        { "condition": "Covered area more than 500 sqm", "ordered_ocr_tokens": ["150000","20000"], "notes_referenced": [11] }
+      ]
+    }
+  ]
+}

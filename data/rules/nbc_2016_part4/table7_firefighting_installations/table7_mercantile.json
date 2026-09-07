@@ -1,0 +1,25 @@
+{
+  "occupancy_code": "F",
+  "occupancy_name": "Mercantile Buildings",
+  "source": "Table 7 (single unified table), pages 6-7 of the 11-page source image sequence",
+  "extraction_confidence": "needs_verification - see _columns_and_notes.json.",
+  "applicability_cap": "Buildings above 30 m in height not permitted for Group F (Note 16).",
+  "bands": [
+    {
+      "subdivision": "F-1 / F-2",
+      "sub_bands": [
+        { "condition": "Less than 15 m height, ground plus one storey, total floor area not exceeding 500 sqm", "ordered_ocr_tokens": ["NR","R","5000","450"], "notes_referenced": [4,6] },
+        { "condition": "Less than 15 m height, ground plus one storey, total floor area exceeding 500 sqm", "ordered_ocr_tokens": ["R","R","NR","R","NR","R","R","NR","NR","20000","NR","900"], "notes_referenced": [4,6], "column_mapping_attempted": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "wet_riser": "NR", "down_comer": "R", "yard_hydrant": "NR", "automatic_sprinkler_system": "R", "moefa": "R", "automatic_detection_and_alarm": "NR" }, "extraction_confidence_this_row": "medium-high - clean 12-token row." },
+        { "condition": "More than ground plus one storey", "ordered_ocr_tokens": ["fire_extinguisher=R","25000","900"], "notes_referenced": [4,6] },
+        { "condition": "Above 15 m but not exceeding 24 m height", "ordered_ocr_tokens": ["R","NR","100000","10000"], "notes_referenced": [10] },
+        { "condition": "Above 24 m but not exceeding 30 m height", "ordered_ocr_tokens": ["R","NR","200000","20000"], "notes_referenced": [11] }
+      ]
+    },
+    {
+      "subdivision": "F-3", "subdivision_name": "Underground shopping complex",
+      "sub_bands": [
+        { "condition": "Single band", "ordered_ocr_tokens": ["R","NR","150000","10000"], "notes_referenced": [11] }
+      ]
+    }
+  ]
+}

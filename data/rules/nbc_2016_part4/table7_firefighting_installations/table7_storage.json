@@ -1,0 +1,14 @@
+{
+  "occupancy_code": "H",
+  "occupancy_name": "Storage Buildings",
+  "source": "Table 7 (single unified table), pages 8-9 of the 11-page source image sequence",
+  "extraction_confidence": "needs_verification - see _columns_and_notes.json.",
+  "applicability_cap": "Buildings above 15 m in height not permitted for Group H (Note 20). Buildings above 45 m in height not permitted for multi-level car parking (MLCP) occupancy, which is grouped with Storage in this section of Table 7.",
+  "bands": [
+    { "condition": "Below 15 m height and covered area less than 250 sqm", "ordered_ocr_tokens": ["25000","900"] },
+    { "condition": "Below 15 m height and covered area more than 250 sqm, up to ground plus one floor", "ordered_ocr_tokens": [], "mapping_note": "Heading row present; specific R/NR and litre figures for this exact sub-band were not legible from the OCR pass (likely obscured by the page-image seam) - captured as a placeholder band so the band structure itself is not lost, per the 'never omit silently' rule." },
+    { "condition": "More than ground plus one floor", "ordered_ocr_tokens": ["fire_extinguisher=R","100000","10000","450"], "notes_referenced": [10] },
+    { "condition": "Multi-Level Car Parking (MLCP)", "ordered_ocr_tokens": [], "mapping_note": "Heading appears in the source ('...Parking (MLCP)') immediately before the Hazardous Buildings section starts, but the row's own R/NR/litre data was not legible in this OCR pass." }
+  ],
+  "note_h_and_j_share_a_page_boundary": "Storage (H) and Hazardous (J) sections sit close together near the end of Table 7 and both carry a 15 m absolute height cap (Note 20) - by far the most restrictive height ceiling of any occupancy group in the table, consistent with 2026 also treating H and J as its most safety-stringent occupancies."
+}
