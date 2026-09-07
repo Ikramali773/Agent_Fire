@@ -3,14 +3,15 @@
   "occupancy_code": "B",
   "source_clauses": ["4.9(a)", "4.9(c)", "4.9(e)", "5.1.1(a)", "5.1.1(d)", "5.1.2.1", "5.1.3(a)", "D-6.1", "G-2(f)", "Table 31"],
   "self_certification_threshold": { "area_sqm_max": 500, "height_m_max": 24, "logic": "both_conditions_must_be_met" },
+  "band_matching_convention": "See table7a_residential.json for the shared convention and confidence-tagging rules.",
   "rows": [
     {
       "subdivision": "B", "subdivision_name": "Educational Buildings",
       "bands": [
-        { "band_id": "HL-3", "condition": "24-45 m height (or <24 m with area 501-1000 sqm)", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
-        { "band_id": "CL-4", "condition": "24-45 m height with area 1001 sqm and above", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
-        { "band_id": "CL-4", "condition": "45-60 m height", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
-        { "band_id": "SEE_NOTE_5", "condition": "Above 60 m", "installations": null, "note": "Refer to hydraulic-calculation note / Annex D provisions." }
+        { "band_id": "HL-3", "condition": "Up to 45 m height, area 501-1000 sqm", "structured_criteria": { "match_any": [ { "height_m_lte": 45, "area_sqm_gte": 501, "area_sqm_lte": 1000 } ], "confidence": "explicit" }, "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
+        { "band_id": "CL-4", "condition": "Up to 45 m height, area 1001 sqm and above", "structured_criteria": { "match_any": [ { "height_m_lte": 45, "area_sqm_gte": 1001 } ], "confidence": "explicit" }, "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
+        { "band_id": "CL-4_TALL", "condition": "45-60 m height (any area)", "structured_criteria": { "match_any": [ { "height_m_gt": 45, "height_m_lte": 60 } ], "confidence": "explicit" }, "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
+        { "band_id": "SEE_NOTE_5", "condition": "Above 60 m", "structured_criteria": { "match_any": [ { "height_m_gt": 60 } ], "confidence": "explicit" }, "installations": null, "note": "Refer to hydraulic-calculation note / Annex D provisions." }
       ]
     }
   ],
