@@ -1,0 +1,49 @@
+{
+  "annex": "D",
+  "source_clauses": ["5.1.4", "6"],
+  "title": "Additional Requirements for High Rise Buildings",
+  "trigger": "Applies whenever is_high_rise = true (height_m >= 24, clause 2.39), on top of whatever the occupancy/Table 7 lookup already requires.",
+  "key_requirements": [
+    {
+      "topic": "Firefighting shaft provision",
+      "rule": "One firefighting shaft per residential building/tower, per educational building/block, and per compartment of institutional/assembly/business/mercantile occupancy types. Buildings/floors with 3+ compartments need at least 2 firefighting shafts. Other occupancy types: ascertain requirement in consultation with local fire authority. The shaft must connect directly to exit discharge or via a 120-min fire-resistance-walled exit passageway."
+    },
+    {
+      "topic": "Door opening force (buildings > 60 m)",
+      "rule": "Pressurization for staircases in firefighting shafts and other fire exit staircases in buildings > 60 m should be evaluated to limit door-opening force to not more than 133 N."
+    },
+    {
+      "topic": "Refuge spaces (staging within firefighting shaft lift lobby)",
+      "rule": "Minimum 12 sqm OR 5 percent of calculated occupants of the served floor, with 0.45 sqm/person in the firefighting shaft lift lobby - whichever is higher."
+    },
+    {
+      "topic": "Refuge areas (alternative to refuge spaces, height > 24 m)",
+      "rule": "Sized for occupants of two consecutive floors (the floor where refuge is provided + the floor above) at 0.3 sqm/person, plus one wheelchair space (0.9 sqm) per 200 occupants (or part thereof), or a minimum of 15 sqm - whichever is higher. Provided on the floor periphery, open to air on at least one side with railings. First refuge area at/immediately above 24 m, then every 15 m thereafter. Mall-like occupancy (assembly/mercantile/cinema/restaurant mix) uses a different rule - see mall_like_refuge_rule below. Must be sprinklered, ventilated, provided with first aid box, fire extinguishers, PA speaker, fireman talk-back, emergency lighting, drinking water, and adequate drainage. NOTE: refuge area provided in excess of the requirement counts toward FAR."
+    },
+    {
+      "topic": "High-rise apartment exception",
+      "rule": "High-rise apartment buildings where every apartment has a balcony do NOT need a refuge area. Apartment buildings without balconies must provide refuge spaces or refuge areas as above. Where refuge areas are used instead of refuge spaces in apartment buildings above 60 m (with balconies), provide them around the 60 m level and then every 30 m thereafter, sized at 0.3 sqm/person for two consecutive floors' occupants plus 0.9 sqm for wheelchair accommodation, or 15 sqm - whichever is higher."
+    },
+    {
+      "topic": "mall_like_refuge_rule",
+      "rule": "For mall-like (assembly + mercantile + cinema + restaurant mix) occupancy: refuge area at/immediately above 18 m = not less than 10 percent of gross floor area; next refuge area on the floor immediately above 24 m, also 10 percent of that floor's gross area (may be split into 2+ separate areas each >= 100 sqm). When refuge spaces are used instead, every floor needs space for 20 percent of that floor's occupants.",
+      "source": "6.4.2.2 (cross-referenced from Annex D)"
+    },
+    {
+      "topic": "Sprinkler feed redundancy",
+      "rule": "D-6.1: For residential occupancies above 120 m height and other occupancies above 60 m height, sprinklers must be fed from the main AND an alternate/standby riser with isolation valves."
+    },
+    {
+      "topic": "Intermediate fire water storage (very tall buildings)",
+      "rule": "D-6.2: Where building height is 150-175 m, fire water static storage and pumps are additionally required at 160-180 m and at intermediate higher floors. Such tanks need capacity of at least half the underground static storage tank, supplemented by one working + one standby pump of 2850 litre/min capacity with two risers at alternate locations."
+    },
+    {
+      "topic": "Gravity-fed alternative",
+      "rule": "D-6.3: As an alternative to pump-fed systems, gravity-based tanks at intervals along the building height may feed the 55-60 m of stories below each tank. Top-most tank should have dual risers with cross-connection and isolation valves, plus 50 percent extra capacity to refill the tank below."
+    },
+    {
+      "topic": "Seismic bracing",
+      "rule": "D-6.4: Seismic bracing for firefighting installations should be considered depending on the region's seismic vulnerability and occupancy type."
+    }
+  ]
+}

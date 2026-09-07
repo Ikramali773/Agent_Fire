@@ -1,0 +1,20 @@
+{
+  "table_name": "Table 3 - Capacity Factors",
+  "source_clauses": ["4.4.2.1", "4.4.2.3(c)", "4.4.2.4.1(b)", "4.4.2.4.2(a)", "4.4.2.4.3.5(a)"],
+  "unit": "mm_width_per_person",
+  "note": "Exit width unit = 500 mm; a clear width of 250 mm counts as an additional half-unit; less than 250 mm does not count.",
+  "rows": [
+    { "occupancy": "Residential", "occupancy_code": "A", "stairways_mm": 10, "level_and_ramps_mm": 6.5 },
+    { "occupancy": "Educational", "occupancy_code": "B", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "Source table shows a merged/blank cell spanning Educational through Business/Mercantile/Industrial/Storage rows in the OCR-extracted table - verify against source; Institutional (15/13) and Assembly (10/6.5) rows were clearly delineated, but B, E, F, G, H rows were not clearly separated in extraction." },
+    { "occupancy": "Institutional", "occupancy_code": "C", "stairways_mm": 15, "level_and_ramps_mm": 13 },
+    { "occupancy": "Assembly", "occupancy_code": "D", "stairways_mm": 10, "level_and_ramps_mm": 6.5 },
+    { "occupancy": "Business", "occupancy_code": "E", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "see Educational row note" },
+    { "occupancy": "Mercantile", "occupancy_code": "F", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "see Educational row note" },
+    { "occupancy": "Industrial", "occupancy_code": "G", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "see Educational row note" },
+    { "occupancy": "Storage", "occupancy_code": "H", "stairways_mm": null, "level_and_ramps_mm": null, "extraction_note": "see Educational row note" },
+    { "occupancy": "Hazardous", "occupancy_code": "J", "stairways_mm": 18, "level_and_ramps_mm": 10 }
+  ],
+  "extraction_confidence": "needs_verification",
+  "extraction_confidence_note": "Rows for Educational, Business, Mercantile, Industrial, and Storage did not have clearly delineated numeric values in the extracted table structure (likely a merged-cell rendering in the source). Residential, Institutional, Assembly, and Hazardous rows extracted cleanly. The missing rows MUST be re-verified against the source document before this table is used in production - do not guess/interpolate these values.",
+  "worked_example_from_source": "A doorway of 1000 mm clear width with capacity factor 6.5 provides exit capacity for 1000/6.5 = ~153 (rounded to 150) occupants."
+}

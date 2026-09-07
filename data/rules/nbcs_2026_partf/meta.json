@@ -1,0 +1,16 @@
+{
+  "code_edition": "2026",
+  "source_document": "National Building Construction Standards (NBCS), Part F - Fire and Life Safety",
+  "publisher": "Bureau of Indian Standards (BIS), National Building Code Sectional Committee CED 46",
+  "status": "primary_live_rule_source",
+  "legacy_reference_edition": "2016",
+  "legacy_reference_note": "NBC 2016 Part 4 is retained as a secondary/legacy reference for buildings designed, approved, or last certified under the earlier code and not yet reassessed. Retrieval should default to 2026 unless the case file indicates a 2016-certified building.",
+  "extraction_source_note": "Digitized from the source .docx supplied by the user (~269 pages) via XML text/table extraction. Table row/column alignment was spot-checked against the source but NOT visually verified page-by-page against the original PDF layout. Any field with \"extraction_confidence\": \"needs_verification\" should be checked against the source document before being treated as production rule data.",
+  "known_source_document_inconsistency": {
+    "topic": "Group H / Group J occupancy labeling",
+    "issue": "Clause 3.1.1 general summary list states 'Group H: Hazardous, Group J: Storage'. The detailed defining clauses (3.1.9 and 3.1.10) state the opposite: 'Group H: Storage Buildings' and 'Group J: Hazardous Buildings'. This is also consistent with the unchanged 2016 definitions and with Table 7H (titled 'Storage Buildings') / Table 7J (titled 'Hazardous Buildings').",
+    "resolution": "H = Storage, J = Hazardous. Ingestion/classification logic MUST key off the detailed clauses (3.1.9, 3.1.10) and the Table 7H/7J titles, never off the 3.1.1 summary list.",
+    "verified_by": "Direct read of source document, clauses 3.1.1, 3.1.9, 3.1.10, and Table 7H/7J titles."
+  },
+  "last_verified": "2026-09-07"
+}

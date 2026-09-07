@@ -1,0 +1,22 @@
+{
+  "description": "Shared column definitions used across Table 7A-7J. Each table row's 'installations' object uses these keys with value 'R' (Required) or 'NR' (Not Required).",
+  "columns": [
+    "fire_extinguisher",
+    "first_aid_hose_reel",
+    "down_comer",
+    "wet_riser",
+    "yard_hydrant",
+    "automatic_wet_sprinkler_system",
+    "automatic_fire_detection_and_alarm_system",
+    "public_address_and_voice_evacuation_system"
+  ],
+  "protection_level_codes": {
+    "HL": "Hose-stream-only protection level (see table7k_7m_water_calc.json, Table 7M). Ranges HL-1 (lightest) to HL-6 (heaviest) across the source tables.",
+    "CL": "Combined protection level - sprinkler + hose stream (see table7k_7m_water_calc.json, Table 7K). Ranges CL-1 (lightest) to CL-8 (heaviest, High Hazard) across the source tables."
+  },
+  "self_certification_note": "Every occupancy in Table 7A-7J carries a self-certification threshold (varies by occupancy - e.g. up to 500 sqm AND up to 24 m height for Residential, up to 500 sqm AND up to 9 m for Assembly/Storage/Hazardous, etc.). Below that threshold, self-certification by a certified and State-approved building professional is treated as acceptable in place of the full Table 7 installation requirements. This threshold is captured per-occupancy in each table7_*.json file as 'self_certification_threshold'.",
+  "remarks_applicable_to_all_tables": [
+    "REMARK 1: Where the municipal supply provides a public yard hydrant system meeting wet riser demand flow/pressure 24x7, a state/area/jurisdiction may substitute a dry riser system (with its own pumping/storage) for the wet riser system, for buildings up to 24 m where HL protection is required. Dry riser is also recommended where ambient temperature is below 4 C. Requires quarterly integrity checks.",
+    "REMARK 2: Water storage tank sharing may be permitted between adjacent neighbouring properties (including industry clusters) without loss of hydraulic effect."
+  ]
+}

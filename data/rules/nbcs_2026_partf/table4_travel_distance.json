@@ -1,0 +1,27 @@
+{
+  "table_name": "Table 4 - Travel Distance (Based on Occupancy and Construction Type)",
+  "source_clauses": ["4.4.2.1", "4.4.2.2(a)", "4.4.2.4.2(a)", "6.8.1.1"],
+  "unit": "metres",
+  "note_2026_revision": "Table 4 travel distance values were updated in the 2026 revision (per the NBCS 2026 Foreword, item (f)). Do NOT port 2016 travel distance assumptions into 2026 calculations.",
+  "rows": [
+    { "occupancy": "Residential", "occupancy_code": "A", "unsprinklered_type1_2": 30.0, "sprinklered_type1_2": 60.0, "type3_4": 22.5 },
+    { "occupancy": "Educational", "occupancy_code": "B", "unsprinklered_type1_2": 30.0, "sprinklered_type1_2": 45.0, "type3_4": 22.5 },
+    { "occupancy": "Institutional", "occupancy_code": "C", "unsprinklered_type1_2": 30.0, "sprinklered_type1_2": 45.0, "type3_4": 22.5 },
+    { "occupancy": "Assembly", "occupancy_code": "D", "unsprinklered_type1_2": 30.0, "sprinklered_type1_2": 45.0, "type3_4": 30.0 },
+    { "occupancy": "Business (incl. admin area of Datacentre)", "occupancy_code": "E", "unsprinklered_type1_2": 30.0, "sprinklered_type1_2": 60.0, "type3_4": 30.0 },
+    { "occupancy": "Datacentre building", "occupancy_code": "E-II", "unsprinklered_type1_2": null, "sprinklered_type1_2": 60.0, "type3_4": null, "note": "N.A. for unsprinklered/Type 3-4 - datacentres must be sprinklered." },
+    { "occupancy": "Mercantile", "occupancy_code": "F", "unsprinklered_type1_2": 30.0, "sprinklered_type1_2": 45.0, "type3_4": 30.0 },
+    { "occupancy": "Industrial G-1/G-2", "occupancy_code": "G-1/G-2", "unsprinklered_type1_2": 45.0, "sprinklered_type1_2": 60.0, "type3_4": null, "note": "Type 3/4 construction not permitted for this occupancy (see note 3)." },
+    { "occupancy": "Industrial G-3", "occupancy_code": "G-3", "unsprinklered_type1_2": 22.5, "sprinklered_type1_2": 45.0, "type3_4": null, "note": "Type 3/4 construction not permitted for this occupancy (see note 3)." },
+    { "occupancy": "Storage", "occupancy_code": "H", "unsprinklered_type1_2": 30.0, "sprinklered_type1_2": 90.0, "type3_4": null },
+    { "occupancy": "Hazardous", "occupancy_code": "J", "unsprinklered_type1_2": 22.5, "sprinklered_type1_2": 30.0, "type3_4": null }
+  ],
+  "notes": [
+    "1. The common path of travel should be not more than 50 percent of the travel distance values above.",
+    "2. Ramps are not counted as an exit in case of basements below the first basement in car parking.",
+    "3. Construction of Type 3 or Type 4 is not permitted for Industrial (G) or the occupancies where type3_4 is null in this table.",
+    "4. Utility service areas and equipment areas may be exempt from travel distance measurement from within the room.",
+    "5. For ceiling height >= 10 m at ground floor (airports, exhibition halls, convention centres, mall atria, entrance lobbies, etc.) with sprinkler system, travel distance may be increased by 100 percent of the values specified - not applicable to the sprinklered-Type-1/2 column.",
+    "6. For such buildings with ceiling height >= 17 m and sprinkler-exempt, travel distance may similarly be increased by 100 percent - not applicable to the sprinklered-Type-1/2 column. Suitable smoke/heat venting is recommended in such cases to prevent heat build-up at ceiling level."
+  ]
+}

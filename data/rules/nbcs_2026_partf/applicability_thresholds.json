@@ -1,0 +1,33 @@
+{
+  "source_clause": "1.2 (SCOPE)",
+  "rule_logic": "Provisions of Part F apply to a building if EITHER the height threshold OR the floor area threshold is exceeded, whichever is exceeded first - except Industrial G-1/G-2, which is area-only (any height, area > 2000 m2). Also applies (clause 1.3) when a building is altered by 1000 m2 or more, or when occupancy is changed, regardless of the table below.",
+  "state_override_note": "Note 1 (clause 1.2): State/Local Authority may modify these threshold values based on local fire vulnerability/preparedness. Treat as a state-level override layer that must be checked before applying the national default.",
+  "single_staircase_exemption_survivor_note": {
+    "clause": "1.2, Note 2",
+    "rule": "Buildings below the applicability threshold (exempt from Part F) that have only a single staircase must still provide a firefighting-shaft-type staircase located on the external periphery, with lobby and stairwell both ventilated (minimum 1.6 sq m opening through fixed louvres kept permanently open), a 2 h fire door for the lobby, and a 1 h fire door for the stairwell. This requirement survives the exemption and must always be included in reports for otherwise out-of-scope buildings."
+  },
+  "thresholds": [
+    { "occupancy": "Residential", "occupancy_code": "A", "height_m": 24, "floor_area_sqm": 750, "logic": "height_or_area" },
+    { "occupancy": "Educational", "occupancy_code": "B", "height_m": 9, "floor_area_sqm": 500, "logic": "height_or_area" },
+    { "occupancy": "Institutional", "occupancy_code": "C", "height_m": 15, "floor_area_sqm": 500, "logic": "height_or_area" },
+    { "occupancy": "Assembly", "occupancy_code": "D", "height_m": 9, "floor_area_sqm": 750, "logic": "height_or_area" },
+    { "occupancy": "Business", "occupancy_code": "E", "height_m": 15, "floor_area_sqm": 750, "logic": "height_or_area" },
+    { "occupancy": "Mercantile", "occupancy_code": "F", "height_m": 15, "floor_area_sqm": 1000, "logic": "height_or_area" },
+    { "occupancy": "Industrial - Low hazard", "occupancy_code": "G-1", "height_m": null, "floor_area_sqm": 2000, "logic": "area_only", "note": "Any height; applies once total building area exceeds 2000 m2." },
+    { "occupancy": "Industrial - Moderate hazard", "occupancy_code": "G-2", "height_m": null, "floor_area_sqm": 2000, "logic": "area_only", "note": "Any height; applies once total building area exceeds 2000 m2." },
+    { "occupancy": "Industrial - High hazard", "occupancy_code": "G-3", "height_m": 15, "floor_area_sqm": 500, "logic": "height_or_area" },
+    { "occupancy": "Storage", "occupancy_code": "H", "height_m": 9, "floor_area_sqm": 500, "logic": "height_or_area" },
+    { "occupancy": "Hazardous", "occupancy_code": "J", "height_m": 9, "floor_area_sqm": 500, "logic": "height_or_area" },
+    { "occupancy": "Mixed Use", "occupancy_code": "K", "height_m": 15, "floor_area_sqm": 1000, "logic": "height_or_area" }
+  ],
+  "high_rise_flag": {
+    "clause": "2.39",
+    "rule": "is_high_rise = height_m >= 24",
+    "note": "Single, occupancy-independent threshold. Not a tier - there is no 'medium-rise' category. Triggers Annex D (Additional Requirements for High Rise Buildings) on top of whatever the occupancy/Table 7 lookup already requires."
+  },
+  "performance_based_design_scope": {
+    "annex": "M",
+    "clause": "1.4",
+    "rule": "Applicability of Part F's prescriptive requirements may be validated via a Performance-Based Design (PBD) approach ONLY for heritage buildings (constructed well before the first version of NBC) that are made accessible to the public or converted to another occupancy, where adding code-compliant exits/refuge would damage the heritage character. State/local fire authorities may extend PBD case-by-case to other buildings (large assembly, ATC towers, special museums, occupancy-change retrofits) only on the basis of a detailed performance-based report. PBD requires AHJ approval and is never an automated bypass of Table 7A-7J."
+  }
+}

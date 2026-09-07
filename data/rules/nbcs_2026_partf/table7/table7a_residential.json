@@ -1,0 +1,57 @@
+{
+  "table_name": "Table 7A - Requirements for Firefighting Installations - For Residential Buildings",
+  "occupancy_code": "A",
+  "source_clauses": ["4.9(a)", "4.9(c)", "4.9(e)", "5.1.1(a)", "5.1.1(d)", "5.1.2.1", "5.1.3(a)", "D-6.1", "G-2(f)", "Table 31"],
+  "self_certification_threshold": { "area_sqm_max": 500, "height_m_max": 24, "logic": "both_conditions_must_be_met" },
+  "rows": [
+    {
+      "subdivision": "A-I", "subdivision_name": "Lodging and Rooming Houses",
+      "bands": [
+        { "band_id": "HL-1", "condition": "24 m and above height (any area) OR less than 24 m height with floor area 501-1000 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "NR", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "HL-2", "condition": "1001 sqm and above", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "R", "wet_riser": "NR", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } }
+      ]
+    },
+    {
+      "subdivision": "A-II", "subdivision_name": "Dormitories",
+      "bands": [
+        { "band_id": "HL-1", "condition": "501-1000 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "NR", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "NR", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "HL-2", "condition": "1001 sqm and above", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "R", "wet_riser": "NR", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "NR" } }
+      ]
+    },
+    {
+      "subdivision": "A-III", "subdivision_name": "Apartment Houses",
+      "bands": [
+        { "band_id": "HL-2", "condition": "24-60 m height (or <24 m with area 501-1000 sqm)", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "R", "wet_riser": "NR", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "NR", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "HL-3", "condition": "1001 sqm and above (within 24-60 m band)", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
+        { "band_id": "CL-4", "condition": "Above 60 m height", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } }
+      ]
+    },
+    {
+      "subdivision": "A-IV", "subdivision_name": "Hotels (up to Four Star)",
+      "bands": [
+        { "band_id": "HL-3", "condition": "Up to 24 m height, area 501-1000 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "R", "wet_riser": "NR", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "CL-3", "condition": "Up to 24 m height, area 1001 sqm and above", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
+        { "band_id": "CL-4", "condition": "24-60 m height, OR 3/4 Star hotels", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
+        { "band_id": "SEE_NOTE_5", "condition": "Above 60 m", "installations": null, "note": "Refer to hydraulic-calculation note 5 / Annex D provisions; not tabulated as a fixed R/NR row in the source." }
+      ]
+    },
+    {
+      "subdivision": "A-V", "subdivision_name": "Starred (5 Star and above) Hotels",
+      "bands": [
+        { "band_id": "CL-5", "condition": "Up to 60 m", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } },
+        { "band_id": "SEE_NOTE_5", "condition": "Above 60 m", "installations": null, "note": "Refer to hydraulic-calculation note 5 / Annex D provisions." }
+      ]
+    }
+  ],
+  "notes": [
+    "If the building has a kitchen, protection level upgrades to HL-2.",
+    "If the building has a basement requiring sprinkler protection, protection level upgrades to CL-3.",
+    "If the building has EV parks in podium/basement, must be sprinklered and comply with CL-5.",
+    "Rate-of-rise heat detection required in EV parking/charging areas; smoke detectors in all basements except ICE vehicle parks (which get CO sensors to activate ventilation).",
+    "If building height exceeds 60 m, hydraulic calculations with multi-level pumping/storage and gravity-redundant down-comer should be considered; pumps should not exceed 12 bar shutoff pressure.",
+    "Pump pressure/quantity must be supported by hydraulic calculations.",
+    "Cluster of up to 5 buildings (not closer than 9 m, no shared EV basement): 2500 lpm at 10 bar common pumping, 255000 litre water storage. If buildings are closer than 9 m or EV parking/charging is in a shared basement, protection level must comply with CL-5.",
+    "Multi-level pumping/storage per SLD may be considered for cluster buildings over 45 m; water storage at every 45 m above should be provided per building.",
+    "If cluster exceeds 5 buildings, another set of pumps/storage of similar capacity is required (max 2 such sets recommended, subject to hydraulic requirements at the remotest point)."
+  ]
+}

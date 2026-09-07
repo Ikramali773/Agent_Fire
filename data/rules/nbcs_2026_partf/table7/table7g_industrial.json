@@ -1,0 +1,44 @@
+{
+  "table_name": "Table 7G - Requirements for Firefighting Installations - For Industrial Buildings",
+  "occupancy_code": "G",
+  "source_clauses": ["4.9(a)", "4.9(c)", "4.9(e)", "5.1.1(a)", "5.1.1(d)", "5.1.2.1", "5.1.3(a)", "D-6.1", "G-2(f)", "Annex N", "Table 31"],
+  "self_certification_threshold": null,
+  "self_certification_note": "No explicit self-certification threshold line was found for Industrial (G) in the extracted table, unlike Tables 7A-7F. Verify against the source document whether Table 7G omits self-certification entirely or whether the line was lost in extraction.",
+  "rows": [
+    {
+      "subdivision": "G-1", "subdivision_name": "Low Hazard",
+      "bands": [
+        { "band_id": "HL-1", "condition": "Built-up area up to 1000 sqm (including MSMEs)", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "NR", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "NR", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "HL-2", "condition": "1001-2000 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "R", "wet_riser": "NR", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "NR", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "HL-3", "condition": "2001-3000 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "NR", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "HL-4", "condition": "Above 3001 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "NR", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "NR" } }
+      ]
+    },
+    {
+      "subdivision": "G-2", "subdivision_name": "Moderate Hazard",
+      "bands": [
+        { "band_id": "HL-2", "condition": "Built-up area up to 500 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "R", "wet_riser": "NR", "yard_hydrant": "NR", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "NR", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "HL-3", "condition": "501-2000 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "HL-4", "condition": "2001-3000 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "NR", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "CL-5", "condition": "Above 3001 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "NR" } }
+      ]
+    },
+    {
+      "subdivision": "G-3", "subdivision_name": "High Hazard",
+      "bands": [
+        { "band_id": "CL-4", "condition": "Built-up area up to 250 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "NR", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "CL-5", "condition": "251-1000 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "NR" } },
+        { "band_id": "CL-6", "condition": "Above 1001 sqm", "installations": { "fire_extinguisher": "R", "first_aid_hose_reel": "R", "down_comer": "NR", "wet_riser": "R", "yard_hydrant": "R", "automatic_wet_sprinkler_system": "R", "automatic_fire_detection_and_alarm_system": "R", "public_address_and_voice_evacuation_system": "R" } }
+      ]
+    }
+  ],
+  "notes": [
+    "Any building with combustible storage, combustible packing, fuel storage, boilers, or furnaces: such areas must be protected and comply with CL-6.",
+    "Alternate suppression agent should be considered per relevant Indian Standards if water is unsuitable for the materials protected.",
+    "Oxidizing materials, ignitable liquids, water-reactive chemicals, explosives, aluminium dust, or other explosive environments must be treated separately.",
+    "Supplementary protection for specific hazard/critical rooms per Table 9/10/11 as applicable.",
+    "Pump pressure/quantity must be supported by hydraulic calculations.",
+    "If cluster exceeds 5 buildings, another equivalent pump/storage set required (max 2 sets recommended)."
+  ],
+  "cross_reference": "See also Annex N (Requirement for Fire Protection for Specific Industries) for industry-specific guidance."
+}

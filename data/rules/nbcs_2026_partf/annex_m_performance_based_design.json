@@ -1,0 +1,30 @@
+{
+  "annex": "M",
+  "source_clause": "1.4",
+  "title": "Performance Based Design (PBD)",
+  "applicability": {
+    "primary_scope": "PBD is applicable ONLY to validate fire safety aspects for heritage buildings constructed well before the first version of NBC, that are either made accessible to the public or converted to another occupancy, where compliance would require additional staircases/refuge that would damage the heritage nature.",
+    "extended_scope": "State/local fire authorities MAY extend PBD case-by-case to other buildings (large assembly buildings, air traffic control towers, special museums, existing buildings modified for occupancy change) - but only on the basis of a detailed performance-based report and careful authority consideration. This is never an automatic entitlement.",
+    "guardrail": "PBD must never be presented or used as an automated bypass of the prescriptive Table 7A-7J requirements used everywhere else in the system. It requires AHJ approval, a registered professional, and full documentation retained for the building's entire life."
+  },
+  "minimum_acceptance_criteria": [
+    "Safe egress: ASET > RSET (Available Safe Egress Time exceeds Required Safe Egress Time), via validated evacuation modelling.",
+    "Controlled fire and smoke spread, maintaining tenable conditions.",
+    "Reliable fire suppression and detection exceeding this Part's minimum requirements."
+  ],
+  "tenability_criteria": {
+    "measurement_height_m": 1.8,
+    "toxicity": {
+      "FED_max": 0.3,
+      "FED_definition": "Fractional Effective Dose of asphyxiant gases (e.g., carbon monoxide, hydrogen cyanide).",
+      "FEC_max": 0.3,
+      "FEC_definition": "Fractional Effective Concentration of irritant gases (e.g., HCl, NO, SO2), computed as FEC = sum(Ci/Fi) across irritant gases i."
+    },
+    "thermal": {
+      "convective_heat_max_C": 60,
+      "radiant_heat_max_kW_per_sqm": 2.5
+    },
+    "visibility_min_m": "5 to 10 (for safe evacuation and wayfinding)"
+  },
+  "process": "Iterative: define project scope -> identify goals -> define objectives -> design brief -> develop performance criteria -> develop fire scenarios/design fires -> develop trial design(s) -> evaluate trial design(s) -> [if not meeting criteria: modify design/objectives and re-loop] -> select final design -> performance-based design report -> prepare design documents (plans, specs, O&M manuals)."
+}

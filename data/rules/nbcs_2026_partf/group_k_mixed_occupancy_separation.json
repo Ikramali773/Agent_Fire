@@ -1,0 +1,21 @@
+{
+  "table_name": "Minimum Required Fire Resistance Rating for Separation Between Any Two Occupancies (Group K / Mixed Occupancy)",
+  "source_clause": "3.1.11 (Group K: Mixed Occupancy)",
+  "unit": "minutes",
+  "legend": { "NP": "Not Permitted (highly dangerous/vulnerable combination)" },
+  "occupancy_order": ["Residential", "Educational", "Institutional", "Assembly", "Business", "Mercantile", "Industrial-Low(G-1)", "Industrial-Moderate(G-2)", "Industrial-High(G-3)", "Storage", "Hazardous"],
+  "matrix": {
+    "Residential": { "Educational": 120, "Institutional": 120, "Assembly": 120, "Business": 120, "Mercantile": 120, "Industrial-Low(G-1)": 120, "Industrial-Moderate(G-2)": "NP", "Industrial-High(G-3)": "NP", "Storage": "NP", "Hazardous": "NP" },
+    "Educational": { "Residential": 120, "Institutional": 120, "Assembly": 120, "Business": 120, "Mercantile": 120, "Industrial-Low(G-1)": "NP", "Industrial-Moderate(G-2)": "NP", "Industrial-High(G-3)": "NP", "Storage": "NP", "Hazardous": "NP" },
+    "Institutional": { "Residential": 120, "Educational": 120, "Assembly": 120, "Business": 120, "Mercantile": 120, "Industrial-Low(G-1)": "NP", "Industrial-Moderate(G-2)": "NP", "Industrial-High(G-3)": "NP", "Storage": "NP", "Hazardous": "NP" },
+    "Assembly": { "Residential": 120, "Educational": 120, "Institutional": 120, "Business": 120, "Mercantile": 120, "Industrial-Low(G-1)": 120, "Industrial-Moderate(G-2)": 120, "Industrial-High(G-3)": "NP", "Storage": "NP", "Hazardous": "NP" },
+    "Business": { "Residential": 120, "Educational": 120, "Institutional": 120, "Assembly": 120, "Mercantile": 120, "Industrial-Low(G-1)": 120, "Industrial-Moderate(G-2)": 120, "Industrial-High(G-3)": 240, "Storage": "NP", "Hazardous": "NP" },
+    "Mercantile": { "Residential": 120, "Educational": 120, "Institutional": 120, "Assembly": 120, "Business": 120, "Industrial-Low(G-1)": 120, "Industrial-Moderate(G-2)": 120, "Industrial-High(G-3)": "NP", "Storage": 120, "Hazardous": "NP" },
+    "Industrial-Low(G-1)": { "Residential": 120, "Educational": "NP", "Institutional": "NP", "Assembly": 120, "Business": 120, "Mercantile": 120, "Industrial-Moderate(G-2)": 120, "Industrial-High(G-3)": 240, "Storage": 120, "Hazardous": "NP" },
+    "Industrial-Moderate(G-2)": { "Residential": "NP", "Educational": "NP", "Institutional": "NP", "Assembly": 120, "Business": 120, "Mercantile": 120, "Industrial-Low(G-1)": 120, "Industrial-High(G-3)": 240, "Storage": 180, "Hazardous": 240 },
+    "Industrial-High(G-3)": { "Residential": "NP", "Educational": "NP", "Institutional": "NP", "Assembly": "NP", "Business": 240, "Mercantile": "NP", "Industrial-Low(G-1)": 240, "Industrial-Moderate(G-2)": 240, "Storage": 240, "Hazardous": 240 },
+    "Storage": { "Residential": "NP", "Educational": "NP", "Institutional": "NP", "Assembly": "NP", "Business": "NP", "Mercantile": 120, "Industrial-Low(G-1)": 120, "Industrial-Moderate(G-2)": 180, "Industrial-High(G-3)": 240, "Hazardous": 240 },
+    "Hazardous": { "Residential": "NP", "Educational": "NP", "Institutional": "NP", "Assembly": "NP", "Business": "NP", "Mercantile": "NP", "Industrial-Low(G-1)": "NP", "Industrial-Moderate(G-2)": 240, "Industrial-High(G-3)": 240, "Storage": 240 }
+  },
+  "application_rule": "For mixed-occupancy buildings, the entire building's fire protection is governed by the most restrictive provisions among the applicable individual occupancies. Exits can be shared between mixed occupancies only if the aggregate provision meets the mixed-occupancy requirement AND unrestricted egress is achievable based on the occupancies' operational hours; otherwise each occupancy needs independent exits. Means of egress must not decrease in the direction of egress travel. Occupancies must additionally be separated (horizontally and/or vertically) by the fire resistance ratings in this matrix, per clause 3.1.11.1."
+}

@@ -1,0 +1,113 @@
+{
+  "source_clauses": "3.1.1 to 3.1.11",
+  "groups": [
+    {
+      "code": "A",
+      "name": "Residential",
+      "definition": "Any building in which sleeping accommodation is provided for normal residential purposes with or without cooking or dining facilities, except any building classified under Group C.",
+      "subdivisions": [
+        { "code": "A-I", "name": "Lodging and rooming houses", "examples": ["Inns", "clubs", "motels", "guest houses"], "note": "If sleeping accommodation for more than 20 persons is provided, classify as A-I or A-III as applicable." },
+        { "code": "A-II", "name": "Dormitories", "examples": ["School/college dormitories", "student and other hostels", "military barracks"] },
+        { "code": "A-III", "name": "Apartment houses", "examples": ["Apartment houses", "mansions", "chawls"], "note": "3 or more families living independently with independent cooking facilities." },
+        { "code": "A-IV", "name": "Hotels", "note": "Hotels up to Four Star category." },
+        { "code": "A-V", "name": "Starred hotels", "note": "Five Star and above hotels." }
+      ]
+    },
+    {
+      "code": "B",
+      "name": "Educational",
+      "definition": "Any building used for school, college, or other training institutions involving assembly for instruction, education, or recreation for not less than 20 students.",
+      "note": "Residential accommodation within an educational building is classified as Subdivision A-II."
+    },
+    {
+      "code": "C",
+      "name": "Institutional",
+      "definition": "Any building used for medical/other treatment or care of persons suffering from physical or mental illness, disease or infirmity; care of infants, convalescents or aged persons; or penal/correctional detention.",
+      "high_sensitivity": true,
+      "guardrail": "Never short-circuit skip logic for this occupancy; carries the most stringent requirements regardless of height.",
+      "subdivisions": [
+        { "code": "C-I", "name": "Hospitals and sanatoria", "examples": ["Hospitals", "infirmaries", "sanatoria", "nursing homes"] },
+        { "code": "C-II", "name": "Custodial institutions", "examples": ["Homes for the aged and infirm", "convalescent homes", "orphanages"] },
+        { "code": "C-III", "name": "Penal and mental institutions", "examples": ["Jails", "prisons", "mental hospitals/sanatoria", "reformatories"] }
+      ]
+    },
+    {
+      "code": "D",
+      "name": "Assembly",
+      "definition": "Any building where not less than 50 persons congregate or gather for amusement, recreation, social, religious, patriotic, civil, travel and similar purposes.",
+      "examples": ["Shopping malls", "theatres/multiplexes", "motion picture houses", "assembly halls", "auditoria", "exhibition halls", "museums", "skating rinks", "gymnasiums", "restaurants/food courts", "places of worship", "dance halls", "club rooms", "passenger stations/terminals", "stadia", "underground and elevated railways"],
+      "note": "Occupant-load-driven requirements dominate."
+    },
+    {
+      "code": "E",
+      "name": "Business",
+      "definition": "Any building used for transaction of business, keeping of accounts and records, professional establishments, service facilities, etc.",
+      "examples": ["City halls", "town halls", "courthouses", "libraries", "laboratories", "outpatient clinics", "research establishments", "test houses", "electronic data processing centres", "computer installations", "IT parks", "call centres", "telephone exchanges", "broadcasting/TV stations", "air traffic control towers", "datacentres"],
+      "subdivisions": [
+        { "code": "E-I", "name": "Business buildings (human occupied)" },
+        { "code": "E-II", "name": "Datacentres (machine environment)", "note": "Data centres are classified under Group E Business as sub-occupancy E-II (Annex F)." }
+      ]
+    },
+    {
+      "code": "F",
+      "name": "Mercantile",
+      "definition": "Any building used as shops, stores, markets, for display and sale of merchandise, wholesale or retail.",
+      "subdivisions": [
+        { "code": "F-I", "name": "Shops, stores, departmental stores, markets" },
+        { "code": "F-II", "name": "Underground shopping centres" }
+      ],
+      "exception": "Any mercantile occupancy where goods of a highly hazardous nature predominate should be considered under Group J (Hazardous) instead."
+    },
+    {
+      "code": "G",
+      "name": "Industrial",
+      "definition": "Any building/structure in which products or materials are fabricated, assembled, manufactured, or processed.",
+      "examples": ["Assembly plants", "industrial laboratories", "dry cleaning plants", "power plants", "generating units", "pumping stations", "fumigation chambers", "laundries", "gas plant/refinery structures", "dairies", "saw-mills"],
+      "hazard_subdivisions_mandatory": true,
+      "subdivisions": [
+        { "code": "G-1", "name": "Low hazard industries", "definition": "Contents of comparatively low combustibility; processes such that self-propagating fire is highly unlikely; danger, if any, arises only from panic, fumes/smoke, or fire from an external source." },
+        { "code": "G-2", "name": "Moderate hazard industries", "definition": "Contents/processes liable to give rise to a fire burning with moderate rapidity or other hazardous situation, may give off considerable smoke, but neither toxic fumes nor explosions are feared." },
+        { "code": "G-3", "name": "High hazard industries", "definition": "Contents/processes liable to give rise to a fire burning with extreme rapidity, or from which poisonous fumes or explosions are feared." }
+      ],
+      "classification_source": "Annex B provides a broad, non-exhaustive classification of industrial occupancies by fire hazard into G-1/G-2/G-3. Any occupancy not covered should be classified in the most appropriate class by degree of hazard. Where different hazard degrees exist in different parts of a building, the most hazardous governs unless hazardous areas are segregated/protected."
+    },
+    {
+      "code": "H",
+      "name": "Storage",
+      "definition": "Any building primarily for storage or sheltering (including servicing, processing or repairs incidental to storage) of goods, ware or merchandise (excluding highly combustible/explosive products), vehicles or animals.",
+      "examples": ["Warehouses", "cold storages", "freight depots", "transit sheds", "storehouses", "truck and marine terminals", "garages", "hangars", "grain elevators", "barns", "stables"],
+      "definitive_clause": "3.1.9",
+      "ingestion_warning": "The 3.1.1 summary list mislabels this group as 'Hazardous'. Ingest/classify off clause 3.1.9 and the Table 7H title ('Requirements for Firefighting Installations - For Storage Buildings'), not the summary list.",
+      "note": "Any new use increasing occupant density to a level comparable with other occupancy classes should change the building's classification to that new use (e.g., hangar used for assembly, warehouse used for office purposes)."
+    },
+    {
+      "code": "J",
+      "name": "Hazardous",
+      "definition": "Any building used for storage, handling, manufacture or processing of highly combustible or explosive materials/products liable to burn with extreme rapidity and/or produce poisonous fumes or explosions, or involving highly corrosive/toxic/noxious chemicals, or producing explosive dust.",
+      "examples": [
+        "Storage under pressure >0.1 N/mm2 and >70 m3 of acetylene, hydrogen, illuminating/natural gases, ammonia, chlorine, phosgene, sulphur dioxide, carbon dioxide, methyl oxide, cryogenic gases, etc.",
+        "Storage/handling of hazardous and highly flammable liquids, liquefiable gases like LPG, rocket propellants",
+        "Storage/handling of hazardous and highly flammable or explosive materials (other than liquids)",
+        "Manufacture of artificial flowers, synthetic leather, ammunition, explosives, fireworks"
+      ],
+      "definitive_clause": "3.1.10",
+      "ingestion_warning": "The 3.1.1 summary list mislabels this group as 'Storage'. Ingest/classify off clause 3.1.10 and the Table 7J title ('Requirements for Firefighting Installations - For Hazardous Buildings'), not the summary list.",
+      "guardrail": "Mandatory human/expert review flag - never auto-generate a checklist without a disclaimer emphasizing specialist consultation.",
+      "legal_reference_note": "A list of hazardous substances (quantities triggering coverage under the Public Liability Insurance Act, 1991) was notified under the Chemical Accidents (EPPR) Rules, MoEF Notification G.S.R. 347(E) dated 01 August 1996."
+    },
+    {
+      "code": "K",
+      "name": "Mixed Use",
+      "definition": "Any building having multiple occupancy where the occupancies are intermingled. New occupancy group introduced in the 2026 edition.",
+      "governing_clause_for_zones": "3.1.11.2 - the most restrictive co-existing occupancy governs each overlapping zone.",
+      "note": "Own applicability threshold (15 m / 1000 m2, see applicability_thresholds.json). Exits may be shared between mixed occupancies only if aggregate provision meets the mixed-occupancy requirement AND egress is unrestricted based on the occupancies' operational hours; otherwise each occupancy needs independent exits. Means of egress must not decrease in the direction of egress travel."
+    }
+  ],
+  "minor_occupancy_rule": {
+    "clause": "3.1.1.1",
+    "rule": "Occupancy purely incidental to a main occupancy is classified under the main occupancy's group, provided it does not exceed 30 percent of the floor area. Above 30 percent, it must be categorized as mixed occupancy (3.1.11)."
+  },
+  "occupancy_change_rule": {
+    "rule": "Where a change of occupancy places a building in a different group/subdivision, the building must comply with this NBCS for the new group/subdivision - UNLESS the new occupancy is less hazardous (by life and fire risk) than the existing one, in which case compliance with the new group's requirements is not necessary. A certificate of occupancy is required before any occupancy change takes effect."
+  }
+}

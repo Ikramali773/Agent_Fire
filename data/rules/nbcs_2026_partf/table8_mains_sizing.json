@@ -1,0 +1,22 @@
+{
+  "table_name": "Table 8 - Size of Mains",
+  "source_clause": "5.1.1(a)",
+  "rows": [
+    { "minimum_main_size_mm": "100 mm with single outlet 63 mm landing valve", "occupancy": "Residential - Dormitories", "occupancy_code": "A-II", "height_condition": "any" },
+    { "minimum_main_size_mm": "100 mm with single outlet 63 mm landing valve", "occupancy": "Residential - Apartments", "occupancy_code": "A-III", "height_condition": "up_to_15m" },
+    { "minimum_main_size_mm": "100 mm with single outlet 63 mm landing valve", "occupancy": "Residential - Hotels", "occupancy_code": "A-IV", "height_condition": "up_to_15m" },
+    { "minimum_main_size_mm": "100 mm with single outlet 63 mm landing valve", "occupancy": "Educational", "occupancy_code": "B", "height_condition": "up_to_15m" },
+    { "minimum_main_size_mm": "100 mm with single outlet 63 mm landing valve", "occupancy": "Institutional", "occupancy_code": "C", "height_condition": "up_to_15m" },
+    { "minimum_main_size_mm": "100 mm with single outlet 63 mm landing valve", "occupancy": "Assembly", "occupancy_code": "D", "height_condition": "up_to_15m" },
+    { "minimum_main_size_mm": "100 mm with single outlet 63 mm landing valve", "occupancy": "Business", "occupancy_code": "E", "height_condition": "up_to_15m" },
+    { "minimum_main_size_mm": "100 mm with single outlet 63 mm landing valve", "occupancy": "Mercantile", "occupancy_code": "F", "height_condition": "up_to_9m" },
+    { "minimum_main_size_mm": "100 mm with single outlet 63 mm landing valve", "occupancy": "Industrial", "occupancy_code": "G", "height_condition": "up_to_9m" },
+    { "minimum_main_size_mm": "150 mm with single outlet 63 mm landing valve", "occupancy": "Hotels", "occupancy_code": "A-IV", "height_condition": "above_15m" },
+    { "minimum_main_size_mm": "150 mm with single outlet 63 mm landing valve", "occupancy": "Starred hotels", "occupancy_code": "A-V", "height_condition": "any" },
+    { "minimum_main_size_mm": "150 mm with single outlet 63 mm landing valve", "occupancy": "Institutional", "occupancy_code": "C", "height_condition": "above_15m" },
+    { "minimum_main_size_mm": "150 mm with single outlet 63 mm landing valve", "occupancy": "Business", "occupancy_code": "E", "height_condition": "above_15m" },
+    { "minimum_main_size_mm": "150 mm with single outlet 63 mm landing valve", "occupancy": "Industrial", "occupancy_code": "G", "height_condition": "up_to_15m" },
+    { "minimum_main_size_mm": "150 mm with single outlet 63 mm landing valve", "occupancy": "Storage", "occupancy_code": "H", "height_condition": "up_to_15m" },
+    { "minimum_main_size_mm": "150 mm with single outlet 63 mm landing valve", "occupancy": "Hazardous", "occupancy_code": "J", "height_condition": "up_to_15m" }
+  ]
+}

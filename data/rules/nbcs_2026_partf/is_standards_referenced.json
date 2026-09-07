@@ -1,0 +1,28 @@
+{
+  "source": "NBCS 2026 Part F - List of Standards (end of document)",
+  "note": "This is a curated subset of the full List of Standards, prioritized per the product scope's C.5 (referenced IS standards to ingest). The full list runs to 100+ entries covering extinguisher types, gaseous suppression systems, and industry-specific codes (cotton mills, chemical labs, jute mills, etc.) - see 'other_notable_standards' below for a broader (still non-exhaustive) capture from the source document.",
+  "priority_standards": [
+    { "is_number": "IS 2190 : 2024", "title": "Selection, installation and maintenance of portable first-aid fire extinguishers - Code of practice (fifth revision)", "governs": "Portable extinguisher selection/placement detail", "verified_in_source": true },
+    { "is_number": "IS 2189 : 2026", "title": "Selection, installation and maintenance of automatic fire detection and alarm system - Code of practice", "governs": "Detection/alarm system design", "verified_in_source": true, "extraction_note": "Source text is internally inconsistent on the revision label - cited once as 'third revision' (in-text reference near clause 4.9) and once as 'second revision' (List of Standards entry). Verify exact revision number against the physical/official gazetted copy." },
+    { "is_number": "IS 15105 : 2021", "title": "Design and installation of fixed automatic sprinkler fire extinguishing system - Code of practice (first revision)", "governs": "Sprinkler system design", "verified_in_source": true },
+    { "is_number": "IS 3844 : 1989", "title": "Code of practice for installation and maintenance of internal fire hydrants and hose reels on premises (first revision)", "governs": "Internal hydrant/hose reel systems", "verified_in_source": true },
+    { "is_number": "IS 13039 : 2014", "title": "External hydrant systems - Provision and maintenance - Code of practice (first revision)", "governs": "External hydrant systems", "verified_in_source": true },
+    { "is_number": "IS 18271 : 2023", "title": "Fire safety in commercial kitchen - Guidelines", "governs": "Commercial kitchen fire protection (2026 Part F defers here directly instead of using its own annex)", "verified_in_source": true },
+    { "is_number": "IS 3614 : 2021", "title": "Fire doors and doorsets - Specification (first revision)", "governs": "Fire door ratings/construction", "verified_in_source": true },
+    { "is_number": "IS 16700 : 2023", "title": "Criteria for structural safety of tall concrete buildings (first revision)", "governs": "Structural safety cross-reference for tall buildings", "verified_in_source": true }
+  ],
+  "other_notable_standards_seen_in_source": [
+    { "is_number": "IS 15325 : 2020", "title": "Design and installation of fixed automatic high and medium velocity water spray system - Code of practice (first revision)" },
+    { "is_number": "IS 12835 (Part 1) : 2021", "title": "Design and installation of fixed foam fire extinguishing system - Part 1 Low expansion foam (first revision)" },
+    { "is_number": "IS 15519 : 2020", "title": "Water mist fire protection systems - System design, installation, and commissioning - Code of Practice (first revision)" },
+    { "is_number": "IS 15493 : 2021", "title": "Gaseous fire extinguishing systems - General requirements (first revision)" },
+    { "is_number": "IS 4963 : 2025", "title": "Accessibility in built environment for older adults and persons with disabilities - Requirements (second revision)" },
+    { "is_number": "IS 12458 : 2019", "title": "Fire resistance of through penetration firestops - Method of test (first revision)" },
+    { "is_number": "IS 18190 : 2023", "title": "Fire resistance of perimeter fire barrier joint system - Method of tests" },
+    { "is_number": "IS 3594 : 2024", "title": "Code of practice for fire safety of industrial buildings: General storage and warehousing including cold storage (second revision)" },
+    { "is_number": "IS 4209 : 2013", "title": "Code of safety in chemical laboratories (second revision)" },
+    { "is_number": "IS 4878 : 1986", "title": "Byelaws for construction of cinema buildings (first revision)" },
+    { "is_number": "IS/ISO/IEC 22237 series (Parts 1, 3, 4) : 2021", "title": "Information technology - Data centre facilities and infrastructures" }
+  ],
+  "ingestion_guidance": "Prioritize ingestion by which occupancies/equipment the deep-coverage launch states (Gujarat, Maharashtra) actually see most, per the product scope's C.5 guidance. Tag each ingested standard to the specific Part F clause(s) that reference it, not just as a flat citation list."
+}

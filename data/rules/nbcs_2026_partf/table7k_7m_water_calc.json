@@ -1,0 +1,45 @@
+{
+  "note": "Table 7K and Table 7M are NOT occupancy tables (unlike 7A-7J). They give the base water-quantity/pump-capacity calculation for a given protection LEVEL CODE (CL-x or HL-x) referenced by Table 7A-7J bands. Group K (Mixed Use) has no dedicated Table 7 letter - per clause 3.1.11.2, mixed-occupancy zones are governed by the union of the component occupancies' Table 7 requirements, with the most restrictive occupancy governing each overlapping zone.",
+  "table_7k_combined_protection": {
+    "table_name": "Table 7K - Base Calculations for Combined Protection System (Sprinkler System and Hose Stream)",
+    "source_clause": "5.1.1(a)",
+    "units": { "sprinkler_demand": "sqm equivalent design density factor (litre/min per sqm basis)", "hose_stream_flow": "litre/min at 3.5 bar", "pump_capacity": "litre/min", "duration": "minutes" },
+    "rows": [
+      { "level": "CL-1", "hazard_classification": "Extra Low Hazard-1", "sprinkler_demand": 2.25, "hose_stream_flow_lpm": 84, "number_of_hose_streams": 50, "pump_count": 2, "pump_capacity_lpm": 379, "duration_min": "30-60" },
+      { "level": "CL-2", "hazard_classification": "Extra Low Hazard-2", "sprinkler_demand": 4.1, "hose_stream_flow_lpm": 140, "number_of_hose_streams": 170, "pump_count": 2, "pump_capacity_lpm": 946, "duration_min": "30-60" },
+      { "level": "CL-3", "hazard_classification": "Low Hazard", "sprinkler_demand": 6.1, "hose_stream_flow_lpm": 230, "number_of_hose_streams": 285, "pump_count": 3, "pump_capacity_lpm": 1892, "duration_min": "30-60" },
+      { "level": "CL-4", "hazard_classification": "Moderate Hazard-1", "sprinkler_demand": 8.1, "hose_stream_flow_lpm": 230, "number_of_hose_streams": 285, "pump_count": 3, "pump_capacity_lpm": 2500, "duration_min": "60-120" },
+      { "level": "CL-5", "hazard_classification": "Moderate Hazard-2", "sprinkler_demand": 12.2, "hose_stream_flow_lpm": 230, "number_of_hose_streams": 475, "pump_count": 3, "pump_capacity_lpm": 3785, "duration_min": "60-120" },
+      { "level": "CL-6", "hazard_classification": "Extra Hazard-1", "sprinkler_demand": 16.3, "hose_stream_flow_lpm": 230, "number_of_hose_streams": 475, "pump_count": 3, "pump_capacity_lpm": 4731, "duration_min": "60-120" },
+      { "level": "CL-7", "hazard_classification": "Extra Hazard-2", "sprinkler_demand": 18.3, "hose_stream_flow_lpm": 280, "number_of_hose_streams": 670, "pump_count": 4, "pump_capacity_lpm": 7570, "duration_min": "60-120" },
+      { "level": "CL-8", "hazard_classification": "High Hazard", "sprinkler_demand": 24.5, "hose_stream_flow_lpm": 280, "number_of_hose_streams": 1050, "pump_count": 4, "pump_capacity_lpm": "4731 x 2", "duration_min": "60-120" }
+    ],
+    "worked_example": "For CL-5: capacity = (12.2 x 230) + (475 x 3) = 4231 litre; with 20 percent overflow margin = 5077.2 litre; pump selection = 5077.2 / 140 x 100 = 3627 lpm, rounded to the nearest Indian Standard pump size of 3785 lpm.",
+    "pump_sizing_formula": "Total flow with 20 percent overflow margin, operating at 140 percent capacity.",
+    "notes": [
+      "'Pump' implies an electric pump plus a standby pump of equivalent capacity. A jockey pump is also required for loss-in-pressure compensation.",
+      "Firefighting duration may be decided from 30 to 120 min based on hazard, fire preparedness, local conditions, etc.",
+      "Required water quantity may alternatively be calculated per the respective Indian Standards where available."
+    ]
+  },
+  "table_7m_hose_stream_only": {
+    "table_name": "Table 7M - Base Calculations for Hose Stream Protection System",
+    "source_clauses": ["5.1.1(a)", "D-6.1"],
+    "units": { "hose_stream_flow": "litre/min", "pump_capacity": "litre/min", "duration": "minutes" },
+    "rows": [
+      { "level": "HL-1", "hazard_classification": "Extra Light-1", "hose_stream_flow_lpm": 50, "number_of_hose_streams": 4, "pump_capacity_lpm": 379, "duration_min": "30-60" },
+      { "level": "HL-2", "hazard_classification": "Extra Light-2", "hose_stream_flow_lpm": 170, "number_of_hose_streams": 4, "pump_capacity_lpm": 946, "duration_min": "30-60" },
+      { "level": "HL-3", "hazard_classification": "Low Hazard", "hose_stream_flow_lpm": 270, "number_of_hose_streams": 4, "pump_capacity_lpm": 1514, "duration_min": "30-60" },
+      { "level": "HL-4", "hazard_classification": "Moderate-1", "hose_stream_flow_lpm": 475, "number_of_hose_streams": 4, "pump_capacity_lpm": 2839, "duration_min": "60-120" },
+      { "level": "HL-5", "hazard_classification": "Moderate-2", "hose_stream_flow_lpm": 670, "number_of_hose_streams": 5, "pump_capacity_lpm": 4731, "duration_min": "60-120" },
+      { "level": "HL-6", "hazard_classification": "Extra Hazard", "hose_stream_flow_lpm": 670, "number_of_hose_streams": 6, "pump_capacity_lpm": 5677, "duration_min": "60-120" }
+    ],
+    "worked_example": "For HL-3: capacity = 270 x 4 = 1080 litre; with 40 percent overflow margin = 1512 litre; pump selection = 1512 / 140 x 100 = 1514 lpm (nearest Indian Standard pump).",
+    "pump_sizing_formula": "Total flow with 40 percent overflow margin, operating at 140 percent capacity.",
+    "notes": [
+      "'Pump' implies an electric pump plus a standby pump of equivalent capacity. A jockey pump is also required for loss-in-pressure compensation.",
+      "Firefighting duration may be decided from 30 to 120 min based on hazard, fire preparedness, local conditions, etc.",
+      "Required water quantity may alternatively be calculated per the respective Indian Standards where available."
+    ]
+  }
+}
