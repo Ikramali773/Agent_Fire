@@ -1,30 +1,60 @@
-"""LLM tier configuration - product scope B.10:
+"""LLM provider + tier configuration - product scope B.10:
 
 'LLM: provider-agnostic abstraction layer; use a cheaper/smaller model for
-routine dialogue turns, a stronger model for clause interpretation and report
-generation - research current pricing at build time, this changes often.'
+routine dialogue turns, a stronger model for clause interpretation and
+report generation - research current pricing at build time, this changes
+often.'
 
-Defaults chosen for this build (2026 Anthropic pricing): Claude Haiku 4.5 for
-routine dialogue (field extraction, intent classification - cheap, high
-volume) and Claude Sonnet 5 for reasoning (Knowledge Q&A prose, report
-narrative). This is a cost/quality tradeoff the product owner should confirm
-- bump REASONING_MODEL to claude-opus-5 via env var if higher quality is
-worth the ~2.5x cost for this workload.
+Provider defaults to Groq (a genuine free tier, no card required) rather
+than Anthropic, per an explicit user request to avoid paid API costs during
+development. Anthropic remains fully supported - set
+FIRE_AGENT_LLM_PROVIDER=anthropic (+ ANTHROPIC_API_KEY) to switch, with no
+code changes anywhere else, which is the entire point of the backend
+abstraction in app/llm/backends/.
 
-Both are read from the environment so a deployer never has to edit code to
-change models or point at a different Anthropic-compatible base URL.
+Everything here is read from the environment so a deployer never has to
+edit code to change provider or model.
 """
 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Literal
+
+ModelTier = Literal["routine", "reasoning"]
+
+# Groq model IDs current as of this build (see https://console.groq.com/docs/models -
+# verify against that page, Groq's free-tier lineup changes over time).
+_PROVIDER_DEFAULT_MODELS: dict[str, dict[ModelTier, str]] = {
+    "groq": {"routine": "llama-3.1-8b-instant", "reasoning": "llama-3.3-70b-versatile"},
+    "anthropic": {"routine": "claude-haiku-4-5", "reasoning": "claude-sonnet-5"},
+}
 
 
 @dataclass(frozen=True)
 class LLMConfig:
-    routine_model: str = os.environ.get("FIRE_AGENT_ROUTINE_MODEL", "claude-haiku-4-5")
-    reasoning_model: str = os.environ.get("FIRE_AGENT_REASONING_MODEL", "claude-sonnet-5")
+    provider: str = field(default_factory=lambda: os.environ.get("FIRE_AGENT_LLM_PROVIDER", "groq"))
+    _routine_override: str = field(
+        default_factory=lambda: os.environ.get("FIRE_AGENT_ROUTINE_MODEL", "")
+    )
+    _reasoning_override: str = field(
+        default_factory=lambda: os.environ.get("FIRE_AGENT_REASONING_MODEL", "")
+    )
+
+    def model_for(self, tier: ModelTier) -> str:
+        override = self._routine_override if tier == "routine" else self._reasoning_override
+        if override:
+            return override
+        defaults = _PROVIDER_DEFAULT_MODELS.get(self.provider)
+        if defaults is None:
+            raise ValueError(
+                f"Unknown LLM provider '{self.provider}' - no default models registered. "
+                f"Known providers: {list(_PROVIDER_DEFAULT_MODELS)}. Set "
+                "FIRE_AGENT_ROUTINE_MODEL/FIRE_AGENT_REASONING_MODEL explicitly if you're "
+                "adding a new provider's backend."
+            )
+        return defaults[tier]
 
 
 DEFAULT_CONFIG = LLMConfig()

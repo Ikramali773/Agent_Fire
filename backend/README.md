@@ -16,20 +16,32 @@ Part B):
   `band_matching_convention` for the exact rule used.
 - **Report generator** (`app/reports/generator.py`, §B.9) — templated Markdown; no LLM call.
 - **LLM abstraction layer** (`app/llm/`) — the only code allowed to call an LLM, per the product
-  scope's Part G Principle 1 ("LLM reasons and explains; deterministic engines decide"). Wraps the
-  official `anthropic` SDK, model choice is env-driven (`FIRE_AGENT_ROUTINE_MODEL` default
-  `claude-haiku-4-5`, `FIRE_AGENT_REASONING_MODEL` default `claude-sonnet-5`, per §B.10's
-  cheap-routine / stronger-reasoning tiering). **This is a cost/quality tradeoff I made, not the
-  user** — bump `FIRE_AGENT_REASONING_MODEL` to `claude-opus-5` if higher quality is worth ~2.5x the
-  cost for this workload. Every LLM-calling method takes an injectable client so nothing needs a
-  real API key to test (see `tests/test_llm_client.py`).
+  scope's Part G Principle 1 ("LLM reasons and explains; deterministic engines decide") and its
+  B.10 call for a "provider-agnostic abstraction layer." `app/llm/client.py` never talks to a
+  specific SDK — it only talks to the `LLMBackend` Protocol (`app/llm/backends/base.py`); each
+  provider is one small file implementing `generate_json`/`generate_text`. Two backends exist today:
+  - **Groq** (`app/llm/backends/groq_backend.py`) — the **default provider**, since a paid Anthropic
+    key wasn't wanted for development. Free tier, OpenAI-compatible API. Default models:
+    `llama-3.1-8b-instant` (routine) / `llama-3.3-70b-versatile` (reasoning). Get a free key at
+    console.groq.com/keys and set `GROQ_API_KEY`.
+  - **Anthropic** (`app/llm/backends/anthropic_backend.py`) — still fully supported; switch to it
+    with `FIRE_AGENT_LLM_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` set, no code changes needed.
+    Default models: `claude-haiku-4-5` / `claude-sonnet-5`.
+
+  Model choice per provider is a cost/quality tradeoff I made, not the user — override with
+  `FIRE_AGENT_ROUTINE_MODEL` / `FIRE_AGENT_REASONING_MODEL` if a different model is worth it.
+  Groq's open models are less reliable than Claude at strictly following a requested JSON shape, so
+  `extract_fields()` validates every field against its expected type and quietly drops (never
+  guesses) anything that doesn't fit — a bad field never discards the rest of a good extraction.
+  Every LLM-calling method takes an injectable backend so nothing needs a real API key to test (see
+  `tests/test_llm_client.py`).
 - **Dialogue Manager** (`app/dialogue/`, §B.3/§B.5) — drives the guided intake as a state machine:
   asks each unfilled Case File field in order (skip logic via `field_sources` presence), routes to
   a Knowledge Q&A side-branch and back when the user asks their own question mid-intake, shows a
   confirmation summary once everything's collected (re-extracting against every field so a
   correction like "actually it's 15 floors" is caught), then calls the classifier and returns the
   report. Fails open to the deterministic spine (treats messages as plain answers) when no LLM is
-  configured, rather than crashing — verified live with no `ANTHROPIC_API_KEY` set.
+  configured, rather than crashing — verified live with no LLM credentials set.
 - **Lightweight Q&A grounding** (`app/knowledge/context.py`) — a short, hand-built summary from the
   already-digitized rule data. **This is NOT the RAG system §B.8 describes** (chunked corpus,
   embeddings, metadata-filtered retrieval) — it's a stand-in that answers a handful of facts
@@ -57,12 +69,12 @@ Part B):
 
 ```bash
 pip install -r requirements.txt
-python -m pytest -q          # 31 tests, all against the real digitized rule data; none need network
-export ANTHROPIC_API_KEY=sk-ant-...   # required for /start and /message's LLM-driven parts
+python -m pytest -q          # 37 tests, all against the real digitized rule data; none need network
+export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start and /message
 python -m uvicorn app.main:app --reload   # http://127.0.0.1:8000/docs
 ```
 
-Without `ANTHROPIC_API_KEY` set, `/case-files/{id}/classify` + `/report` (the deterministic engine)
-still work fully; `/message` degrades to "Sorry, I didn't catch that" for every turn instead of
-extracting fields from free text — it will not crash, but it also won't be usable as a real chat
-experience without a key.
+Without `GROQ_API_KEY` (or `ANTHROPIC_API_KEY` if you've switched providers) set,
+`/case-files/{id}/classify` + `/report` (the deterministic engine) still work fully; `/message`
+degrades to "Sorry, I didn't catch that" for every turn instead of extracting fields from free text
+— it will not crash, but it also won't be usable as a real chat experience without a key.
