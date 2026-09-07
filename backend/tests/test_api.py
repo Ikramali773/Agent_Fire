@@ -1,13 +1,30 @@
 from fastapi.testclient import TestClient
 
+from app.api.case_files import get_llm_client
 from app.main import app
 from app.store import delete_all
 
 client = TestClient(app)
 
 
+class FakeLLMClient:
+    def classify_intent(self, user_text, pending_question):
+        return "answer"
+
+    def extract_fields(self, user_text, field_types, context=""):
+        return {"state": "Gujarat", "city": "Ahmedabad"} if "state" in field_types else {}
+
+    def answer_question(self, question, knowledge_context, model_tier="reasoning"):
+        return "fake answer"
+
+
 def setup_function() -> None:
     delete_all()
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient()
+
+
+def teardown_function() -> None:
+    app.dependency_overrides.clear()
 
 
 def test_health():
@@ -51,3 +68,27 @@ def test_full_flow_create_update_classify_report():
 def test_get_missing_case_file_404():
     resp = client.get("/case-files/does-not-exist")
     assert resp.status_code == 404
+
+
+def test_start_and_message_conversation_endpoints():
+    create_resp = client.post("/case-files", json=None)
+    session_id = create_resp.json()["session_id"]
+
+    start_resp = client.post(f"/case-files/{session_id}/start")
+    assert start_resp.status_code == 200
+    assert "state and city" in start_resp.json()["agent_message"]
+
+    message_resp = client.post(
+        f"/case-files/{session_id}/message", json={"message": "Gujarat, Ahmedabad"}
+    )
+    assert message_resp.status_code == 200
+    body = message_resp.json()
+    assert body["case_file"]["state"] == "Gujarat"
+    assert body["case_file"]["city"] == "Ahmedabad"
+
+
+def test_message_requires_message_field():
+    create_resp = client.post("/case-files", json=None)
+    session_id = create_resp.json()["session_id"]
+    resp = client.post(f"/case-files/{session_id}/message", json={})
+    assert resp.status_code == 422

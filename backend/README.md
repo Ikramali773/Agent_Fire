@@ -1,7 +1,7 @@
 # Fire Safety AI Agent — Backend (Phase 1)
 
 Implements the parts of the product scope's Phase 1 (`Fire_Safety_AI_Agent_Full_Scope_v3.md`,
-Part B) that don't require an LLM/vendor decision yet:
+Part B):
 
 - **Case File** data contract (`app/models/case_file.py`, §B.4) — plus one addition beyond the
   original spec: `occupancy_subdivision`, needed because Table 7A/7C/7E/7F's bands genuinely differ
@@ -15,15 +15,35 @@ Part B) that don't require an LLM/vendor decision yet:
   trusted — see `data/rules/nbcs_2026_partf/table7/table7a_residential.json`'s
   `band_matching_convention` for the exact rule used.
 - **Report generator** (`app/reports/generator.py`, §B.9) — templated Markdown; no LLM call.
-- **Minimal API** (`app/api/`, `app/main.py`) — create/update a case file, classify it, get the
-  report. This gives the eventual dialogue manager (§B.3, §B.5) a concrete backend to call into.
+- **LLM abstraction layer** (`app/llm/`) — the only code allowed to call an LLM, per the product
+  scope's Part G Principle 1 ("LLM reasons and explains; deterministic engines decide"). Wraps the
+  official `anthropic` SDK, model choice is env-driven (`FIRE_AGENT_ROUTINE_MODEL` default
+  `claude-haiku-4-5`, `FIRE_AGENT_REASONING_MODEL` default `claude-sonnet-5`, per §B.10's
+  cheap-routine / stronger-reasoning tiering). **This is a cost/quality tradeoff I made, not the
+  user** — bump `FIRE_AGENT_REASONING_MODEL` to `claude-opus-5` if higher quality is worth ~2.5x the
+  cost for this workload. Every LLM-calling method takes an injectable client so nothing needs a
+  real API key to test (see `tests/test_llm_client.py`).
+- **Dialogue Manager** (`app/dialogue/`, §B.3/§B.5) — drives the guided intake as a state machine:
+  asks each unfilled Case File field in order (skip logic via `field_sources` presence), routes to
+  a Knowledge Q&A side-branch and back when the user asks their own question mid-intake, shows a
+  confirmation summary once everything's collected (re-extracting against every field so a
+  correction like "actually it's 15 floors" is caught), then calls the classifier and returns the
+  report. Fails open to the deterministic spine (treats messages as plain answers) when no LLM is
+  configured, rather than crashing — verified live with no `ANTHROPIC_API_KEY` set.
+- **Lightweight Q&A grounding** (`app/knowledge/context.py`) — a short, hand-built summary from the
+  already-digitized rule data. **This is NOT the RAG system §B.8 describes** (chunked corpus,
+  embeddings, metadata-filtered retrieval) — it's a stand-in that answers a handful of facts
+  correctly and honestly says "I don't have that" for everything else, which is the safe behavior
+  until real retrieval exists. See that file's docstring before extending it.
+- **API** (`app/api/`, `app/main.py`) — CRUD + classify + report, plus `/start` and `/message` for
+  the conversational flow.
 
 ## Not yet built
 
-- The guided conversational intake / question tree (§B.5) and the LLM-driven Dialogue Manager
-  (§B.3) — blocked on an LLM provider decision (see the product scope §B.11 research item 1).
-- The fail-safe OCR/PDF ingest pipeline (§B.7).
-- The RAG knowledge base over the NBCS/NBC corpus (§B.8).
+- Document upload / OCR ingest pipeline (§B.7) — the Node 0 "upload a document" branch and Node 2a's
+  renewal-upload flow are not implemented; the dialogue manager only drives the guided-question path.
+- The residential early-exit shortcut (Node 3a) and per-component Mixed Use breakdown (Node 3b).
+- Real RAG knowledge base over the NBCS/NBC corpus (§B.8) — see the Q&A grounding caveat above.
 - Persistent storage — `app/store.py` is an explicitly-labeled in-memory placeholder; swapping it
   for PostgreSQL (per §B.10) is a self-contained infra task.
 - Mixed Use (Group K) classification — `classify()` currently routes Mixed Use straight to human
@@ -31,11 +51,18 @@ Part B) that don't require an LLM/vendor decision yet:
   Case File's `occupancy_breakdown` to be wired through the engine.
 - State NOC checklists (Gujarat, Maharashtra) — `applicable_state_checklist_id` is always `None` for
   now.
+- Voice I/O (§B.1 item 1) and a frontend of any kind — everything here is an API.
 
 ## Running it
 
 ```bash
 pip install -r requirements.txt
-python -m pytest -q          # 22 tests, all against the real digitized rule data
+python -m pytest -q          # 31 tests, all against the real digitized rule data; none need network
+export ANTHROPIC_API_KEY=sk-ant-...   # required for /start and /message's LLM-driven parts
 python -m uvicorn app.main:app --reload   # http://127.0.0.1:8000/docs
 ```
+
+Without `ANTHROPIC_API_KEY` set, `/case-files/{id}/classify` + `/report` (the deterministic engine)
+still work fully; `/message` degrades to "Sorry, I didn't catch that" for every turn instead of
+extracting fields from free text — it will not crash, but it also won't be usable as a real chat
+experience without a key.
