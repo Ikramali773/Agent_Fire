@@ -91,9 +91,25 @@ def start_conversation(case_file: CaseFile) -> TurnResult:
     return TurnResult(case_file=case_file, agent_message=OPENING_PROMPT + prompt)
 
 
+def _safe_answer_question(llm: LLMClient, question: str) -> str:
+    """Wraps llm.answer_question with the same fail-open behavior every other
+    LLM call in this module has. Both call sites below were, until a live
+    browser test caught it, missing this - Knowledge Q&A with no LLM
+    configured surfaced as an uncaught 500 instead of a graceful message.
+    """
+    try:
+        return llm.answer_question(question, build_summary_context())
+    except LLMNotConfiguredError:
+        return (
+            "I can't answer general questions right now - no LLM provider is "
+            "configured for this deployment. The building-detail questions "
+            "still work without one."
+        )
+
+
 def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnResult:
     if case_file.conversation_stage == ConversationStage.CLASSIFIED:
-        answer = llm.answer_question(user_message, build_summary_context())
+        answer = _safe_answer_question(llm, user_message)
         return TurnResult(case_file=case_file, agent_message=answer)
 
     if case_file.conversation_stage == ConversationStage.CONFIRMING:
@@ -133,7 +149,7 @@ def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnR
         intent = "answer"  # fail open to the deterministic spine when no LLM is configured
 
     if intent == "question":
-        answer = llm.answer_question(user_message, build_summary_context())
+        answer = _safe_answer_question(llm, user_message)
         return TurnResult(
             case_file=case_file,
             agent_message=f"{answer}\n\n(Back to: {pending_question})",

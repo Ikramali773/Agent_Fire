@@ -71,16 +71,34 @@ class LLMClient:
 
     @property
     def backend(self) -> LLMBackend:
+        # Constructing a backend object never fails - it's a plain object
+        # with a lazily-checked `.client` property (see GroqBackend/
+        # AnthropicBackend). So this is safe to cache unconditionally: it's
+        # NOT "did credentials check out", only "which backend to use".
+        # Credentials are (re-)checked on every call via _call(), below -
+        # caching the *result* of that check here was the original bug:
+        # the first failure got wrapped into LLMNotConfiguredError, but the
+        # object stayed cached, so every later call skipped this property
+        # entirely and let the raw, un-wrapped LLMBackendNotConfiguredError
+        # escape uncaught (seen live as a 500 on the second /message turn).
         if self._backend is None:
-            try:
-                self._backend = _build_real_backend(self.config.provider)
-                # Touch .client now so a missing key surfaces here, at the
-                # single call site every method already wraps, rather than
-                # differently in each of the three methods below.
-                self._backend.client  # type: ignore[attr-defined]
-            except LLMBackendNotConfiguredError as exc:
-                raise LLMNotConfiguredError(str(exc)) from exc
+            self._backend = _build_real_backend(self.config.provider)
         return self._backend
+
+    def _call(self, method_name: str, model_tier: Literal["routine", "reasoning"], *args, **kwargs):
+        """Invoke a backend method, translating every "this deployment isn't
+        set up right" failure into the one public, provider-independent
+        error - at every call, not just the first, so a still-unconfigured
+        backend (missing credentials, or FIRE_AGENT_LLM_PROVIDER typo'd to a
+        provider with no registered default models) fails the same clear
+        way on turn 1 and turn 100, rather than reaching the API layer as an
+        uncaught exception.
+        """
+        try:
+            model = self.config.model_for(model_tier)
+            return getattr(self.backend, method_name)(*args, model, **kwargs)
+        except (LLMBackendNotConfiguredError, ValueError) as exc:
+            raise LLMNotConfiguredError(str(exc)) from exc
 
     def extract_fields(
         self,
@@ -105,7 +123,7 @@ class LLMClient:
             "it - omit anything not mentioned. Never invent a value. "
             f"{context}"
         )
-        raw = self.backend.generate_json(system, user_text, schema, self.config.model_for(model_tier))
+        raw = self._call("generate_json", model_tier, system, user_text, schema)
 
         result = {}
         for name, typ in field_types.items():
@@ -136,9 +154,7 @@ class LLMClient:
             "to correct a previous answer, small talk)."
         )
         user_message = f"Agent asked: {pending_question}\nUser said: {user_text}"
-        raw = self.backend.generate_json(
-            system, user_message, schema, self.config.model_for("routine")
-        )
+        raw = self._call("generate_json", "routine", system, user_message, schema)
         intent = raw.get("intent")
         return intent if intent in ("answer", "question", "other") else "other"
 
@@ -168,6 +184,4 @@ class LLMClient:
             "material. This is advisory only, never a statutory approval.\n\n"
             f"REFERENCE MATERIAL:\n{knowledge_context}"
         )
-        return self.backend.generate_text(
-            system, question, self.config.model_for(model_tier), cache_system=True
-        )
+        return self._call("generate_text", model_tier, system, question, cache_system=True)

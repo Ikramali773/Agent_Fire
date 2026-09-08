@@ -7,6 +7,7 @@ verify elsewhere, without any real LLM call.
 import uuid
 
 from app.dialogue.manager import handle_turn, start_conversation
+from app.llm.client import LLMNotConfiguredError
 from app.models.case_file import CaseFile, ConversationStage
 
 
@@ -115,3 +116,45 @@ def test_unparseable_answer_reasks_same_question_without_advancing():
 
     assert "didn't catch that" in result.agent_message
     assert "state" not in result.case_file.field_sources
+
+
+class UnconfiguredLLMClient:
+    """Every method raises LLMNotConfiguredError, like a real LLMClient with
+    no API key set - used to prove handle_turn fails open everywhere it
+    calls the LLM, not just at the call sites earlier tests happened to
+    cover. Regression coverage for a bug a live browser test caught: the
+    Knowledge Q&A call sites (both the mid-intake side-branch and the
+    post-classification free-chat branch) weren't wrapped, so this exact
+    scenario raised an uncaught 500 instead of a graceful reply.
+    """
+
+    def classify_intent(self, user_text, pending_question):
+        raise LLMNotConfiguredError("no key")
+
+    def extract_fields(self, user_text, field_types, context=""):
+        raise LLMNotConfiguredError("no key")
+
+    def answer_question(self, question, knowledge_context, model_tier="reasoning"):
+        raise LLMNotConfiguredError("no key")
+
+
+def test_qa_side_branch_fails_open_when_llm_not_configured():
+    case_file = make_case_file()
+    start_conversation(case_file)
+
+    # classify_intent raising falls back to "answer" (existing behavior),
+    # so this exercises extract_fields's fail-open path, not answer_question's -
+    # see the CLASSIFIED-stage test below for that one.
+    result = handle_turn(case_file, "some message", UnconfiguredLLMClient())
+
+    assert "didn't catch that" in result.agent_message
+
+
+def test_classified_stage_qa_fails_open_when_llm_not_configured():
+    case_file = make_case_file()
+    case_file.conversation_stage = ConversationStage.CLASSIFIED
+
+    result = handle_turn(case_file, "what's a refuge area?", UnconfiguredLLMClient())
+
+    assert "no LLM provider is configured" in result.agent_message
+    assert result.case_file.conversation_stage == ConversationStage.CLASSIFIED

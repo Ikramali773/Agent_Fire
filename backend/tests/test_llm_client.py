@@ -111,6 +111,19 @@ def test_llm_client_without_credentials_raises_clear_error():
         llm.classify_intent("hello", "pending question")
 
 
+def test_llm_client_without_credentials_fails_the_same_way_on_every_call():
+    # Regression test: caught live via the frontend browser test - the first
+    # call correctly wrapped the missing-credentials error, but the backend
+    # object stayed cached, so the SECOND call on the same LLMClient instance
+    # skipped the wrapping and let the raw, provider-specific
+    # LLMBackendNotConfiguredError escape uncaught (a 500 in the API, not the
+    # graceful "didn't catch that" fallback dialogue/manager.py depends on).
+    llm = LLMClient()
+    for _ in range(3):
+        with pytest.raises(LLMNotConfiguredError):
+            llm.classify_intent("hello", "pending question")
+
+
 def test_config_switches_provider_and_models_via_env(monkeypatch):
     monkeypatch.setenv("FIRE_AGENT_LLM_PROVIDER", "anthropic")
     config = LLMConfig()
