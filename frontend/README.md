@@ -13,6 +13,15 @@ README for what's actually implemented server-side.
   File's `field_sources` map so it only shows what's actually been confirmed, never a guess.
 - **Report viewer** (`src/components/ReportView.tsx`) — modal that fetches and renders the
   Markdown compliance report (`react-markdown`) once the case reaches `classified`.
+- **Document upload widget** (`src/components/DocumentUpload.tsx`) — a persistent "📎 Upload a
+  plan, NOC letter, or certificate" attach button next to the chat input, available at any point in
+  the conversation. Validates the file type client-side (PDF/PNG/JPEG) before sending; the backend
+  does the real OCR work (`../backend/app/ingest/README.md`). Posts the upload as `multipart/form-data`
+  to `POST /case-files/{id}/documents`, then renders the result as a chat message (which fields were
+  found, a low-confidence warning if the OCR tier used wasn't a clean text-layer read, or a plain
+  explanation if no LLM was configured to turn the extracted text into fields) and refreshes the
+  case summary panel — an uploaded field shows up there and is skipped in the guided intake, same as
+  a typed answer.
 - **API client** (`src/api/client.ts`) — thin fetch wrapper; `types.ts` mirrors the backend's
   `CaseFile` Pydantic model by hand (no generated client yet — a later cleanup, not a blocker).
 
@@ -27,10 +36,15 @@ regression tests, in the same session) that unit tests alone had missed:
   headings, bullet lists, bold labels all intact).
 - The graceful "no LLM configured" fallback message displays correctly instead of a crash or a
   blank error, on every turn (not just the first).
+- The document upload widget was exercised the same way, against a real backend backed by a real
+  local Postgres instance: selected a real generated PDF, uploaded it, confirmed the "Reading
+  document…" state, confirmed the resulting chat message and no console errors, and independently
+  confirmed via `psql` that the upload was persisted onto the Case File's `source_documents`.
 
 Not yet verified: a real end-to-end chat conversation with an actual Groq/Anthropic key (no key was
-available in the environment this was built in) — voice I/O and document upload aren't built on
-either side yet, so there's nothing to test there.
+available in the environment this was built in) — that also means the document upload flow has only
+been verified in its no-LLM-configured degraded mode (OCR runs, field extraction is skipped); voice
+I/O isn't built on either side yet.
 
 ## Running it
 
@@ -54,7 +68,9 @@ npm run lint    # oxlint
 
 - Voice input/output toggle (§B.1 lists voice as in-scope for Phase 1; not implemented on either
   the frontend or backend side).
-- File upload widget (blocked on the backend's OCR ingest pipeline, §B.7, which doesn't exist yet).
+- The dialogue manager doesn't yet *offer* the upload widget as an intake step — it's a standing
+  option the user has to notice, not something the agent proposes (e.g. "want to upload your plan
+  instead?"). See the backend README's "Not yet built" section.
 - Auth/accounts, project history — Phase 1 is explicitly single-session only per the product scope.
 - A generated API client — `src/types.ts` is hand-maintained against the backend's Pydantic models
   and will drift if one changes without the other; fine for now, worth automating later.

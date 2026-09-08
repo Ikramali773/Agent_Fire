@@ -33,3 +33,19 @@ class LLMBackend(Protocol):
         is free to ignore it.
         """
         ...
+
+    def generate_json_from_image(
+        self,
+        system: str,
+        user_message: str,
+        image_b64: str,
+        media_type: str,
+        json_schema: dict,
+        model: str,
+    ) -> dict:
+        """Tier 4 of the OCR pipeline (§B.7.1) - same contract as
+        generate_json, but the user turn includes an image. image_b64 is
+        raw base64 (no data: URI prefix - each backend formats that itself,
+        since Anthropic and Groq expect different shapes).
+        """
+        ...

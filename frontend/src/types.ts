@@ -47,6 +47,20 @@ export interface ChatTurnResponse {
   case_file: CaseFile;
 }
 
+export interface IngestSummary {
+  tier_used: number;
+  confidence: number;
+  needs_human_review: boolean;
+  fields_extracted: string[];
+  failure_reason: string | null;
+  fact_extraction_skipped_reason: string | null;
+}
+
+export interface DocumentUploadResponse {
+  summary: IngestSummary;
+  case_file: CaseFile;
+}
+
 export interface ChatMessage {
   role: "agent" | "user";
   text: string;

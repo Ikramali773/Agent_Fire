@@ -64,6 +64,16 @@ def _coerce_field(name: str, raw_value, expected_type: type):
         return None
 
 
+def _coerce_extracted_fields(raw: dict, field_types: dict[str, type]) -> dict:
+    result = {}
+    for name, typ in field_types.items():
+        if name in raw and raw[name] is not None:
+            coerced = _coerce_field(name, raw[name], typ)
+            if coerced is not None:
+                result[name] = coerced
+    return result
+
+
 class LLMClient:
     def __init__(self, backend: LLMBackend | None = None, config: LLMConfig = DEFAULT_CONFIG) -> None:
         self._backend = backend
@@ -85,7 +95,7 @@ class LLMClient:
             self._backend = _build_real_backend(self.config.provider)
         return self._backend
 
-    def _call(self, method_name: str, model_tier: Literal["routine", "reasoning"], *args, **kwargs):
+    def _call(self, method_name: str, model_tier: Literal["routine", "reasoning", "vision"], *args, **kwargs):
         """Invoke a backend method, translating every "this deployment isn't
         set up right" failure into the one public, provider-independent
         error - at every call, not just the first, so a still-unconfigured
@@ -124,14 +134,45 @@ class LLMClient:
             f"{context}"
         )
         raw = self._call("generate_json", model_tier, system, user_text, schema)
+        return _coerce_extracted_fields(raw, field_types)
 
-        result = {}
-        for name, typ in field_types.items():
-            if name in raw and raw[name] is not None:
-                coerced = _coerce_field(name, raw[name], typ)
-                if coerced is not None:
-                    result[name] = coerced
-        return result
+    def extract_fields_from_image(
+        self,
+        image_bytes: bytes,
+        media_type: str,
+        field_types: dict[str, type],
+        context: str = "",
+    ) -> dict:
+        """Tier 4 of the OCR pipeline (§B.7.1): read fields directly off a
+        page image via a vision-capable model, for when Tiers 1-3 (text
+        layer, standard OCR, preprocessed OCR retry - app/ingest/tiers.py)
+        all produced low-confidence or empty results. Same
+        validate-and-drop-per-field behavior as extract_fields - never
+        trusts the model followed the schema exactly.
+        """
+        import base64
+
+        image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+        schema = build_json_schema(field_types)
+        system = (
+            "You extract structured facts about a building from a page image "
+            "(a scanned architectural plan, NOC letter, or certificate) in a "
+            "fire-safety compliance intake. Only fill in a field if the image "
+            "actually shows or clearly implies it - omit anything not legible "
+            "or not present. Never invent a value, and if handwriting or a "
+            "stamp makes a field ambiguous, omit it rather than guess. "
+            f"{context}"
+        )
+        raw = self._call(
+            "generate_json_from_image",
+            "vision",
+            system,
+            "Extract the requested fields from this document image.",
+            image_b64,
+            media_type,
+            schema,
+        )
+        return _coerce_extracted_fields(raw, field_types)
 
     def classify_intent(
         self, user_text: str, pending_question: str

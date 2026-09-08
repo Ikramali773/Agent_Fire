@@ -87,6 +87,41 @@
   font-style: italic;
 }
 
+.document-upload {
+  padding: 0 12px;
+  border-top: 1px solid var(--border);
+}
+
+.document-upload__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.document-upload__label {
+  display: inline-block;
+  margin: 10px 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.document-upload__label:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.document-upload__input:disabled + .document-upload__label {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .chat-input-row {
   display: flex;
   gap: 8px;

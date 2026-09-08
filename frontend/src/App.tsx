@@ -4,7 +4,7 @@ import { api, ApiError } from "./api/client";
 import { CaseSummaryPanel } from "./components/CaseSummaryPanel";
 import { ChatWindow } from "./components/ChatWindow";
 import { ReportView } from "./components/ReportView";
-import type { CaseFile, ChatMessage } from "./types";
+import type { CaseFile, ChatMessage, IngestSummary } from "./types";
 
 const DISCLAIMER =
   "Advisory only — not a statutory approval. Confirm with a licensed fire consultant before filing.";
@@ -56,6 +56,25 @@ function App() {
     [caseFile],
   );
 
+  const handleUploadDocument = useCallback(
+    async (file: File) => {
+      if (!caseFile) return;
+      setError(null);
+      try {
+        const result = await api.uploadDocument(caseFile.session_id, file);
+        setCaseFile(result.case_file);
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", text: `📎 Uploaded ${file.name}` },
+          { role: "agent", text: describeUploadSummary(result.summary) },
+        ]);
+      } catch (err) {
+        setError(describeError(err));
+      }
+    },
+    [caseFile],
+  );
+
   const handleOpenReport = useCallback(async () => {
     if (!caseFile) return;
     setReportOpen(true);
@@ -87,6 +106,7 @@ function App() {
         <ChatWindow
           messages={messages}
           onSend={handleSend}
+          onUploadDocument={handleUploadDocument}
           disabled={busy}
           placeholder={busy ? "Waiting for a response…" : "Type your answer…"}
         />
@@ -110,6 +130,29 @@ function App() {
       )}
     </div>
   );
+}
+
+function describeUploadSummary(summary: IngestSummary): string {
+  if (summary.tier_used === 0) {
+    return `Couldn't read that file: ${summary.failure_reason ?? "unknown error"}`;
+  }
+
+  const parts: string[] = [];
+  if (summary.fields_extracted.length > 0) {
+    parts.push(
+      `Found: ${summary.fields_extracted.join(", ")} — please confirm these are correct.`,
+    );
+  } else if (summary.fact_extraction_skipped_reason) {
+    parts.push(summary.fact_extraction_skipped_reason);
+  } else {
+    parts.push("I read the document but didn't find any details I could confidently extract.");
+  }
+
+  if (summary.needs_human_review && summary.fields_extracted.length > 0) {
+    parts.push("This was a lower-confidence read (tier " + summary.tier_used + ") — please double-check it.");
+  }
+
+  return parts.join(" ");
 }
 
 function describeError(err: unknown): string {

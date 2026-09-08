@@ -63,3 +63,33 @@ class AnthropicBackend(LLMBackend):
             messages=[{"role": "user", "content": user_message}],
         )
         return next((b.text for b in response.content if b.type == "text"), "")
+
+    def generate_json_from_image(
+        self,
+        system: str,
+        user_message: str,
+        image_b64: str,
+        media_type: str,
+        json_schema: dict,
+        model: str,
+    ) -> dict:
+        response = self.client.messages.create(
+            model=model,
+            max_tokens=1024,
+            system=system,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {"type": "base64", "media_type": media_type, "data": image_b64},
+                        },
+                        {"type": "text", "text": user_message},
+                    ],
+                }
+            ],
+            output_config={"format": {"type": "json_schema", "schema": json_schema}},
+        )
+        text = next(b.text for b in response.content if b.type == "text")
+        return json.loads(text)

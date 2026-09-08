@@ -1,4 +1,4 @@
-import type { CaseFile, ChatTurnResponse } from "../types";
+import type { CaseFile, ChatTurnResponse, DocumentUploadResponse } from "../types";
 
 // Vite exposes env vars prefixed VITE_ on import.meta.env. Default targets
 // the backend's local dev port (see backend/README.md - uvicorn defaults to
@@ -41,6 +41,23 @@ export const api = {
 
   getReport: (sessionId: string) =>
     request<{ markdown: string }>(`/case-files/${sessionId}/report`),
+
+  uploadDocument: async (sessionId: string, file: File): Promise<DocumentUploadResponse> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    // No Content-Type header here on purpose - the browser sets
+    // multipart/form-data with the correct boundary itself; setting it
+    // manually (as the JSON request() helper above does) breaks the upload.
+    const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}/documents`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
+    }
+    return response.json() as Promise<DocumentUploadResponse>;
+  },
 };
 
 export { ApiError };

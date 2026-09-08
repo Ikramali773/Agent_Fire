@@ -22,13 +22,25 @@ import os
 from dataclasses import dataclass, field
 from typing import Literal
 
-ModelTier = Literal["routine", "reasoning"]
+ModelTier = Literal["routine", "reasoning", "vision"]
 
 # Groq model IDs current as of this build (see https://console.groq.com/docs/models -
-# verify against that page, Groq's free-tier lineup changes over time).
+# verify against that page, Groq's free-tier lineup changes over time). The
+# vision tier (Tier 4 of the OCR pipeline, §B.7.1) needs a multimodal model -
+# Llama 4 Scout is Groq's smallest/cheapest vision-capable option; Claude
+# models are vision-capable from Haiku up, so the reasoning-tier model
+# doubles as the vision default on Anthropic.
 _PROVIDER_DEFAULT_MODELS: dict[str, dict[ModelTier, str]] = {
-    "groq": {"routine": "llama-3.1-8b-instant", "reasoning": "llama-3.3-70b-versatile"},
-    "anthropic": {"routine": "claude-haiku-4-5", "reasoning": "claude-sonnet-5"},
+    "groq": {
+        "routine": "llama-3.1-8b-instant",
+        "reasoning": "llama-3.3-70b-versatile",
+        "vision": "meta-llama/llama-4-scout-17b-16e-instruct",
+    },
+    "anthropic": {
+        "routine": "claude-haiku-4-5",
+        "reasoning": "claude-sonnet-5",
+        "vision": "claude-sonnet-5",
+    },
 }
 
 
@@ -41,9 +53,16 @@ class LLMConfig:
     _reasoning_override: str = field(
         default_factory=lambda: os.environ.get("FIRE_AGENT_REASONING_MODEL", "")
     )
+    _vision_override: str = field(
+        default_factory=lambda: os.environ.get("FIRE_AGENT_VISION_MODEL", "")
+    )
 
     def model_for(self, tier: ModelTier) -> str:
-        override = self._routine_override if tier == "routine" else self._reasoning_override
+        override = {
+            "routine": self._routine_override,
+            "reasoning": self._reasoning_override,
+            "vision": self._vision_override,
+        }[tier]
         if override:
             return override
         defaults = _PROVIDER_DEFAULT_MODELS.get(self.provider)

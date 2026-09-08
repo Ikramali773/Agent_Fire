@@ -1,3 +1,4 @@
+import pymupdf
 from fastapi.testclient import TestClient
 
 from app.api.case_files import get_llm_client
@@ -92,3 +93,54 @@ def test_message_requires_message_field():
     session_id = create_resp.json()["session_id"]
     resp = client.post(f"/case-files/{session_id}/message", json={})
     assert resp.status_code == 422
+
+
+def _make_text_pdf_bytes(lines: list[str]) -> bytes:
+    doc = pymupdf.open()
+    page = doc.new_page()
+    y = 72
+    for line in lines:
+        page.insert_text((72, y), line, fontsize=14)
+        y += 24
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
+
+
+def test_document_upload_extracts_and_merges_fields():
+    create_resp = client.post("/case-files", json=None)
+    session_id = create_resp.json()["session_id"]
+
+    pdf_bytes = _make_text_pdf_bytes(["Fire NOC Certificate", "State: Gujarat", "City: Ahmedabad"])
+    resp = client.post(
+        f"/case-files/{session_id}/documents",
+        files={"file": ("noc.pdf", pdf_bytes, "application/pdf")},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["summary"]["tier_used"] == 1
+    assert body["case_file"]["state"] == "Gujarat"
+    assert body["case_file"]["field_sources"]["state"]["source"] == "document"
+    assert len(body["case_file"]["source_documents"]) == 1
+    assert body["case_file"]["source_documents"][0]["filename"] == "noc.pdf"
+
+
+def test_document_upload_rejects_unsupported_type():
+    create_resp = client.post("/case-files", json=None)
+    session_id = create_resp.json()["session_id"]
+
+    resp = client.post(
+        f"/case-files/{session_id}/documents",
+        files={"file": ("doc.docx", b"whatever", "application/msword")},
+    )
+    assert resp.status_code == 415
+
+
+def test_document_upload_missing_case_file_404():
+    pdf_bytes = _make_text_pdf_bytes(["hello world this is long enough text"])
+    resp = client.post(
+        "/case-files/does-not-exist/documents",
+        files={"file": ("noc.pdf", pdf_bytes, "application/pdf")},
+    )
+    assert resp.status_code == 404

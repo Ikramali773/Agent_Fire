@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../types";
+import { DocumentUpload } from "./DocumentUpload";
 
 interface Props {
   messages: ChatMessage[];
   onSend: (text: string) => void;
+  onUploadDocument: (file: File) => Promise<void>;
   disabled: boolean;
   placeholder: string;
 }
 
-export function ChatWindow({ messages, onSend, disabled, placeholder }: Props) {
+export function ChatWindow({ messages, onSend, onUploadDocument, disabled, placeholder }: Props) {
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -35,6 +37,7 @@ export function ChatWindow({ messages, onSend, disabled, placeholder }: Props) {
         {disabled && <div className="chat-bubble chat-bubble--agent chat-bubble--typing">…</div>}
         <div ref={bottomRef} />
       </div>
+      <DocumentUpload onUpload={onUploadDocument} disabled={disabled} />
       <form className="chat-input-row" onSubmit={handleSubmit}>
         <input
           type="text"

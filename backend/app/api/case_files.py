@@ -15,15 +15,24 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from dataclasses import asdict
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.dialogue.manager import handle_turn, start_conversation
 from app.engine.classifier import classify
+from app.ingest.apply import ingest_document
 from app.llm.client import LLMClient
 from app.models.case_file import CaseFile, ConversationStage
 from app.reports.generator import generate_report_markdown
 from app.store import get as store_get
 from app.store import save as store_save
+
+# Matches app/ingest/pipeline.py's supported content types - kept here too
+# so a bad upload is rejected with a clear 415 before any file processing,
+# rather than reaching the pipeline's own (also-safe) unsupported-type path.
+_SUPPORTED_UPLOAD_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
+_MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB - generous for a scanned plan/letter, not unbounded
 
 router = APIRouter(prefix="/case-files", tags=["case-files"])
 
@@ -113,3 +122,38 @@ def send_message(
     result = handle_turn(case_file, user_message, llm)
     store_save(result.case_file)
     return {"agent_message": result.agent_message, "case_file": result.case_file}
+
+
+@router.post("/{session_id}/documents")
+async def upload_document(
+    session_id: str,
+    file: UploadFile = File(...),
+    llm: LLMClient = Depends(get_llm_client),
+) -> dict:
+    """Product scope §B.7 - runs the tiered OCR/vision pipeline on an
+    uploaded PDF/PNG/JPEG, extracts whatever Case File facts it can, and
+    merges them in as document-sourced (never higher-confidence than a
+    user's own chat answer - see app/ingest/apply.py). Every field this
+    finds still needs the same B.5 Node 8 confirmation as any other
+    document-sourced fact before a report is generated - this endpoint pre-
+    fills, it never finalizes.
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+
+    if file.content_type not in _SUPPORTED_UPLOAD_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type '{file.content_type}'. Upload a PDF, PNG, or JPEG.",
+        )
+
+    file_bytes = await file.read()
+    if len(file_bytes) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (20 MB limit).")
+
+    updated_case_file, summary = ingest_document(
+        case_file, file_bytes, file.content_type, file.filename or "upload", llm
+    )
+    store_save(updated_case_file)
+    return {"summary": asdict(summary), "case_file": updated_case_file}

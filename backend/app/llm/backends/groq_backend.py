@@ -67,3 +67,38 @@ class GroqBackend(LLMBackend):
             max_tokens=1024,
         )
         return response.choices[0].message.content or ""
+
+    def generate_json_from_image(
+        self,
+        system: str,
+        user_message: str,
+        image_b64: str,
+        media_type: str,
+        json_schema: dict,
+        model: str,
+    ) -> dict:
+        schema_instruction = (
+            "Respond with ONLY a single JSON object - no markdown fences, no "
+            "explanation before or after it. It must be valid JSON matching "
+            f"this shape (omit any key you're not confident about): {json.dumps(json_schema)}"
+        )
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": f"{system}\n\n{schema_instruction}"},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": user_message},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{media_type};base64,{image_b64}"},
+                        },
+                    ],
+                },
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=1024,
+        )
+        content = response.choices[0].message.content or "{}"
+        return json.loads(content)
