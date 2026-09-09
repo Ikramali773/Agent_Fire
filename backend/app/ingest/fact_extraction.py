@@ -15,6 +15,7 @@ from typing import Literal
 
 from app.dialogue.nodes import OCCUPANCY_OPTIONS
 from app.llm.client import LLMClient
+from app.models.case_file import FloorAreaItem
 
 DOCUMENT_FIELD_TYPES: dict[str, type] = {
     "project_name": str,
@@ -25,6 +26,7 @@ DOCUMENT_FIELD_TYPES: dict[str, type] = {
     "floors_above_ground": int,
     "floors_below_ground": int,
     "built_up_area_sqm": float,
+    "floor_wise_area": list[FloorAreaItem],
     "number_of_staircases": int,
     "number_of_exits": int,
     "existing_fire_systems": list[str],
@@ -34,7 +36,11 @@ _CONTEXT = (
     "This text was extracted from an uploaded document (an architectural "
     "plan title block, an existing NOC letter, or an architect's "
     "certificate) - not typed directly by the user. Only fill in a field "
-    "if the document text actually states it."
+    "if the document text actually states it. A drawing's 'area statement' "
+    "or similar schedule (often marked '[Table(s) detected on this page]' "
+    "in this text, with rows separated by ' | ') usually gives "
+    "floor_wise_area - one entry per floor/level with its own area_sqm, "
+    "distinct from built_up_area_sqm which is the whole building's total."
 )
 
 

@@ -92,6 +92,22 @@ class OccupancyBreakdownItem(BaseModel):
     )
 
 
+class FloorAreaItem(BaseModel):
+    """One row of a floor-wise area breakdown - an addition beyond the
+    original B.4 schema (which only has a single built_up_area_sqm total).
+    Added because architectural drawings' "area statement" schedules give
+    area per floor, not just a building total, and that's useful to capture
+    even though today's digitized NBCS Table 7 lookups still key off the
+    single built_up_area_sqm total (see classifier.py) - this is
+    informational/report-facing only, not a classification input, per an
+    explicit product decision to not invent NBCS clause logic that doesn't
+    exist in the digitized rule data.
+    """
+
+    floor: str
+    area_sqm: float
+
+
 class SourceDocument(BaseModel):
     filename: str
     pages: int = 0
@@ -150,6 +166,7 @@ class CaseFile(BaseModel):
     floors_above_ground: Optional[int] = None
     floors_below_ground: Optional[int] = None
     built_up_area_sqm: Optional[float] = None
+    floor_wise_area: list[FloorAreaItem] = Field(default_factory=list)
     number_of_staircases: Optional[int] = None
     number_of_exits: Optional[int] = None
     existing_fire_systems: list[str] = Field(default_factory=list)

@@ -1,4 +1,4 @@
-import type { CaseFile } from "../types";
+import type { CaseFile, FloorAreaItem, OccupancyBreakdownItem } from "../types";
 
 interface Props {
   caseFile: CaseFile | null;
@@ -10,6 +10,7 @@ const FIELD_LABELS: Record<string, string> = {
   occupancy_type: "Occupancy",
   occupancy_subdivision: "Subdivision",
   industrial_hazard_band: "Hazard band",
+  occupancy_breakdown: "Occupancy breakdown",
   height_m: "Height (m)",
   floors_above_ground: "Floors above ground",
   floors_below_ground: "Floors below ground",
@@ -19,8 +20,28 @@ const FIELD_LABELS: Record<string, string> = {
   existing_fire_systems: "Existing fire systems",
 };
 
-function formatValue(value: unknown): string {
+// floor_wise_area has no intake node (document-upload-only, see backend
+// dialogue/nodes.py) so it isn't gated by field_sources the way the fields
+// above are - it's shown separately, below, whenever the list is non-empty.
+
+function formatOccupancyBreakdown(items: OccupancyBreakdownItem[]): string {
+  return items
+    .map((item) => {
+      let bit = `${item.type} (${item.floor_range}`;
+      if (item.floor_area_sqm !== null) bit += `, ${item.floor_area_sqm} sqm`;
+      if (item.subdivision) bit += `, ${item.subdivision}`;
+      return bit + ")";
+    })
+    .join("; ");
+}
+
+function formatFloorWiseArea(items: FloorAreaItem[]): string {
+  return items.map((item) => `${item.floor}: ${item.area_sqm} sqm`).join("; ");
+}
+
+function formatValue(name: string, value: unknown): string {
   if (value === null || value === undefined) return "—";
+  if (name === "occupancy_breakdown") return formatOccupancyBreakdown(value as OccupancyBreakdownItem[]);
   if (Array.isArray(value)) return value.length ? value.join(", ") : "None";
   return String(value);
 }
@@ -37,16 +58,22 @@ export function CaseSummaryPanel({ caseFile }: Props) {
   return (
     <aside className="summary-panel">
       <h2>Case summary</h2>
-      {knownFields.length === 0 ? (
+      {knownFields.length === 0 && caseFile.floor_wise_area.length === 0 ? (
         <p className="summary-panel__empty">Nothing collected yet — answer the questions in chat.</p>
       ) : (
         <dl>
           {knownFields.map((name) => (
             <div className="summary-panel__row" key={name}>
               <dt>{FIELD_LABELS[name]}</dt>
-              <dd>{formatValue((caseFile as unknown as Record<string, unknown>)[name])}</dd>
+              <dd>{formatValue(name, (caseFile as unknown as Record<string, unknown>)[name])}</dd>
             </div>
           ))}
+          {caseFile.floor_wise_area.length > 0 && (
+            <div className="summary-panel__row">
+              <dt>Floor-wise area</dt>
+              <dd>{formatFloorWiseArea(caseFile.floor_wise_area)}</dd>
+            </div>
+          )}
         </dl>
       )}
 

@@ -11,6 +11,9 @@ README for what's actually implemented server-side.
 - **Case summary panel** (`src/components/CaseSummaryPanel.tsx`) — shows every field the agent has
   collected so far, and the classification result once available. Reads directly off the Case
   File's `field_sources` map so it only shows what's actually been confirmed, never a guess.
+  Mixed Use's `occupancy_breakdown` and document-extracted `floor_wise_area` (a per-floor area
+  breakdown from a drawing's area-statement table) each get their own readable formatting instead of
+  the generic array-to-string fallback, which would otherwise print raw `[object Object]` entries.
 - **Report viewer** (`src/components/ReportView.tsx`) — modal that fetches and renders the
   Markdown compliance report (`react-markdown`) once the case reaches `classified`.
 - **Document upload widget** (`src/components/DocumentUpload.tsx`) — a persistent "📎 Upload a

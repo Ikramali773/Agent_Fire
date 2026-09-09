@@ -58,6 +58,60 @@ class TestTier1TextLayer:
         assert result.confidence == 0.0
 
 
+def make_table_pdf(rows: list[list[str]], col_widths: list[int] | None = None) -> bytes:
+    """A ruled-line (vector) table, like an architectural drawing's area
+    statement or door schedule box - real grid lines, not just aligned text,
+    so pymupdf's find_tables() has real structure to detect.
+    """
+    doc = pymupdf.open()
+    page = doc.new_page()
+    x0, y0 = 50, 50
+    row_h = 20
+    widths = col_widths or [100] * len(rows[0])
+    total_width = sum(widths)
+    n_rows = len(rows)
+
+    for r in range(n_rows + 1):
+        page.draw_line((x0, y0 + r * row_h), (x0 + total_width, y0 + r * row_h))
+    x = x0
+    for w in [0, *widths]:
+        x += w if w != 0 else 0
+        page.draw_line((x, y0), (x, y0 + n_rows * row_h))
+
+    for r, row in enumerate(rows):
+        x = x0
+        for c, value in enumerate(row):
+            page.insert_text((x + 5, y0 + r * row_h + 15), value, fontsize=9)
+            x += widths[c]
+
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
+
+
+class TestTier1TableDetection:
+    def test_ruled_line_table_is_extracted_as_structured_rows(self):
+        pdf_bytes = make_table_pdf(
+            [
+                ["Floor", "Area (sqm)", "Remarks"],
+                ["Ground", "120.5", "Retail"],
+                ["First", "110.0", "Office"],
+            ]
+        )
+
+        result = extract_text_layer(pdf_bytes)
+
+        assert "Table(s) detected on this page" in result.text
+        assert "Floor | Area (sqm) | Remarks" in result.text
+        assert "Ground | 120.5 | Retail" in result.text
+        assert "First | 110.0 | Office" in result.text
+
+    def test_page_with_no_table_is_unaffected(self):
+        pdf_bytes = make_text_pdf(["Just a plain paragraph of drawing notes, no table here."])
+        result = extract_text_layer(pdf_bytes)
+        assert "Table(s) detected" not in result.text
+
+
 class TestTier2And3Ocr:
     def test_ocr_standard_reads_rendered_text_correctly(self):
         pdf_bytes = make_text_pdf(["Built-up area: 4500 sqm", "Floors above ground: 10"])

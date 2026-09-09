@@ -6,9 +6,9 @@ verify elsewhere, without any real LLM call.
 
 import uuid
 
-from app.dialogue.manager import handle_turn, start_conversation
+from app.dialogue.manager import _confirmation_summary, handle_turn, start_conversation
 from app.llm.client import LLMNotConfiguredError
-from app.models.case_file import CaseFile, ConversationStage
+from app.models.case_file import CaseFile, ConversationStage, FloorAreaItem
 
 
 class ScriptedLLMClient:
@@ -84,6 +84,25 @@ def test_full_intake_reaches_classification_for_storage_building():
     assert case_file.classification_result.applies is True
     assert case_file.classification_result.table_7_ref == "7H"
     assert "7H" in result.agent_message
+
+
+def test_confirmation_summary_shows_document_only_floor_wise_area():
+    """floor_wise_area has no intake node (it's document-upload-only, see
+    dialogue/nodes.py) so it's never in _ALL_FIELD_TYPES - this proves it's
+    still surfaced to the user in the confirmation step when a document
+    upload populated it, rather than silently invisible.
+    """
+    case_file = make_case_file()
+    case_file.floor_wise_area = [
+        FloorAreaItem(floor="Ground", area_sqm=120.5),
+        FloorAreaItem(floor="First", area_sqm=110.0),
+    ]
+
+    summary = _confirmation_summary(case_file)
+
+    assert "floor_wise_area" in summary
+    assert "Ground: 120.5 sqm" in summary
+    assert "First: 110.0 sqm" in summary
 
 
 def test_renewal_goal_nudges_towards_document_upload():

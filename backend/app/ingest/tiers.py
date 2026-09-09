@@ -36,6 +36,38 @@ class TierResult:
     method: str
 
 
+def _extract_tables_as_text(page: pymupdf.Page) -> str:
+    """Architectural drawing sheets (plans, elevations) commonly carry a
+    ruled-line schedule table somewhere on the page - an area statement
+    (floor-wise breakdown), a door schedule, a title block. page.get_text()
+    alone flattens the whole page in roughly left-to-right/top-to-bottom
+    reading order, which scrambles a table's rows/columns together with
+    whatever else is drawn around it (dimension labels, notes, the drawing
+    itself) into word soup an LLM can't reliably map back to fields.
+    find_tables() instead uses the page's own ruling lines to recover the
+    actual row/column structure, so a table gets handed to the LLM as
+    genuine rows rather than scrambled text. Only works for a vector
+    (ruled-line) table in a native-text PDF - Tiers 2/3's OCR path has no
+    equivalent bounding-box table reconstruction yet, a known gap for
+    scanned/rasterized drawings.
+    """
+    try:
+        tables = page.find_tables()
+    except Exception:
+        return ""
+    blocks = []
+    for table in tables.tables:
+        try:
+            rows = table.extract()
+        except Exception:
+            continue
+        if not rows:
+            continue
+        lines = [" | ".join("" if cell is None else str(cell) for cell in row) for row in rows]
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
 def extract_text_layer(pdf_bytes: bytes) -> TierResult:
     """Tier 1: direct text-layer extraction. Confidence is a heuristic, not
     a real per-character score - native PDF text is either there and
@@ -44,7 +76,13 @@ def extract_text_layer(pdf_bytes: bytes) -> TierResult:
     """
     doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     try:
-        pages_text = [page.get_text() for page in doc]
+        pages_text = []
+        for page in doc:
+            page_text = page.get_text()
+            table_text = _extract_tables_as_text(page)
+            if table_text:
+                page_text = f"{page_text}\n\n[Table(s) detected on this page]\n{table_text}"
+            pages_text.append(page_text)
     finally:
         doc.close()
     text = "\n\n".join(pages_text).strip()

@@ -111,6 +111,10 @@ def _format_occupancy_breakdown(items: list) -> str:
     return "; ".join(parts)
 
 
+def _format_floor_wise_area(items: list) -> str:
+    return "; ".join(f"{item.floor}: {item.area_sqm} sqm" for item in items)
+
+
 def _format_field_value(name: str, value) -> str:
     if name == "occupancy_breakdown" and value:
         return _format_occupancy_breakdown(value)
@@ -124,6 +128,12 @@ def _confirmation_summary(case_file: CaseFile) -> str:
         value = getattr(case_file, name, None)
         if source is not None:
             lines.append(f"- {name}: {_format_field_value(name, value)}")
+    # floor_wise_area is document-upload-only (no intake node asks for it -
+    # see dialogue/nodes.py's module docstring), so it's never in
+    # _ALL_FIELD_TYPES above; shown here whenever a document supplied it so
+    # the user can actually see and correct what was extracted.
+    if case_file.floor_wise_area:
+        lines.append(f"- floor_wise_area: {_format_floor_wise_area(case_file.floor_wise_area)}")
     lines.append("\nIs this all correct, or is anything off?")
     return "\n".join(lines)
 

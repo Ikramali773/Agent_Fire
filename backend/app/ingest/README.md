@@ -11,6 +11,16 @@ Each tier only runs if the one before it wasn't good enough — cheapest/fastest
 1. **Text layer** (`tiers.extract_text_layer`) — PyMuPDF pulls the PDF's native text layer
    directly, no image rendering or OCR at all. Free and exact when it works (a plan exported from
    CAD/Word), which is why it's tried first. Only applies to PDFs; skipped for PNG/JPEG.
+   Additionally runs PyMuPDF's `page.find_tables()` on every page (`tiers._extract_tables_as_text`)
+   and appends any ruled-line table it finds as clean `" | "`-delimited rows, tagged
+   `[Table(s) detected on this page]`. This matters a lot for architectural drawings specifically:
+   an "area statement" or door-schedule table sits inside its own ruled box on the sheet, and
+   `get_text()` alone flattens the whole page in roughly reading order - scrambling a table's
+   rows/columns together with whatever's drawn around it (dimension labels, notes, the drawing
+   itself) into word soup an LLM can't reliably map back to fields. `find_tables()` instead uses the
+   page's own ruling lines to recover the real row/column structure. Only works for a vector table
+   in a native-text PDF; Tiers 2/3's OCR path has no equivalent yet (a known gap for scanned/
+   rasterized drawings - see "What isn't built here yet").
 2. **Standard OCR** (`tiers.ocr_standard`) — for scanned PDFs/images: rasterize each page
    (`tiers.render_pdf_pages`, 200 DPI), auto-correct orientation via Tesseract's OSD
    (`tiers._fix_orientation` — a real, observed Tesseract limitation: OSD needs multiple lines of
@@ -34,7 +44,9 @@ Each tier only runs if the one before it wasn't good enough — cheapest/fastest
 ## Turning text into fields (`fact_extraction.extract_case_file_facts`)
 
 Whatever text came out of the tiers above is run through the same `LLMClient.extract_fields`
-machinery the chat flow uses, against `DOCUMENT_FIELD_TYPES` (the Case File's structured fields).
+machinery the chat flow uses, against `DOCUMENT_FIELD_TYPES` (the Case File's structured fields,
+including `floor_wise_area` - a nested `list[FloorAreaItem]` the LLM fills straight from a detected
+table's rows, distinct from `built_up_area_sqm`'s single whole-building total).
 `apply.ingest_document` then merges anything extracted into the Case File with
 `FieldSourceKind.DOCUMENT`, at a confidence scaled by *that upload's* OCR/vision confidence
 (`result.confidence / 100.0`) — not a flat number — per the product scope's warning that text
@@ -46,6 +58,13 @@ explains why no fields came out of it — this never crashes or drops the docume
 ## What isn't built here yet
 
 - Real per-field confidence from the vision tier (see the "always human review" note above).
+- Table reconstruction for the OCR path (Tiers 2/3) — `find_tables()` only works on a native-text
+  PDF's vector ruling lines; a scanned/photographed drawing's schedule table still gets flattened
+  into plain OCR text with no row/column structure recovered.
+- Fields the OCR pipeline still doesn't extract even with table detection — kitchen presence/count
+  and a door count/schedule were considered and deliberately deferred (per an explicit product
+  decision) since today's digitized NBCS Table 7 lookups don't key off either one; only floor-wise
+  area was added, as a report-facing/informational field.
 - The dialogue manager doesn't yet *offer* uploading as an intake step — see the backend README's
   "Not yet built" section.
 - Multi-document conflict handling (two uploads disagreeing on the same field) beyond "last upload

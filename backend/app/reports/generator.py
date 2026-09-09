@@ -37,30 +37,40 @@ def _fmt(value) -> str:
     return str(value)
 
 
+def _floor_wise_area_line(case_file: CaseFile) -> str:
+    breakdown = ", ".join(f"{item.floor}: {item.area_sqm} sqm" for item in case_file.floor_wise_area)
+    source = case_file.field_sources.get("floor_wise_area")
+    source_tag = f" _({_FIELD_SOURCE_LABEL[source.source]})_" if source else ""
+    return f"- **Floor-wise area:** {breakdown}{source_tag}"
+
+
 def _case_summary_lines(case_file: CaseFile) -> list[str]:
     lines = []
     plain_fields = [
-        ("Project name", case_file.project_name),
-        ("State", case_file.state),
-        ("City", case_file.city),
-        ("Occupancy", _fmt(case_file.occupancy_type)),
-        ("Occupancy subdivision", _fmt(case_file.occupancy_subdivision)),
-        ("Industrial hazard band", _fmt(case_file.industrial_hazard_band)),
-        ("Height (m)", _fmt(case_file.height_m)),
-        ("Floors above ground", _fmt(case_file.floors_above_ground)),
-        ("Floors below ground", _fmt(case_file.floors_below_ground)),
-        ("Built-up area (sqm)", _fmt(case_file.built_up_area_sqm)),
-        ("Number of staircases", _fmt(case_file.number_of_staircases)),
-        ("Number of exits", _fmt(case_file.number_of_exits)),
+        ("Project name", "project_name", case_file.project_name),
+        ("State", "state", case_file.state),
+        ("City", "city", case_file.city),
+        ("Occupancy", "occupancy_type", _fmt(case_file.occupancy_type)),
+        ("Occupancy subdivision", "occupancy_subdivision", _fmt(case_file.occupancy_subdivision)),
+        ("Industrial hazard band", "industrial_hazard_band", _fmt(case_file.industrial_hazard_band)),
+        ("Height (m)", "height_m", _fmt(case_file.height_m)),
+        ("Floors above ground", "floors_above_ground", _fmt(case_file.floors_above_ground)),
+        ("Floors below ground", "floors_below_ground", _fmt(case_file.floors_below_ground)),
+        ("Built-up area (sqm)", "built_up_area_sqm", _fmt(case_file.built_up_area_sqm)),
+        ("Number of staircases", "number_of_staircases", _fmt(case_file.number_of_staircases)),
+        ("Number of exits", "number_of_exits", _fmt(case_file.number_of_exits)),
         (
             "Existing fire systems",
+            "existing_fire_systems",
             ", ".join(case_file.existing_fire_systems) if case_file.existing_fire_systems else "None declared",
         ),
     ]
-    for label, value in plain_fields:
-        source = case_file.field_sources.get(label)
+    for label, field_name, value in plain_fields:
+        source = case_file.field_sources.get(field_name)
         source_tag = f" _({_FIELD_SOURCE_LABEL[source.source]})_" if source else ""
         lines.append(f"- **{label}:** {value}{source_tag}")
+    if case_file.floor_wise_area:
+        lines.append(_floor_wise_area_line(case_file))
     return lines
 
 

@@ -6,9 +6,11 @@ Part B):
 - **Case File** data contract (`app/models/case_file.py`, §B.4) — plus additions beyond the original
   spec: `occupancy_subdivision`, needed because Table 7A/7C/7E/7F's bands genuinely differ by
   subdivision (e.g. A-I lodging house vs A-V starred hotel) and the original B.4 schema had no field
-  for it; and `OccupancyBreakdownItem.floor_area_sqm`/`.subdivision`, needed for the same reason on a
+  for it; `OccupancyBreakdownItem.floor_area_sqm`/`.subdivision`, needed for the same reason on a
   per-component basis once Mixed Use classification (below) actually looks up each component's own
-  Table 7 band instead of only tracking which occupancies are present.
+  Table 7 band instead of only tracking which occupancies are present; and `floor_wise_area`
+  (`FloorAreaItem`), a per-floor area breakdown extracted from a drawing's area-statement table
+  (below) — report-facing/informational only, since no digitized NBCS clause currently keys off it.
 - **Deterministic classification engine** (`app/engine/`, §B.6) — reads the digitized rule data at
   `../data/rules/nbcs_2026_partf/` and never guesses: applicability, the high-rise flag, and Table 7
   band matching are all driven by structured criteria traceable to a specific clause. Where the
@@ -95,6 +97,12 @@ Part B):
   treated as more trustworthy just because it came from a plan. Verified against real PDFs (both
   native-text and rasterized "scanned-looking" ones) run through real Tesseract — no mocked OCR in
   the test suite for Tiers 1–3. Reachable via `POST /case-files/{id}/documents` (multipart upload).
+  - **Table detection** — Tier 1 also runs PyMuPDF's `find_tables()` on every page, so a drawing's
+    ruled-line schedule (an area statement, a door schedule) gets handed to the LLM as real rows
+    instead of scrambled-together flat text. This is what makes `floor_wise_area` (a per-floor area
+    breakdown, distinct from the single `built_up_area_sqm` total) reliably extractable from a real
+    architectural drawing. Only covers native-text PDFs' vector tables today — the OCR path (Tiers
+    2/3) has no equivalent table reconstruction yet, a known gap for scanned/photographed drawings.
 - **API** (`app/api/`, `app/main.py`) — CRUD + classify + report, `/start` and `/message` for
   the conversational flow, and `/documents` for document upload.
 - **Database persistence** (`app/db/`, §B.10) — `app/store.py` (the only seam every caller uses)
@@ -135,7 +143,7 @@ Part B):
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 106 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 113 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and

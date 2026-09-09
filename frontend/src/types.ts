@@ -21,6 +21,18 @@ export interface FieldSource {
 
 export type ConversationStage = "intake" | "confirming" | "classified" | "report_ready";
 
+export interface OccupancyBreakdownItem {
+  type: string;
+  floor_range: string;
+  floor_area_sqm: number | null;
+  subdivision: string | null;
+}
+
+export interface FloorAreaItem {
+  floor: string;
+  area_sqm: number;
+}
+
 export interface CaseFile {
   session_id: string;
   project_name: string;
@@ -29,11 +41,13 @@ export interface CaseFile {
   occupancy_type: string | null;
   occupancy_subdivision: string | null;
   industrial_hazard_band: string | null;
+  occupancy_breakdown: OccupancyBreakdownItem[];
   height_m: number | null;
   is_high_rise: boolean | null;
   floors_above_ground: number | null;
   floors_below_ground: number | null;
   built_up_area_sqm: number | null;
+  floor_wise_area: FloorAreaItem[];
   number_of_staircases: number | null;
   number_of_exits: number | null;
   existing_fire_systems: string[];
