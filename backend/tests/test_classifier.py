@@ -77,12 +77,7 @@ class TestHighRiseFlag:
 
 class TestTable7Lookup:
     def test_storage_building_matches_correct_band(self):
-        case_file = make_case_file(
-            occupancy_type=OccupancyType.STORAGE,
-            height_m=9.5,
-            built_up_area_sqm=600,
-        )
-        result = lookup_table7("Storage", None, case_file)
+        result = lookup_table7("Storage", None, height_m=9.5, area_sqm=600)
         assert result.table_ref == "7H"
         assert len(result.matched_bands) == 1
         assert result.matched_bands[0].band_id == "HL-5"
@@ -90,50 +85,31 @@ class TestTable7Lookup:
         assert result.matched_bands[0].installations["automatic_wet_sprinkler_system"] == "NR"
 
     def test_industrial_g3_high_hazard_small_area(self):
-        case_file = make_case_file(
-            occupancy_type=OccupancyType.INDUSTRIAL,
-            industrial_hazard_band=IndustrialHazardBand.G3_HIGH,
-            height_m=16,
-            built_up_area_sqm=200,
+        result = lookup_table7(
+            "Industrial", IndustrialHazardBand.G3_HIGH, height_m=16, area_sqm=200
         )
-        result = lookup_table7("Industrial", IndustrialHazardBand.G3_HIGH, case_file)
         assert result.table_ref == "7G"
         assert result.matched_bands[0].band_id == "CL-4"
 
     def test_residential_without_subdivision_raises(self):
-        case_file = make_case_file(
-            occupancy_type=OccupancyType.RESIDENTIAL, height_m=30, built_up_area_sqm=2000
-        )
         try:
-            lookup_table7("Residential", None, case_file)
+            lookup_table7("Residential", None, height_m=30, area_sqm=2000)
             assert False, "expected ClassificationError requiring occupancy_subdivision"
         except ClassificationError as exc:
             assert "occupancy_subdivision" in str(exc)
 
     def test_residential_starred_hotel_with_subdivision(self):
-        case_file = make_case_file(
-            occupancy_type=OccupancyType.RESIDENTIAL,
-            occupancy_subdivision="A-V",
-            height_m=40,
-            built_up_area_sqm=5000,
+        result = lookup_table7(
+            "Residential", None, height_m=40, area_sqm=5000, occupancy_subdivision="A-V"
         )
-        result = lookup_table7("Residential", None, case_file)
         assert result.matched_bands[0].band_id == "CL-5"
 
     def test_hazardous_single_storey_vs_multi_storey(self):
-        single = make_case_file(
-            occupancy_type=OccupancyType.HAZARDOUS,
-            height_m=10,
-            built_up_area_sqm=300,
-            floors_above_ground=1,
+        result_single = lookup_table7(
+            "Hazardous", None, height_m=10, area_sqm=300, floors_above_ground=1
         )
-        multi = make_case_file(
-            occupancy_type=OccupancyType.HAZARDOUS,
-            height_m=10,
-            built_up_area_sqm=300,
-            floors_above_ground=3,
+        result_multi = lookup_table7(
+            "Hazardous", None, height_m=10, area_sqm=300, floors_above_ground=3
         )
-        result_single = lookup_table7("Hazardous", None, single)
-        result_multi = lookup_table7("Hazardous", None, multi)
         assert result_single.matched_bands[0].band_id == "CL-7"
         assert result_multi.matched_bands[0].band_id == "CL-8"

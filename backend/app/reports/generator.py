@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from app.engine import state_checklists
 from app.models.case_file import CaseFile, FieldSourceKind
 
 _DISCLAIMER = (
@@ -63,6 +64,28 @@ def _case_summary_lines(case_file: CaseFile) -> list[str]:
     return lines
 
 
+def _state_checklist_lines(case_file: CaseFile) -> list[str]:
+    if not case_file.state:
+        return ["- State not specified yet - no checklist to show."]
+
+    checklist = state_checklists.get_checklist_for_state(case_file.state)
+    if checklist is None:
+        return [
+            f"- No NOC checklist is available yet for {case_file.state} - "
+            "currently only Gujarat and Maharashtra have one wired up (and, "
+            "as of this report, even those are placeholders - see below)."
+        ]
+
+    lines = [f"- Checklist ID: `{checklist['checklist_id']}`"]
+    if checklist["status"] == "placeholder":
+        lines.append(f"- ⚠ **PLACEHOLDER — NOT A REAL GOVERNMENT CHECKLIST.** {checklist['disclaimer']}")
+    else:
+        lines.append(f"- Source: {checklist.get('source') or 'Not recorded'}")
+    for item in checklist["items"]:
+        lines.append(f"  - {item}")
+    return lines
+
+
 def generate_report_markdown(case_file: CaseFile) -> str:
     result = case_file.classification_result
     today = date.today().isoformat()
@@ -100,9 +123,7 @@ def generate_report_markdown(case_file: CaseFile) -> str:
     lines.append("")
 
     lines.append("## 4. State NOC Checklist")
-    lines.append(
-        f"- Applicable state checklist: {result.applicable_state_checklist_id or 'Not yet available for this state'}"
-    )
+    lines.extend(_state_checklist_lines(case_file))
     lines.append("")
 
     lines.append("## 5. Gaps Identified / Notes")

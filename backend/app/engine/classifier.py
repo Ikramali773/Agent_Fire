@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-from app.engine import rules_loader
+from app.engine import rules_loader, state_checklists
 from app.models.case_file import (
     CaseFile,
     ClassificationResult,
@@ -161,11 +161,15 @@ def compute_is_high_rise(height_m: Optional[float]) -> Optional[bool]:
     return height_m >= 24
 
 
-def _facts_from_case_file(case_file: CaseFile) -> dict:
+def _build_facts(
+    height_m: Optional[float],
+    area_sqm: Optional[float],
+    floors_above_ground: Optional[int],
+) -> dict:
     return {
-        "height_m": case_file.height_m,
-        "area_sqm": case_file.built_up_area_sqm,
-        "floors_above_ground": case_file.floors_above_ground,
+        "height_m": height_m,
+        "area_sqm": area_sqm,
+        "floors_above_ground": floors_above_ground,
         # Not yet part of the Case File schema (B.4) - included so a band
         # that references them fails safe (no fact -> clause doesn't match)
         # rather than raising, until these fields are added.
@@ -177,12 +181,22 @@ def _facts_from_case_file(case_file: CaseFile) -> dict:
 def lookup_table7(
     occupancy_key: str,
     hazard_band: Optional[IndustrialHazardBand],
-    case_file: CaseFile,
+    height_m: Optional[float],
+    area_sqm: Optional[float],
+    floors_above_ground: Optional[int] = None,
+    occupancy_subdivision: Optional[str] = None,
 ) -> Table7LookupResult:
+    """Looks up a single occupancy's Table 7 band from explicit facts rather
+    than a CaseFile, so the same lookup can serve both a single-occupancy
+    building (classify(), passing the whole building's own facts) and one
+    component of a Mixed Use building (classify_mixed_use(), passing that
+    component's own floor_area_sqm/subdivision against the shared building
+    height_m) without duplicating this logic.
+    """
     group_letter = rules_loader.group_letter_for_occupancy(occupancy_key)
     if group_letter == "K":
         raise ClassificationError(
-            "Mixed Use has no dedicated Table 7 - use lookup_mixed_use() instead"
+            "Mixed Use has no dedicated Table 7 - use classify_mixed_use() instead"
         )
 
     table = rules_loader.get_table7(group_letter)
@@ -190,13 +204,12 @@ def lookup_table7(
 
     self_cert = table.get("self_certification_threshold")
     self_cert_applies = False
-    if self_cert and case_file.height_m is not None and case_file.built_up_area_sqm is not None:
+    if self_cert and height_m is not None and area_sqm is not None:
         self_cert_applies = (
-            case_file.built_up_area_sqm <= self_cert["area_sqm_max"]
-            and case_file.height_m <= self_cert["height_m_max"]
+            area_sqm <= self_cert["area_sqm_max"] and height_m <= self_cert["height_m_max"]
         )
 
-    facts = _facts_from_case_file(case_file)
+    facts = _build_facts(height_m, area_sqm, floors_above_ground)
 
     rows = table["rows"]
     if group_letter == "G":
@@ -212,17 +225,17 @@ def lookup_table7(
         # Table has multiple genuinely different subdivisions (e.g. 7A's A-I
         # lodging house vs A-V starred hotel) - never match across all of
         # them silently, that would blend unrelated R/NR grids together.
-        if case_file.occupancy_subdivision is None:
+        if occupancy_subdivision is None:
             raise ClassificationError(
                 f"Table {table_ref} has multiple subdivisions "
                 f"({sorted({r['subdivision'] for r in rows})}) - "
-                "case_file.occupancy_subdivision must be set to disambiguate "
-                "before a band can be matched."
+                "occupancy_subdivision must be set to disambiguate before a "
+                "band can be matched."
             )
-        rows = [r for r in rows if r["subdivision"] == case_file.occupancy_subdivision]
+        rows = [r for r in rows if r["subdivision"] == occupancy_subdivision]
         if not rows:
             raise ClassificationError(
-                f"occupancy_subdivision '{case_file.occupancy_subdivision}' does not "
+                f"occupancy_subdivision '{occupancy_subdivision}' does not "
                 f"match any subdivision in Table {table_ref}"
             )
 
@@ -251,22 +264,32 @@ def lookup_table7(
 
 
 def classify(case_file: CaseFile) -> ClassificationResult:
-    result = ClassificationResult()
-
+    """Entry point used by dialogue/manager.py. Dispatches to the single-
+    occupancy path or classify_mixed_use(), then attaches the state NOC
+    checklist ID (§B.10) either way - state and occupancy are independent
+    axes, so this must not live inside either classification path itself.
+    """
     if case_file.occupancy_type is None:
+        result = ClassificationResult()
         result.notes.append("occupancy_type is required before classification can run.")
+        result.applicable_state_checklist_id = state_checklists.checklist_id_for_state(
+            case_file.state
+        )
         return result
 
     occupancy_key = case_file.occupancy_type.value
 
     if occupancy_key == "Mixed Use":
-        result.notes.append(
-            "Mixed Use classification requires per-component occupancy breakdown "
-            "(case_file.occupancy_breakdown) - union-of-clauses logic is not yet "
-            "implemented in this engine; route to human review."
-        )
-        result.require_human_review_flag = True
-        return result
+        result = classify_mixed_use(case_file)
+    else:
+        result = _classify_single_occupancy(case_file, occupancy_key)
+
+    result.applicable_state_checklist_id = state_checklists.checklist_id_for_state(case_file.state)
+    return result
+
+
+def _classify_single_occupancy(case_file: CaseFile, occupancy_key: str) -> ClassificationResult:
+    result = ClassificationResult()
 
     try:
         applies, note = check_applicability(
@@ -291,7 +314,14 @@ def classify(case_file: CaseFile) -> ClassificationResult:
     result.is_high_rise = compute_is_high_rise(case_file.height_m)
 
     try:
-        lookup = lookup_table7(occupancy_key, case_file.industrial_hazard_band, case_file)
+        lookup = lookup_table7(
+            occupancy_key,
+            case_file.industrial_hazard_band,
+            case_file.height_m,
+            case_file.built_up_area_sqm,
+            case_file.floors_above_ground,
+            case_file.occupancy_subdivision,
+        )
     except ClassificationError as exc:
         result.notes.append(str(exc))
         result.require_human_review_flag = True
@@ -354,6 +384,224 @@ def classify(case_file: CaseFile) -> ClassificationResult:
             f"{case_file.occupancy_type.value} occupancy carries a mandatory "
             "human/expert review flag - never present this classification as "
             "fully automated or final without specialist consultation."
+        )
+
+    return result
+
+
+def _separation_matrix_key(
+    occupancy_key: str, hazard_band: Optional[IndustrialHazardBand]
+) -> str:
+    """Maps a component's occupancy (+ hazard band, for Industrial) to the
+    key used in the Group K separation matrix's rows/columns - the matrix
+    splits Industrial into three keys (Industrial-Low/Moderate/High) rather
+    than one, unlike everywhere else in this engine.
+    """
+    if occupancy_key != "Industrial":
+        return occupancy_key
+    if hazard_band is None:
+        raise ClassificationError(
+            "industrial_hazard_band is required for an Industrial component of a "
+            "Mixed Use building"
+        )
+    return {
+        IndustrialHazardBand.G1_LOW: "Industrial-Low(G-1)",
+        IndustrialHazardBand.G2_MODERATE: "Industrial-Moderate(G-2)",
+        IndustrialHazardBand.G3_HIGH: "Industrial-High(G-3)",
+    }[hazard_band]
+
+
+def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
+    """Clause 3.1.11 (Group K / Mixed Occupancy), product scope §B.6.3.
+
+    Per data/rules/nbcs_2026_partf/group_k_mixed_occupancy_separation.json's
+    own "application_rule": a mixed-use building's fire protection is
+    governed by the MOST RESTRICTIVE provisions among the individual
+    occupancies present (a union of each component's own Table 7 band, not
+    an average or a single blended lookup), plus a pairwise fire-separation
+    rating between every two occupancies actually present - and some pairs
+    are flatly "NP" (not permitted), which this treats as a hard human-review
+    trigger rather than something to silently paper over.
+
+    Each component is classified against the *whole building's* height_m
+    (one physical building has one height) but its *own* floor_area_sqm
+    (Table 7 bands are height/area-driven, and a component's footprint is
+    what actually determines its band) - see OccupancyBreakdownItem's
+    docstring for why floor_area_sqm exists beyond the original B.4 schema.
+    """
+    result = ClassificationResult()
+    result.table_7_ref = "K (union of component Table 7 bands + separation matrix, clause 3.1.11)"
+
+    breakdown = case_file.occupancy_breakdown
+    if len(breakdown) < 2:
+        result.notes.append(
+            "Mixed Use classification needs at least two occupancy_breakdown "
+            f"components (case_file.occupancy_breakdown) - only {len(breakdown)} given."
+        )
+        result.require_human_review_flag = True
+        return result
+
+    component_keys: list[str] = []
+    any_applies = False
+    all_matched_bands: list[BandMatch] = []
+    mandatory_review_component = False
+
+    for item in breakdown:
+        occupancy_key = item.type.value
+
+        if occupancy_key == "Mixed Use":
+            result.notes.append(
+                "A Mixed Use component cannot itself be 'Mixed Use' - skipped; "
+                "list its actual occupancies instead."
+            )
+            result.require_human_review_flag = True
+            continue
+
+        if item.type in _MANDATORY_REVIEW_OCCUPANCIES:
+            mandatory_review_component = True
+
+        hazard_band = case_file.industrial_hazard_band if occupancy_key == "Industrial" else None
+
+        try:
+            component_keys.append(_separation_matrix_key(occupancy_key, hazard_band))
+        except ClassificationError as exc:
+            result.notes.append(str(exc))
+            result.require_human_review_flag = True
+            continue
+
+        if item.floor_area_sqm is None:
+            result.notes.append(
+                f"{occupancy_key} component ({item.floor_range}) has no floor_area_sqm - "
+                "cannot classify this component; route to human review."
+            )
+            result.require_human_review_flag = True
+            continue
+
+        try:
+            applies, _note = check_applicability(
+                occupancy_key, hazard_band, case_file.height_m, item.floor_area_sqm
+            )
+        except ClassificationError as exc:
+            result.notes.append(f"{occupancy_key} component ({item.floor_range}): {exc}")
+            result.require_human_review_flag = True
+            continue
+        if applies:
+            any_applies = True
+
+        try:
+            lookup = lookup_table7(
+                occupancy_key,
+                hazard_band,
+                case_file.height_m,
+                item.floor_area_sqm,
+                case_file.floors_above_ground,
+                item.subdivision,
+            )
+        except ClassificationError as exc:
+            result.notes.append(f"{occupancy_key} component ({item.floor_range}): {exc}")
+            result.require_human_review_flag = True
+            continue
+
+        if not lookup.matched_bands:
+            result.notes.append(
+                f"No Table {lookup.table_ref} band matched the {occupancy_key} component "
+                f"({item.floor_range}) - route to human review."
+            )
+            result.require_human_review_flag = True
+            continue
+
+        band = lookup.matched_bands[0]
+        all_matched_bands.append(band)
+        result.applicable_clauses.append(
+            f"[{occupancy_key}, {item.floor_range}] Table {lookup.table_ref} band "
+            f"{band.band_id} ({band.subdivision}): {band.condition_text}"
+        )
+        if band.confidence == "interpreted":
+            result.notes.append(
+                f"{occupancy_key} component band {band.band_id} was matched using an "
+                "INTERPRETED reading of a compound height/area condition - verify "
+                "against the source document before treating this as final."
+            )
+        if lookup.ambiguous:
+            result.notes.append(
+                f"More than one Table {lookup.table_ref} band matched the "
+                f"{occupancy_key} component ({item.floor_range}) - the most specific/"
+                "first match was used. Review the other candidate bands."
+            )
+            result.require_human_review_flag = True
+
+    result.applies = any_applies if component_keys else None
+
+    if all_matched_bands:
+        # A single cross-occupancy protection_level isn't meaningful (a
+        # Business "HL-2" and a Storage "CL-4" aren't on the same scale), so
+        # rather than invent a ranking, expose the union of every matched
+        # band's required installations - this IS the "most restrictive
+        # provisions" rule from clause 3.1.11.2, just computed field-by-field
+        # instead of picking one band to represent the whole building.
+        union_required: set[str] = set()
+        for band in all_matched_bands:
+            if band.installations:
+                union_required.update(k for k, v in band.installations.items() if v == "R")
+        if union_required:
+            result.applicable_clauses.append(
+                "Union of installations required across all occupancies present "
+                f"('most restrictive provisions', clause 3.1.11.2): {', '.join(sorted(union_required))}"
+            )
+
+    separation_matrix = rules_loader.get_group_k_separation_matrix()["matrix"]
+    seen_pairs: set[frozenset[str]] = set()
+    not_permitted_pairs: list[tuple[str, str]] = []
+    for i, key_a in enumerate(component_keys):
+        for key_b in component_keys[i + 1 :]:
+            pair = frozenset((key_a, key_b))
+            if key_a == key_b or pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            rating = separation_matrix.get(key_a, {}).get(key_b)
+            if rating is None:
+                rating = separation_matrix.get(key_b, {}).get(key_a)
+            if rating is None:
+                result.notes.append(
+                    f"No separation rating found between {key_a} and {key_b} in the "
+                    "Group K separation matrix - route to human review."
+                )
+                result.require_human_review_flag = True
+            elif rating == "NP":
+                not_permitted_pairs.append((key_a, key_b))
+            else:
+                result.applicable_clauses.append(
+                    f"Separation required between {key_a} and {key_b}: {rating} minutes "
+                    "fire resistance rating (clause 3.1.11.1)."
+                )
+
+    for key_a, key_b in not_permitted_pairs:
+        result.notes.append(
+            f"⚠ {key_a} and {key_b} is a NOT PERMITTED occupancy combination "
+            "per the Group K separation table (clause 3.1.11) - this combination "
+            "requires either a design change or specialist/authority approval."
+        )
+    if not_permitted_pairs:
+        result.require_human_review_flag = True
+
+    if case_file.number_of_staircases == 1:
+        result.notes.append(SINGLE_STAIRCASE_SURVIVOR_NOTE)
+
+    result.is_high_rise = compute_is_high_rise(case_file.height_m)
+    if result.is_high_rise:
+        annex_d = rules_loader.get_annex_d_high_rise()
+        result.applicable_clauses.append(
+            f"High Rise (height >= 24 m, clause 2.39): {annex_d['title']} (Annex D) "
+            "applies in addition to the requirements above."
+        )
+
+    if mandatory_review_component:
+        result.require_human_review_flag = True
+        result.notes.append(
+            "This Mixed Use building includes an Institutional and/or Hazardous "
+            "component, which carries a mandatory human/expert review flag - never "
+            "present this classification as fully automated or final without "
+            "specialist consultation."
         )
 
     return result

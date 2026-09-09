@@ -6,11 +6,13 @@ counts as filled the moment it has a source entry, regardless of value, so a
 node is never re-asked once answered (including "none" / empty-list answers).
 
 Deliberately deferred for this pass (see backend/README.md): the Node 0
-document-upload branch (needs OCR, §B.7), Node 2a's renewal-upload flow, the
-Node 3a residential early-exit shortcut, and Node 3b's per-component mixed-
-occupancy breakdown UI. The linear spine (location -> goal -> occupancy ->
-[hazard band] -> [subdivision] -> height -> area -> egress -> existing
-systems -> confirm -> classify) is what's implemented.
+document-upload branch offering itself proactively inside the guided flow
+(the upload endpoint and widget exist, but the dialogue manager doesn't yet
+suggest it as a step for every goal, only renewal - see Node 2a in
+manager.py). The linear spine (location -> goal -> occupancy ->
+[occupancy_breakdown for Mixed Use] -> [hazard band] -> [subdivision] ->
+height -> area -> [egress -> existing systems, skipped by Node 3a] -> confirm
+-> classify) is what's implemented.
 """
 
 from __future__ import annotations
@@ -18,7 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Literal
 
-from app.models.case_file import CaseFile
+from app.engine import rules_loader
+from app.models.case_file import CaseFile, OccupancyBreakdownItem, OccupancyType
 
 # Occupancies where Table 7's bands genuinely differ by subdivision (see
 # backend/app/models/case_file.py's occupancy_subdivision docstring) - only
@@ -96,6 +99,29 @@ def _subdivision_literal(case_file: CaseFile) -> type:
     return Literal[tuple(options.keys())]  # type: ignore[valid-type]
 
 
+def residential_self_cert_eligible(case_file: CaseFile) -> bool:
+    """Node 3a: the residential early-exit shortcut. True once a Residential
+    building's height and area are both known and fall within Table 7A's own
+    self-certification threshold (read from the digitized rule data, not a
+    hardcoded copy of it - see data/rules/nbcs_2026_partf/table7/
+    table7a_residential.json's self_certification_threshold) - at that point
+    classify() will report self-certification as sufficient regardless of
+    egress/existing-systems detail, so asking those questions first only
+    delays a result the engine already knows.
+    """
+    if case_file.occupancy_type != OccupancyType.RESIDENTIAL:
+        return False
+    if case_file.height_m is None or case_file.built_up_area_sqm is None:
+        return False
+    threshold = rules_loader.get_table7("A").get("self_certification_threshold")
+    if not threshold:
+        return False
+    return (
+        case_file.built_up_area_sqm <= threshold["area_sqm_max"]
+        and case_file.height_m <= threshold["height_m_max"]
+    )
+
+
 NODES: list[Node] = [
     Node(
         id="location",
@@ -124,6 +150,26 @@ NODES: list[Node] = [
         context=f"Valid occupancy_type values: {OCCUPANCY_OPTIONS}.",
     ),
     Node(
+        id="occupancy_breakdown",
+        field_types={"occupancy_breakdown": list[OccupancyBreakdownItem]},
+        prompt=lambda cf: (
+            "Since this is a Mixed Use building, list each occupancy present "
+            "and its approximate floor area — e.g. 'ground floor retail "
+            "(Mercantile), 800 sqm; floors 1–5 residential apartments, 4500 "
+            "sqm total'."
+        ),
+        context=(
+            "Extract each occupancy component as an item with: type (one of "
+            f"{[o for o in OCCUPANCY_OPTIONS if o != 'Mixed Use']} — never "
+            "'Mixed Use' itself for a component), floor_range (free text like "
+            "'G' or '1-5'), floor_area_sqm (that component's OWN approximate "
+            "floor area, not the whole building's), and subdivision only if "
+            "clearly implied (e.g. a starred/5-star hotel component -> "
+            "'A-V'; an underground shopping complex component -> 'F-II')."
+        ),
+        applicable=lambda cf: cf.occupancy_type is not None and cf.occupancy_type.value == "Mixed Use",
+    ),
+    Node(
         id="hazard_band",
         field_types={"industrial_hazard_band": Literal["G-1", "G-2", "G-3"]},
         prompt=lambda cf: (
@@ -132,7 +178,10 @@ NODES: list[Node] = [
             "hazard (G-3)?"
         ),
         context="Map the user's description to G-1 (low), G-2 (moderate), or G-3 (high).",
-        applicable=lambda cf: cf.occupancy_type is not None and cf.occupancy_type.value == "Industrial",
+        applicable=lambda cf: (
+            (cf.occupancy_type is not None and cf.occupancy_type.value == "Industrial")
+            or any(item.type == OccupancyType.INDUSTRIAL for item in cf.occupancy_breakdown)
+        ),
     ),
     Node(
         id="subdivision",
@@ -168,6 +217,7 @@ NODES: list[Node] = [
         id="egress",
         field_types={"number_of_staircases": int, "number_of_exits": int},
         prompt=lambda cf: "How many staircases and exits does the building currently have (or are planned)?",
+        applicable=lambda cf: not residential_self_cert_eligible(cf),
     ),
     Node(
         id="existing_systems",
@@ -177,6 +227,7 @@ NODES: list[Node] = [
             "extinguishers, fire alarm, sprinklers, hydrants, wet/dry riser? "
             "List whatever applies, or say 'none yet.'"
         ),
+        applicable=lambda cf: not residential_self_cert_eligible(cf),
     ),
 ]
 """Data-collecting nodes only (Node 1-7 of B.5). The confirmation step

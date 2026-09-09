@@ -3,10 +3,12 @@
 Implements the parts of the product scope's Phase 1 (`Fire_Safety_AI_Agent_Full_Scope_v3.md`,
 Part B):
 
-- **Case File** data contract (`app/models/case_file.py`, §B.4) — plus one addition beyond the
-  original spec: `occupancy_subdivision`, needed because Table 7A/7C/7E/7F's bands genuinely differ
-  by subdivision (e.g. A-I lodging house vs A-V starred hotel) and the original B.4 schema had no
-  field for it.
+- **Case File** data contract (`app/models/case_file.py`, §B.4) — plus additions beyond the original
+  spec: `occupancy_subdivision`, needed because Table 7A/7C/7E/7F's bands genuinely differ by
+  subdivision (e.g. A-I lodging house vs A-V starred hotel) and the original B.4 schema had no field
+  for it; and `OccupancyBreakdownItem.floor_area_sqm`/`.subdivision`, needed for the same reason on a
+  per-component basis once Mixed Use classification (below) actually looks up each component's own
+  Table 7 band instead of only tracking which occupancies are present.
 - **Deterministic classification engine** (`app/engine/`, §B.6) — reads the digitized rule data at
   `../data/rules/nbcs_2026_partf/` and never guesses: applicability, the high-rise flag, and Table 7
   band matching are all driven by structured criteria traceable to a specific clause. Where the
@@ -14,6 +16,20 @@ Part B):
   matched band is tagged `confidence: "interpreted"` and surfaced to the report rather than silently
   trusted — see `data/rules/nbcs_2026_partf/table7/table7a_residential.json`'s
   `band_matching_convention` for the exact rule used.
+  - **Mixed Use (Group K), §B.6.3** — `classify_mixed_use()` runs the normal per-occupancy Table 7
+    lookup for every component in `case_file.occupancy_breakdown` (each against the shared building
+    height but its own floor area), unions the required installations across all of them (clause
+    3.1.11.2's "most restrictive provisions" rule), and adds the pairwise fire-separation rating
+    between every two occupancies present from
+    `data/rules/nbcs_2026_partf/group_k_mixed_occupancy_separation.json` — a combination the matrix
+    marks `"NP"` (not permitted) is always forced to human review rather than silently accepted.
+  - **State NOC checklist framework, §B.10** — `app/engine/state_checklists.py` attaches
+    `ClassificationResult.applicable_state_checklist_id` for Gujarat/Maharashtra. **The checklist
+    content itself is a placeholder** (every item a literal `"TODO: ..."`) — see
+    `data/rules/state_checklists/README.md` for why: nobody has yet supplied the actual government
+    checklist documents, and inventing content that looks official for a compliance product would be
+    actively harmful. This is the wiring (data model → engine → report section) that real content
+    drops into later without further code changes.
 - **Report generator** (`app/reports/generator.py`, §B.9) — templated Markdown; no LLM call.
 - **LLM abstraction layer** (`app/llm/`) — the only code allowed to call an LLM, per the product
   scope's Part G Principle 1 ("LLM reasons and explains; deterministic engines decide") and its
@@ -42,11 +58,29 @@ Part B):
   correction like "actually it's 15 floors" is caught), then calls the classifier and returns the
   report. Fails open to the deterministic spine (treats messages as plain answers) when no LLM is
   configured, rather than crashing — verified live with no LLM credentials set.
-- **Lightweight Q&A grounding** (`app/knowledge/context.py`) — a short, hand-built summary from the
-  already-digitized rule data. **This is NOT the RAG system §B.8 describes** (chunked corpus,
-  embeddings, metadata-filtered retrieval) — it's a stand-in that answers a handful of facts
-  correctly and honestly says "I don't have that" for everything else, which is the safe behavior
-  until real retrieval exists. See that file's docstring before extending it.
+  - **Node 3a, the residential early-exit shortcut** — once a Residential building's height/area
+    fall within Table 7A's own self-certification threshold (read from the digitized rule data, not
+    a hardcoded copy of it), the egress/existing-systems questions are skipped entirely (they don't
+    change a self-certification outcome) and the agent says why before jumping to confirmation.
+  - **Node 3b, Mixed Use breakdown** — when occupancy is "Mixed Use", an intake node asks for each
+    component occupancy + its own floor area (extracted as a nested `list[OccupancyBreakdownItem]`
+    in one LLM call — see `app/llm/schema.py`'s new Pydantic-model/Enum schema support, added for
+    this), feeding `classify_mixed_use()` above.
+  - **Node 2a, the renewal-upload nudge** — answering the goal question with "renew an existing NOC"
+    prepends a message pointing at the upload widget (below) for that one turn, rather than only
+    supporting upload as a button the user has to notice unprompted.
+- **Q&A retrieval** (`app/knowledge/`, a lightweight pass at §B.8) — `app/knowledge/corpus.py` chunks
+  the entire digitized rule corpus (`data/rules/**/*.json` + READMEs) into ~500 small, citeable
+  passages; `app/knowledge/retriever.py` is a `Retriever` Protocol (mirrors the `LLMBackend` pattern)
+  with one implementation today, a hand-rolled BM25 keyword scorer — no external dependency, no
+  network call. `app/knowledge/context.py`'s `build_qa_context()` combines this with the original
+  small hand-built summary (kept for the handful of facts a wrong retrieval would be costliest to
+  get wrong) and hands both to `answer_question()`. **This is deliberately not full embeddings-based
+  semantic search** — real §B.8 needs a network path to an embeddings-capable provider (Voyage,
+  OpenAI, Cohere, ...), and this dev sandbox's network policy blocks all of them (verified directly:
+  `api.groq.com`, `api.openai.com`, `api.cohere.ai`, `api.voyageai.com`, and `huggingface.co` are all
+  unreachable here). The `Retriever` Protocol exists so a real embeddings backend can be dropped in
+  later, in an environment that can actually reach one, without any caller changing.
 - **Document ingest / OCR pipeline** (`app/ingest/`, §B.7) — a tiered, fail-safe pipeline for
   turning an uploaded plan, NOC letter, or certificate (PDF/PNG/JPEG) into text and then into Case
   File fields, escalating tier by tier only when the cheaper tier isn't good enough: Tier 1 native
@@ -77,29 +111,32 @@ Part B):
 
 ## Not yet built
 
-- The Node 0 document-upload conversational branch and Node 2a's renewal-upload flow — the OCR
-  pipeline (`app/ingest/`) exists, has its own API endpoint, and the frontend has an upload widget
-  (a persistent "📎 Upload a plan, NOC letter, or certificate" attach button next to the chat input)
-  that the user can use at any point in the conversation; because it writes into the same
-  `field_sources` map the dialogue manager's skip logic reads, a field an upload fills in *is*
-  skipped in subsequent intake questions and shows up in the confirmation step like any other
-  answer. What's still missing is the dialogue manager *offering* the upload as a step (e.g.
-  "want to upload your plan instead of answering by hand?") rather than the user having to know the
-  attach button exists.
-- The residential early-exit shortcut (Node 3a) and per-component Mixed Use breakdown (Node 3b).
-- Real RAG knowledge base over the NBCS/NBC corpus (§B.8) — see the Q&A grounding caveat above.
-- Mixed Use (Group K) classification — `classify()` currently routes Mixed Use straight to human
-  review rather than implementing the per-zone union-of-clauses logic (§B.6.3), since that needs the
-  Case File's `occupancy_breakdown` to be wired through the engine.
-- State NOC checklists (Gujarat, Maharashtra) — `applicable_state_checklist_id` is always `None` for
-  now.
-- Voice I/O (§B.1 item 1).
+- The Node 0 document-upload conversational branch offering itself proactively for *every* goal —
+  the OCR pipeline (`app/ingest/`), the frontend upload widget, and Node 2a's renewal-specific nudge
+  (above) all exist, but the dialogue manager only proactively suggests uploading when the user says
+  they're renewing an existing NOC. For every other goal, uploading is still a standing button the
+  user has to notice on their own, not a step the agent offers.
+- Real embeddings-based semantic search for Q&A (§B.8) — see the "Q&A retrieval" section above for
+  what exists instead (real chunking + keyword/BM25 retrieval) and exactly why full embeddings
+  aren't wired up yet (a verified network-access constraint in this dev sandbox, not a design
+  choice) — a Retriever Protocol is already in place for it.
+- Real state NOC checklist content for Gujarat/Maharashtra — the framework (data model, engine hook,
+  report section) is fully wired per the "State NOC checklist framework" section above, but every
+  checklist item ships as an explicit placeholder pending the actual government source documents.
+- Per-component subdivision disambiguation UI for Mixed Use — `OccupancyBreakdownItem.subdivision`
+  exists and `classify_mixed_use()` uses it, but Node 3b's single free-text prompt relies on the LLM
+  inferring a subdivision from phrasing (e.g. "a 5-star hotel component") rather than asking a
+  dedicated follow-up per component the way the single-occupancy `subdivision` node does.
+- Voice input only fills the chat's text box (via the browser's SpeechRecognition) rather than
+  auto-sending — a deliberate choice (misheard transcripts should be reviewable before sending), not
+  a gap, but worth noting if a fully hands-free flow is wanted later.
 
 ## Running it
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 66 tests; real OCR/PDF-generation and DB round-trips, none need network
+python -m pytest -q          # 106 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+                              # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and
                               # document field extraction (OCR text extraction itself needs no LLM key)

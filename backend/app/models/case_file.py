@@ -68,10 +68,28 @@ class FieldSourceKind(str, Enum):
 
 
 class OccupancyBreakdownItem(BaseModel):
-    """One component of a mixed-occupancy building (B.4)."""
+    """One component of a mixed-occupancy building (B.4).
+
+    floor_area_sqm is an addition beyond the original B.4 schema: Table 7's
+    bands are height/area-driven, so classifying a single component requires
+    its own floor area even though the whole building shares one height_m.
+    Optional because the union-of-clauses logic (see
+    app/engine/classifier.py's classify_mixed_use) still degrades to "flag
+    for human review" rather than guessing when it's missing for a component.
+    """
 
     type: OccupancyType
     floor_range: str
+    floor_area_sqm: Optional[float] = None
+    subdivision: Optional[str] = Field(
+        default=None,
+        description=(
+            "Same purpose as CaseFile.occupancy_subdivision, but per-component: "
+            "needed when this component's occupancy type is one of the ones "
+            "whose Table 7 has multiple genuinely different subdivisions "
+            "(see occupancy_subdivision's docstring)."
+        ),
+    )
 
 
 class SourceDocument(BaseModel):

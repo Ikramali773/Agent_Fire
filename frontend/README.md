@@ -24,6 +24,13 @@ README for what's actually implemented server-side.
   a typed answer.
 - **API client** (`src/api/client.ts`) — thin fetch wrapper; `types.ts` mirrors the backend's
   `CaseFile` Pydantic model by hand (no generated client yet — a later cleanup, not a blocker).
+- **Voice I/O** (`src/components/VoiceInputButton.tsx`, §B.1) — a 🎤 button next to the chat input
+  using the browser's own `SpeechRecognition` API to fill the text box (never auto-sends — a
+  misheard transcript should be reviewable before it's submitted, same as typing), and a "🔊 Read
+  replies aloud" checkbox above the chat that uses `SpeechSynthesis` to read each new agent message.
+  Both are pure feature detection: on a browser without `SpeechRecognition` (Firefox, most of Safari)
+  the mic button renders nothing at all rather than a broken control, and the read-aloud checkbox
+  only appears where `speechSynthesis` exists. No backend involvement either way.
 
 ## Verified
 
@@ -40,11 +47,19 @@ regression tests, in the same session) that unit tests alone had missed:
   local Postgres instance: selected a real generated PDF, uploaded it, confirmed the "Reading
   document…" state, confirmed the resulting chat message and no console errors, and independently
   confirmed via `psql` that the upload was persisted onto the Case File's `source_documents`.
+- Voice I/O was driven the same way: confirmed the real browser reports `SpeechRecognition` and
+  `speechSynthesis` support, clicked the mic button and confirmed it fails gracefully (a visible
+  error message, no crash, no console error) rather than actually transcribing — this sandbox's
+  headless Chromium has no real microphone/speech-service backend, which is an environment
+  limitation, not a code path this app controls. For the read-aloud side, intercepted
+  `window.speechSynthesis.speak` and confirmed it's called with the exact agent reply text on every
+  new message; the sandbox reports 0 installed TTS voices, so audible playback itself couldn't be
+  confirmed here (also an environment limitation — a normal browser has system voices).
 
 Not yet verified: a real end-to-end chat conversation with an actual Groq/Anthropic key (no key was
 available in the environment this was built in) — that also means the document upload flow has only
-been verified in its no-LLM-configured degraded mode (OCR runs, field extraction is skipped); voice
-I/O isn't built on either side yet.
+been verified in its no-LLM-configured degraded mode (OCR runs, field extraction is skipped); and a
+real microphone/TTS voice, for the reasons above.
 
 ## Running it
 
@@ -66,11 +81,9 @@ npm run lint    # oxlint
 
 ## Not yet built
 
-- Voice input/output toggle (§B.1 lists voice as in-scope for Phase 1; not implemented on either
-  the frontend or backend side).
-- The dialogue manager doesn't yet *offer* the upload widget as an intake step — it's a standing
-  option the user has to notice, not something the agent proposes (e.g. "want to upload your plan
-  instead?"). See the backend README's "Not yet built" section.
+- The dialogue manager only proactively offers the upload widget when the user says they're
+  renewing an existing NOC — for every other goal it's still a standing option the user has to
+  notice, not something the agent proposes. See the backend README's "Not yet built" section.
 - Auth/accounts, project history — Phase 1 is explicitly single-session only per the product scope.
 - A generated API client — `src/types.ts` is hand-maintained against the backend's Pydantic models
   and will drift if one changes without the other; fine for now, worth automating later.

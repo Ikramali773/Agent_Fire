@@ -1,20 +1,28 @@
-"""Lightweight knowledge grounding for the Q&A side-branch (product scope B.3's
-Code/Knowledge Agent) - NOT the full RAG system described in §B.8.
+"""Knowledge grounding for the Q&A side-branch (product scope B.3's
+Code/Knowledge Agent), per the lightweight-RAG approach agreed for this pass
+of §B.8 (see backend/README.md's RAG section for the full reasoning: real
+embeddings-based retrieval needs a network path to an embeddings-capable
+provider that this dev sandbox's network policy doesn't allow, verified
+against Groq/OpenAI/Cohere/Voyage/Hugging Face).
 
-§B.8 calls for chunking the whole NBCS 2026 + NBC 2016 corpus by clause,
-embedding it, and retrieving by metadata-filtered similarity search. That is
-a separate, larger build (vector store choice, ingestion pipeline, retrieval
-tuning) that hasn't been started yet. What this module does instead: builds a
-short, static summary from the already-digitized rule data
-(data/rules/nbcs_2026_partf/) and hands it to the LLM as its only grounding.
+Two layers, concatenated by build_qa_context():
+1. build_summary_context() - a short, static, hand-built summary of the
+   handful of facts every question implicitly needs (occupancy groups,
+   applicability thresholds, the high-rise flag, the single-staircase
+   survivor rule). Kept small and manually verified rather than retrieved,
+   since these are exactly the facts a wrong retrieval would be most costly
+   to get wrong.
+2. Retrieved chunks (app/knowledge/retriever.py, over app/knowledge/
+   corpus.py's chunked rule data) - real, citeable passages specific to
+   THIS question, keyword-scored rather than embedded (see retriever.py's
+   docstring for why). This is what makes this genuinely more than the old
+   fixed fact-sheet: a question the static summary doesn't cover can still
+   surface real source material instead of just "I don't have that."
 
-This means Q&A answers are reliable for the facts that summary actually
-contains (occupancy classification, applicability thresholds, high-rise
-flag) and will correctly say "I don't have that in my reference material" for
-anything else - which is the honest, safe behavior until real RAG exists.
-Do not expand this into a bigger hand-written blob as a substitute for
-building retrieval; that doesn't scale past a handful of facts and produces
-exactly the false-confidence failure mode B.8's guardrails exist to prevent.
+answer_question()'s system prompt still instructs the model to say so
+plainly when neither layer covers the question, rather than guessing a
+clause number or threshold - the guardrail this module exists to serve
+(§B.12) doesn't change just because retrieval got better.
 """
 
 from __future__ import annotations
@@ -22,6 +30,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.engine import rules_loader
+from app.knowledge.retriever import KeywordRetriever, Retriever
 
 
 @lru_cache(maxsize=1)
@@ -63,4 +72,28 @@ def build_summary_context() -> str:
         "for the stairwell."
     )
 
+    return "\n".join(lines)
+
+
+@lru_cache(maxsize=1)
+def _default_retriever() -> Retriever:
+    return KeywordRetriever()
+
+
+def build_qa_context(question: str, retriever: Retriever | None = None, top_k: int = 5) -> str:
+    """The full context handed to answer_question(): the static summary
+    above, plus this question's own retrieved passages. Callers can inject a
+    fake Retriever (tests do); real callers get the default BM25 one, built
+    once and cached like the summary is.
+    """
+    retriever = retriever if retriever is not None else _default_retriever()
+    context = build_summary_context()
+
+    results = retriever.retrieve(question, top_k=top_k)
+    if not results:
+        return context
+
+    lines = [context, "", "Retrieved reference passages for this specific question (cite these when relevant):"]
+    for result in results:
+        lines.append(f"- [{result.chunk.citation}] {result.chunk.text}")
     return "\n".join(lines)
