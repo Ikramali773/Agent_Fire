@@ -46,14 +46,21 @@ Each tier only runs if the one before it wasn't good enough — cheapest/fastest
 Whatever text came out of the tiers above is run through the same `LLMClient.extract_fields`
 machinery the chat flow uses, against `DOCUMENT_FIELD_TYPES` (the Case File's structured fields,
 including `floor_wise_area` - a nested `list[FloorAreaItem]` the LLM fills straight from a detected
-table's rows, distinct from `built_up_area_sqm`'s single whole-building total).
+table's rows, distinct from `built_up_area_sqm`'s single whole-building total - and
+`occupancy_subdivision`, so a drawing implying e.g. "a 5-star hotel" correctly skips the chat's
+dedicated subdivision question too, not just the occupancy question).
 `apply.ingest_document` then merges anything extracted into the Case File with
 `FieldSourceKind.DOCUMENT`, at a confidence scaled by *that upload's* OCR/vision confidence
 (`result.confidence / 100.0`) — not a flat number — per the product scope's warning that text
 extracted from a plan is not geometry-verified and must not be treated as more trustworthy just
 because it came from a "plan" rather than a letter. If no LLM is configured, the text is still
 stored on the Case File's `source_documents`, and the response's `fact_extraction_skipped_reason`
-explains why no fields came out of it — this never crashes or drops the document.
+explains why no fields came out of it — this never crashes or drops the document. The same summary
+field distinguishes a temporarily rate-limited/unavailable provider (`LLMUnavailableError` - wait
+and re-upload) from a genuinely unconfigured one (set an API key) - a live deployment hit the
+former from Groq's free-tier per-minute output-token quota after a few uploads in quick succession,
+and previously got an uncaught 500 instead of this message (see backend/README.md's LLM abstraction
+section for the max_tokens + LLMUnavailableError fix).
 
 ## What isn't built here yet
 
@@ -64,7 +71,7 @@ explains why no fields came out of it — this never crashes or drops the docume
 - Fields the OCR pipeline still doesn't extract even with table detection — kitchen presence/count
   and a door count/schedule were considered and deliberately deferred (per an explicit product
   decision) since today's digitized NBCS Table 7 lookups don't key off either one; only floor-wise
-  area was added, as a report-facing/informational field.
+  area and occupancy_subdivision were added.
 - The dialogue manager doesn't yet *offer* uploading as an intake step — see the backend README's
   "Not yet built" section.
 - Multi-document conflict handling (two uploads disagreeing on the same field) beyond "last upload

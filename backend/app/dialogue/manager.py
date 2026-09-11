@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from app.dialogue.nodes import NODES, SUBDIVISION_OPTIONS, next_node, residential_self_cert_eligible
 from app.engine.classifier import classify
 from app.knowledge.context import build_qa_context
-from app.llm.client import LLMClient, LLMNotConfiguredError
+from app.llm.client import LLMClient, LLMNotConfiguredError, LLMUnavailableError
 from app.models.case_file import CaseFile, ConversationStage, FieldSource, FieldSourceKind, Goal
 from app.reports.generator import generate_report_markdown
 
@@ -152,6 +152,17 @@ def _safe_answer_question(llm: LLMClient, question: str) -> str:
     """
     try:
         return llm.answer_question(question, build_qa_context(question))
+    except LLMUnavailableError:
+        # Checked before the LLMNotConfiguredError branch below since it's a
+        # subclass - a live deployment hit this exact case (Groq's free
+        # tier's per-minute output-token quota exhausted by a few document
+        # uploads in a row) and deserves a different message than "no key
+        # configured", which would be actively misleading here.
+        return (
+            "The AI provider is temporarily rate-limited or unavailable - "
+            "please try again in a minute. The building-detail questions "
+            "still work without one."
+        )
     except LLMNotConfiguredError:
         return (
             "I can't answer general questions right now - no LLM provider is "
@@ -196,8 +207,12 @@ def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnR
 
     pending_question = node.prompt(case_file)
 
+    rate_limited = False
     try:
         intent = llm.classify_intent(user_message, pending_question)
+    except LLMUnavailableError:
+        intent = "answer"  # fail open to the deterministic spine when temporarily unavailable
+        rate_limited = True
     except LLMNotConfiguredError:
         intent = "answer"  # fail open to the deterministic spine when no LLM is configured
 
@@ -212,6 +227,9 @@ def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnR
         extracted = llm.extract_fields(
             user_message, _field_types_for(node, case_file), context=node.context
         )
+    except LLMUnavailableError:
+        extracted = {}
+        rate_limited = True
     except LLMNotConfiguredError:
         extracted = {}
 
@@ -232,7 +250,19 @@ def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnR
 
     if not extracted:
         # Nothing usable was extracted - re-ask the same question rather than
-        # silently advancing on an empty/unparseable answer.
+        # silently advancing on an empty/unparseable answer. Distinguish a
+        # transient provider failure (try again shortly, your answer was
+        # fine) from a genuinely unparseable answer, so a user mid-upload-
+        # flurry rate limit isn't told their perfectly clear answer "didn't
+        # catch" when the real cause was the AI provider being busy.
+        if rate_limited:
+            return TurnResult(
+                case_file=case_file,
+                agent_message=(
+                    "The AI provider is temporarily rate-limited or unavailable - "
+                    f"please try again in a minute. {pending_question}"
+                ),
+            )
         return TurnResult(
             case_file=case_file,
             agent_message=f"Sorry, I didn't catch that. {pending_question}",

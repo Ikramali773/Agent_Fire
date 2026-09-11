@@ -6,10 +6,12 @@ abstraction is genuinely provider-agnostic (a Groq-shaped fake and an
 Anthropic-shaped fake would look identical from LLMClient's side).
 """
 
+import httpx
 import pytest
+from groq import RateLimitError as GroqRateLimitError
 
 from app.llm.backends.base import LLMBackendNotConfiguredError
-from app.llm.client import LLMClient, LLMNotConfiguredError
+from app.llm.client import LLMClient, LLMNotConfiguredError, LLMUnavailableError
 from app.llm.config import LLMConfig
 
 
@@ -140,4 +142,56 @@ def test_config_model_override_wins_over_provider_default(monkeypatch):
 def test_unknown_provider_raises_not_configured_error():
     llm = LLMClient(config=LLMConfig(provider="not-a-real-provider"))
     with pytest.raises(LLMNotConfiguredError):
+        llm.classify_intent("hello", "pending question")
+
+
+def _make_groq_rate_limit_error() -> GroqRateLimitError:
+    response = httpx.Response(
+        status_code=429, request=httpx.Request("POST", "https://api.groq.com/openai/v1/x")
+    )
+    return GroqRateLimitError("rate limited", response=response, body=None)
+
+
+class RateLimitedBackend:
+    """Duck-types a real backend hitting a real 429 from the provider SDK -
+    the live failure mode this test guards against (see LLMUnavailableError's
+    docstring): a live deployment hit an uncaught groq.RateLimitError from
+    exactly this path, from several document uploads in quick succession
+    exhausting Groq's free-tier per-minute output-token quota.
+    """
+
+    def generate_json(self, system, user_message, json_schema, model):
+        raise _make_groq_rate_limit_error()
+
+    def generate_text(self, system, user_message, model, cache_system=False):
+        raise _make_groq_rate_limit_error()
+
+
+def test_rate_limit_error_is_translated_to_llm_unavailable_error():
+    llm = LLMClient(backend=RateLimitedBackend())
+    with pytest.raises(LLMUnavailableError):
+        llm.classify_intent("hello", "pending question")
+
+
+def test_llm_unavailable_error_is_still_caught_by_existing_not_configured_handlers():
+    # LLMUnavailableError deliberately subclasses LLMNotConfiguredError so
+    # every existing `except LLMNotConfiguredError` call site (dialogue
+    # manager, ingest pipeline) already fails open for this - no call site
+    # needed to change to add this handling.
+    assert issubclass(LLMUnavailableError, LLMNotConfiguredError)
+    llm = LLMClient(backend=RateLimitedBackend())
+    try:
+        llm.classify_intent("hello", "pending question")
+        assert False, "expected an exception"
+    except LLMNotConfiguredError as exc:
+        assert isinstance(exc, LLMUnavailableError)
+
+
+def test_unrelated_backend_bug_is_not_swallowed_as_unavailable():
+    class BuggyBackend:
+        def generate_json(self, system, user_message, json_schema, model):
+            raise KeyError("some real bug in my own code")
+
+    llm = LLMClient(backend=BuggyBackend())
+    with pytest.raises(KeyError):
         llm.classify_intent("hello", "pending question")

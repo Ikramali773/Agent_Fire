@@ -13,15 +13,29 @@ from __future__ import annotations
 
 from typing import Literal
 
-from app.dialogue.nodes import OCCUPANCY_OPTIONS
+from app.dialogue.nodes import OCCUPANCY_OPTIONS, SUBDIVISION_OPTIONS
 from app.llm.client import LLMClient
 from app.models.case_file import FloorAreaItem
+
+# Flattened across every occupancy's subdivision codes (see
+# dialogue/nodes.py's SUBDIVISION_OPTIONS) rather than a per-occupancy
+# Literal, since a document's occupancy_type and occupancy_subdivision are
+# extracted in the same call - which subset would even apply isn't known
+# ahead of time the way it is for the chat intake's dedicated subdivision
+# node. An invalid/mismatched code is still safe: the classifier's Table 7
+# lookup only accepts a subdivision that actually exists in that occupancy's
+# table (see app/engine/classifier.py), routing to human review otherwise
+# rather than silently misclassifying.
+_ALL_SUBDIVISION_CODES = tuple(
+    code for options in SUBDIVISION_OPTIONS.values() for code in options
+)
 
 DOCUMENT_FIELD_TYPES: dict[str, type] = {
     "project_name": str,
     "state": str,
     "city": str,
     "occupancy_type": Literal[tuple(OCCUPANCY_OPTIONS)],  # type: ignore[valid-type]
+    "occupancy_subdivision": Literal[_ALL_SUBDIVISION_CODES],  # type: ignore[valid-type]
     "height_m": float,
     "floors_above_ground": int,
     "floors_below_ground": int,
@@ -32,6 +46,11 @@ DOCUMENT_FIELD_TYPES: dict[str, type] = {
     "existing_fire_systems": list[str],
 }
 
+_SUBDIVISION_GLOSSARY = "; ".join(
+    f"{occupancy}: " + ", ".join(f"{code} ({label})" for code, label in options.items())
+    for occupancy, options in SUBDIVISION_OPTIONS.items()
+)
+
 _CONTEXT = (
     "This text was extracted from an uploaded document (an architectural "
     "plan title block, an existing NOC letter, or an architect's "
@@ -40,7 +59,9 @@ _CONTEXT = (
     "or similar schedule (often marked '[Table(s) detected on this page]' "
     "in this text, with rows separated by ' | ') usually gives "
     "floor_wise_area - one entry per floor/level with its own area_sqm, "
-    "distinct from built_up_area_sqm which is the whole building's total."
+    "distinct from built_up_area_sqm which is the whole building's total. "
+    "Only fill occupancy_subdivision if occupancy_type is one of these and "
+    f"the document clearly implies which: {_SUBDIVISION_GLOSSARY}."
 )
 
 

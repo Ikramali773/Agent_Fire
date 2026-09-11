@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 from app.ingest.fact_extraction import extract_case_file_facts
 from app.ingest.pipeline import IngestResult, run_pipeline
-from app.llm.client import LLMClient, LLMNotConfiguredError
+from app.llm.client import LLMClient, LLMNotConfiguredError, LLMUnavailableError
 from app.models.case_file import CaseFile, FieldSource, FieldSourceKind, SourceDocument
 
 
@@ -53,6 +53,21 @@ def ingest_document(
 
     try:
         extracted = extract_case_file_facts(result.text, llm)
+    except LLMUnavailableError:
+        # Checked before LLMNotConfiguredError below since it's a subclass -
+        # a real deployment hit this uploading several documents in quick
+        # succession, which exhausted Groq's free-tier per-minute output-
+        # token quota (see LLMUnavailableError's docstring). Distinguished
+        # from "no LLM configured" because the fix here is "wait a bit and
+        # re-upload", not "set an API key" - the two would otherwise look
+        # identical and mislead someone who already has a key configured.
+        summary.fact_extraction_skipped_reason = (
+            "Text was extracted from the document, but the AI provider is temporarily "
+            "rate-limited or unavailable - wait a minute and try uploading again, or answer "
+            "the remaining questions in chat for now."
+        )
+        case_file.updated_at = datetime.now(timezone.utc)
+        return case_file, summary
     except LLMNotConfiguredError:
         summary.fact_extraction_skipped_reason = (
             "Text was extracted from the document, but no LLM is configured to parse it into "

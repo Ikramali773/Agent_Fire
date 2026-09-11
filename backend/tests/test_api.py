@@ -126,6 +126,36 @@ def test_document_upload_extracts_and_merges_fields():
     assert body["case_file"]["source_documents"][0]["filename"] == "noc.pdf"
 
 
+def test_document_upload_fields_are_skipped_in_subsequent_chat_questions():
+    """Real end-to-end proof that an uploaded document is actually 'linked'
+    to the chat flow, not just recorded: once state/city come from a
+    document, /start + /message should never ask the location question
+    again - the next question should be the one after it (goal), not a
+    repeat of "which state and city".
+    """
+    create_resp = client.post("/case-files", json=None)
+    session_id = create_resp.json()["session_id"]
+
+    pdf_bytes = _make_text_pdf_bytes(["Fire NOC Certificate", "State: Gujarat", "City: Ahmedabad"])
+    upload_resp = client.post(
+        f"/case-files/{session_id}/documents",
+        files={"file": ("noc.pdf", pdf_bytes, "application/pdf")},
+    )
+    assert upload_resp.json()["case_file"]["field_sources"]["state"]["source"] == "document"
+
+    start_resp = client.post(f"/case-files/{session_id}/start")
+    start_message = start_resp.json()["agent_message"]
+
+    assert "state and city" not in start_message.lower()
+    assert "trying to do" in start_message.lower()  # the goal question, next in line
+
+    message_resp = client.post(
+        f"/case-files/{session_id}/message", json={"message": "just want to understand requirements"}
+    )
+    next_message = message_resp.json()["agent_message"]
+    assert "state and city" not in next_message.lower()
+
+
 def test_document_upload_rejects_unsupported_type():
     create_resp = client.post("/case-files", json=None)
     session_id = create_resp.json()["session_id"]

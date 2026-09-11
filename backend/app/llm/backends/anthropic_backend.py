@@ -15,6 +15,14 @@ import os
 
 from app.llm.backends.base import LLMBackend, LLMBackendNotConfiguredError
 
+# See groq_backend.py's identical constants for why JSON extraction gets a
+# smaller budget than prose text generation - structured field output is
+# compact, and keeping it frugal matters even more for a free/rate-limited
+# provider (Groq), though the split is kept symmetric across both backends
+# for consistency.
+JSON_MAX_TOKENS = 512
+TEXT_MAX_TOKENS = 1024
+
 
 class AnthropicBackend(LLMBackend):
     def __init__(self, client=None) -> None:
@@ -38,7 +46,7 @@ class AnthropicBackend(LLMBackend):
     def generate_json(self, system: str, user_message: str, json_schema: dict, model: str) -> dict:
         response = self.client.messages.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=JSON_MAX_TOKENS,
             system=system,
             messages=[{"role": "user", "content": user_message}],
             output_config={"format": {"type": "json_schema", "schema": json_schema}},
@@ -58,7 +66,7 @@ class AnthropicBackend(LLMBackend):
         ]
         response = self.client.messages.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=TEXT_MAX_TOKENS,
             system=system_param,
             messages=[{"role": "user", "content": user_message}],
         )
@@ -75,7 +83,7 @@ class AnthropicBackend(LLMBackend):
     ) -> dict:
         response = self.client.messages.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=JSON_MAX_TOKENS,
             system=system,
             messages=[
                 {

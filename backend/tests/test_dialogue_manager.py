@@ -7,7 +7,7 @@ verify elsewhere, without any real LLM call.
 import uuid
 
 from app.dialogue.manager import _confirmation_summary, handle_turn, start_conversation
-from app.llm.client import LLMNotConfiguredError
+from app.llm.client import LLMNotConfiguredError, LLMUnavailableError
 from app.models.case_file import CaseFile, ConversationStage, FloorAreaItem
 
 
@@ -371,3 +371,42 @@ def test_classified_stage_qa_fails_open_when_llm_not_configured():
 
     assert "no LLM provider is configured" in result.agent_message
     assert result.case_file.conversation_stage == ConversationStage.CLASSIFIED
+
+
+class RateLimitedLLMClient:
+    """Every method raises LLMUnavailableError, like a real LLMClient whose
+    backend hit a real provider-side rate limit (a live deployment hit this
+    from groq.RateLimitError - see LLMUnavailableError's docstring). Proves
+    handle_turn distinguishes this from "no LLM configured" in its
+    user-facing message, since the two need very different user actions
+    (wait a bit vs. set an API key).
+    """
+
+    def classify_intent(self, user_text, pending_question):
+        raise LLMUnavailableError("rate limited")
+
+    def extract_fields(self, user_text, field_types, context=""):
+        raise LLMUnavailableError("rate limited")
+
+    def answer_question(self, question, knowledge_context, model_tier="reasoning"):
+        raise LLMUnavailableError("rate limited")
+
+
+def test_intake_fails_open_with_rate_limit_message_when_provider_unavailable():
+    case_file = make_case_file()
+    start_conversation(case_file)
+
+    result = handle_turn(case_file, "Gujarat, Ahmedabad", RateLimitedLLMClient())
+
+    assert "temporarily rate-limited or unavailable" in result.agent_message
+    assert "didn't catch that" not in result.agent_message
+
+
+def test_classified_stage_qa_gives_rate_limit_message_when_provider_unavailable():
+    case_file = make_case_file()
+    case_file.conversation_stage = ConversationStage.CLASSIFIED
+
+    result = handle_turn(case_file, "what's a refuge area?", RateLimitedLLMClient())
+
+    assert "temporarily rate-limited or unavailable" in result.agent_message
+    assert "no LLM provider is configured" not in result.agent_message

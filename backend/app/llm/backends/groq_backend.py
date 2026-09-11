@@ -15,6 +15,17 @@ import os
 
 from app.llm.backends.base import LLMBackend, LLMBackendNotConfiguredError
 
+# Structured field extraction (generate_json[_from_image]) returns a compact
+# object - a handful of scalar fields plus maybe a few small array items -
+# and doesn't need generate_text's prose-sized budget. Kept deliberately
+# small because Groq's free/on-demand tier enforces a tiny per-minute
+# OUTPUT token quota per model (seen live: 1000 tokens/minute) - requesting
+# the old flat 1024 for every call could exceed that quota on its own,
+# before any actual usage, and definitely after a few calls in a row (e.g.
+# several document uploads back to back).
+JSON_MAX_TOKENS = 512
+TEXT_MAX_TOKENS = 1024
+
 
 class GroqBackend(LLMBackend):
     def __init__(self, client=None) -> None:
@@ -48,7 +59,7 @@ class GroqBackend(LLMBackend):
                 {"role": "user", "content": user_message},
             ],
             response_format={"type": "json_object"},
-            max_tokens=1024,
+            max_tokens=JSON_MAX_TOKENS,
         )
         content = response.choices[0].message.content or "{}"
         return json.loads(content)
@@ -64,7 +75,7 @@ class GroqBackend(LLMBackend):
                 {"role": "system", "content": system},
                 {"role": "user", "content": user_message},
             ],
-            max_tokens=1024,
+            max_tokens=TEXT_MAX_TOKENS,
         )
         return response.choices[0].message.content or ""
 
@@ -98,7 +109,7 @@ class GroqBackend(LLMBackend):
                 },
             ],
             response_format={"type": "json_object"},
-            max_tokens=1024,
+            max_tokens=JSON_MAX_TOKENS,
         )
         content = response.choices[0].message.content or "{}"
         return json.loads(content)

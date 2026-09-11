@@ -35,6 +35,44 @@ class LLMNotConfiguredError(RuntimeError):
     """
 
 
+class LLMUnavailableError(LLMNotConfiguredError):
+    """The backend IS configured, but the provider's own API call failed -
+    a rate limit, a 5xx, a timeout. Subclasses LLMNotConfiguredError
+    deliberately: every existing `except LLMNotConfiguredError` call site
+    (dialogue manager, ingest pipeline) already fails open for this without
+    needing its own except clause, since Python catches subclasses too -
+    only the message differs, so a user sees "temporarily rate-limited, try
+    again shortly" instead of "no API key configured" for what is a very
+    different, transient situation. Real-world trigger this guards against:
+    Groq's free/on-demand tier enforces a tiny per-minute OUTPUT token quota
+    per model (seen live: 1000 tokens/minute) - a handful of document
+    uploads in quick succession can exhaust it, and the groq/anthropic SDKs
+    raise their own exception types for that, which nothing here was
+    catching before this - it reached the API layer as an uncaught 500.
+    """
+
+
+def _is_transient_provider_error(exc: Exception) -> bool:
+    try:
+        import anthropic
+    except ImportError:  # pragma: no cover - dependency is in requirements.txt
+        anthropic = None  # type: ignore[assignment]
+    try:
+        import groq
+    except ImportError:  # pragma: no cover - dependency is in requirements.txt
+        groq = None  # type: ignore[assignment]
+
+    provider_bases = tuple(
+        error_type
+        for error_type in (
+            getattr(anthropic, "AnthropicError", None),
+            getattr(groq, "GroqError", None),
+        )
+        if error_type is not None
+    )
+    return bool(provider_bases) and isinstance(exc, provider_bases)
+
+
 def _build_real_backend(provider: str) -> LLMBackend:
     if provider == "groq":
         from app.llm.backends.groq_backend import GroqBackend
@@ -102,13 +140,23 @@ class LLMClient:
         backend (missing credentials, or FIRE_AGENT_LLM_PROVIDER typo'd to a
         provider with no registered default models) fails the same clear
         way on turn 1 and turn 100, rather than reaching the API layer as an
-        uncaught exception.
+        uncaught exception. Also translates a transient provider-side
+        failure (rate limit, 5xx, timeout) into LLMUnavailableError, same
+        reasoning - a live user hit an uncaught groq.RateLimitError from
+        this exact path (Groq's free tier enforces a small per-minute
+        output-token quota, easily exhausted by a few uploads in a row).
         """
         try:
             model = self.config.model_for(model_tier)
             return getattr(self.backend, method_name)(*args, model, **kwargs)
         except (LLMBackendNotConfiguredError, ValueError) as exc:
             raise LLMNotConfiguredError(str(exc)) from exc
+        except Exception as exc:
+            if _is_transient_provider_error(exc):
+                raise LLMUnavailableError(
+                    f"The AI provider is temporarily unavailable or rate-limited: {exc}"
+                ) from exc
+            raise
 
     def extract_fields(
         self,

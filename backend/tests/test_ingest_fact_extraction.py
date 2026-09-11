@@ -63,6 +63,29 @@ def test_extracts_floor_wise_area_table_from_document_text():
     ]
 
 
+def test_extracts_occupancy_subdivision_when_implied_by_document():
+    backend = FakeBackend(
+        json_return={
+            "occupancy_type": "Residential",
+            "occupancy_subdivision": "A-V",
+        }
+    )
+    llm = LLMClient(backend=backend)
+
+    result = extract_case_file_facts("A 5-star hotel development in Ahmedabad", llm)
+
+    assert result == {"occupancy_type": "Residential", "occupancy_subdivision": "A-V"}
+
+
+def test_drops_occupancy_subdivision_code_that_does_not_exist():
+    backend = FakeBackend(json_return={"occupancy_subdivision": "NOT-A-REAL-CODE"})
+    llm = LLMClient(backend=backend)
+
+    result = extract_case_file_facts("some document text", llm)
+
+    assert result == {}
+
+
 def test_empty_text_short_circuits_without_calling_llm():
     backend = FakeBackend(json_return={"should": "never see this"})
     llm = LLMClient(backend=backend)

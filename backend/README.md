@@ -53,6 +53,15 @@ Part B):
   guesses) anything that doesn't fit — a bad field never discards the rest of a good extraction.
   Every LLM-calling method takes an injectable backend so nothing needs a real API key to test (see
   `tests/test_llm_client.py`).
+  - **Rate limiting** — Groq's free/on-demand tier enforces a small per-minute *output*-token quota
+    per model (hit live: 1000 tokens/minute), and `generate_json`/`generate_json_from_image` request
+    a much smaller `max_tokens` (512, was a flat 1024 for every call — including `generate_text`,
+    which keeps the larger budget since prose answers genuinely need more room) to avoid tripping it
+    on a single call. A rate limit (or any other transient provider failure — a 5xx, a timeout) that
+    still occurs is caught in `LLMClient._call()` and raised as `LLMUnavailableError`, which
+    subclasses `LLMNotConfiguredError` so every existing fail-open call site handles it with no
+    changes, but the user sees "temporarily rate-limited, try again shortly" rather than a
+    misleading "no API key configured" — or, before this, an uncaught 500.
 - **Dialogue Manager** (`app/dialogue/`, §B.3/§B.5) — drives the guided intake as a state machine:
   asks each unfilled Case File field in order (skip logic via `field_sources` presence), routes to
   a Knowledge Q&A side-branch and back when the user asks their own question mid-intake, shows a
@@ -103,6 +112,12 @@ Part B):
     breakdown, distinct from the single `built_up_area_sqm` total) reliably extractable from a real
     architectural drawing. Only covers native-text PDFs' vector tables today — the OCR path (Tiers
     2/3) has no equivalent table reconstruction yet, a known gap for scanned/photographed drawings.
+  - `DOCUMENT_FIELD_TYPES` (`app/ingest/fact_extraction.py`) also includes `occupancy_subdivision`
+    now — a document implying "a 5-star hotel" or "underground shopping complex" fills the same
+    field the chat intake's dedicated subdivision question does, so that question is correctly
+    skipped afterward too, not just occupancy_type. An invalid/mismatched code is safe either way:
+    the classifier's Table 7 lookup only accepts a subdivision that actually exists for that
+    occupancy, routing to human review otherwise.
 - **API** (`app/api/`, `app/main.py`) — CRUD + classify + report, `/start` and `/message` for
   the conversational flow, and `/documents` for document upload.
 - **Database persistence** (`app/db/`, §B.10) — `app/store.py` (the only seam every caller uses)
@@ -143,7 +158,7 @@ Part B):
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 113 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 127 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and
