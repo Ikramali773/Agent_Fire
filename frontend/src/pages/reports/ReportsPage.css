@@ -85,3 +85,22 @@
   padding: 1px 4px;
   border-radius: var(--radius-xs);
 }
+
+.ds-reports-page__spin {
+  animation: ds-reports-page-spin 900ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-reports-page__spin {
+    animation: none;
+  }
+}
+
+@keyframes ds-reports-page-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

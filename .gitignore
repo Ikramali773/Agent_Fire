@@ -4,3 +4,8 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+
+# Local SQLite fallback DB (backend/app/db/session.py's DEFAULT_DATABASE_URL) -
+# created automatically whenever DATABASE_URL isn't set to a real Postgres
+# instance; runtime data, never source.
+*.db

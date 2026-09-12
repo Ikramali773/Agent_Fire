@@ -48,6 +48,21 @@ export const api = {
       body: JSON.stringify(updates),
     }),
 
+  downloadReport: async (sessionId: string, format: "pdf" | "docx"): Promise<{ blob: Blob; filename: string }> => {
+    const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}/report.${format}`);
+    if (!response.ok) {
+      const body = await response.text();
+      throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
+    }
+    // Prefer the backend's own sanitized, project-name-derived filename
+    // (see backend/app/reports/exporters.py::safe_report_filename); fall
+    // back to a generic one if the header is ever missing/malformed.
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const filename = /filename="([^"]*)"/.exec(disposition)?.[1] ?? `report.${format}`;
+    const blob = await response.blob();
+    return { blob, filename };
+  },
+
   uploadDocument: async (sessionId: string, file: File): Promise<DocumentUploadResponse> => {
     const formData = new FormData();
     formData.append("file", file);

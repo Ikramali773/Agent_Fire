@@ -65,10 +65,31 @@ def test_full_flow_create_update_classify_report():
     assert "7H" in markdown
     assert "advisory only" in markdown
 
+    pdf_resp = client.get(f"/case-files/{session_id}/report.pdf")
+    assert pdf_resp.status_code == 200
+    assert pdf_resp.headers["content-type"] == "application/pdf"
+    assert "Test Warehouse" in pdf_resp.headers["content-disposition"]
+    assert pdf_resp.content.startswith(b"%PDF")
+    pdf_text = "\n".join(page.get_text() for page in pymupdf.open(stream=pdf_resp.content, filetype="pdf"))
+    assert "Test Warehouse" in pdf_text
+    assert "7H" in pdf_text
+
+    docx_resp = client.get(f"/case-files/{session_id}/report.docx")
+    assert docx_resp.status_code == 200
+    assert docx_resp.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert docx_resp.content.startswith(b"PK")
+
 
 def test_get_missing_case_file_404():
     resp = client.get("/case-files/does-not-exist")
     assert resp.status_code == 404
+
+
+def test_report_exports_404_for_missing_case_file():
+    assert client.get("/case-files/does-not-exist/report.pdf").status_code == 404
+    assert client.get("/case-files/does-not-exist/report.docx").status_code == 404
 
 
 def test_start_and_message_conversation_endpoints():

@@ -38,6 +38,17 @@ Part B):
     placeholder-tagged section to the report) so real content can drop in later without code changes,
     but it is not being actively developed right now.
 - **Report generator** (`app/reports/generator.py`, §B.9) — templated Markdown; no LLM call.
+- **Report exporters** (`app/reports/exporters.py`, Phase 2) — real PDF (`GET
+  /case-files/{id}/report.pdf`) and DOCX (`GET /case-files/{id}/report.docx`) downloads, both
+  rendered from the exact same markdown `/report` already returns (never a second source of truth
+  for report content). PDF uses PyMuPDF's `Story`/`DocumentWriter` (already a dependency for the
+  OCR pipeline — no new heavy/system dependency); DOCX uses a small HTML walker over `python-docx`,
+  since the report's markdown is a fixed, simple subset (headings, paragraphs, a flat bullet list,
+  bold/italic) with no tables/images/nested lists to handle. The filename in each response's
+  `Content-Disposition` is derived from the project name via `safe_report_filename()`, stripped to
+  header/path-safe characters. `main.py`'s CORS config explicitly exposes `Content-Disposition` —
+  without that, a cross-origin frontend (a different port, the common case in dev) can't read it
+  and silently falls back to a generic filename.
 - **LLM abstraction layer** (`app/llm/`) — the only code allowed to call an LLM, per the product
   scope's Part G Principle 1 ("LLM reasons and explains; deterministic engines decide") and its
   B.10 call for a "provider-agnostic abstraction layer." `app/llm/client.py` never talks to a
@@ -116,7 +127,16 @@ Part B):
 
   `app/knowledge/context.py`'s `build_qa_context()` combines whichever retriever is active with the
   original small hand-built summary (kept for the handful of facts a wrong retrieval would be
-  costliest to get wrong) and hands both to `answer_question()`.
+  costliest to get wrong) and hands both to `answer_question()`. It also optionally takes the
+  current `CaseFile` and folds in `build_case_file_context()` — a compact "known facts about this
+  case" block covering every field the case file already has a value for (each tagged with its
+  recorded source), plus `floor_wise_area`/`kitchen_count`/`door_count`/uploaded document names and
+  the classification result if present. This fixes a bug caught in live browser testing: without
+  it, a question like "what's the area of the file I just uploaded" was answered as if nothing had
+  ever been uploaded, because the Q&A side-branch only ever saw the static code-book summary above -
+  never the case file's own already-extracted facts. All three `_safe_answer_question()` call sites
+  in `app/dialogue/manager.py` (mid-intake digression, the subdivision follow-up's digression, and
+  post-classification open Q&A) now pass the case file through.
 - **Document ingest / OCR pipeline** (`app/ingest/`, §B.7) — a tiered, fail-safe pipeline for
   turning an uploaded plan, NOC letter, or certificate (PDF/PNG/JPEG) into text and then into Case
   File fields, escalating tier by tier only when the cheaper tier isn't good enough: Tier 1 native
@@ -190,7 +210,7 @@ Part B):
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 146 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 157 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and

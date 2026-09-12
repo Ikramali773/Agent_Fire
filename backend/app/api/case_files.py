@@ -18,12 +18,14 @@ from datetime import datetime, timezone
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response
 
 from app.dialogue.manager import handle_turn, start_conversation
 from app.engine.classifier import classify
 from app.ingest.apply import ingest_document
 from app.llm.client import LLMClient
 from app.models.case_file import CaseFile, ConversationStage
+from app.reports.exporters import render_docx, render_pdf, safe_report_filename
 from app.reports.generator import generate_report_markdown
 from app.store import get as store_get
 from app.store import save as store_save
@@ -93,6 +95,37 @@ def get_report(session_id: str) -> dict:
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
     return {"markdown": generate_report_markdown(case_file)}
+
+
+@router.get("/{session_id}/report.pdf")
+def get_report_pdf(session_id: str) -> Response:
+    """Phase 2: a real PDF of the same report /report already returns as
+    markdown - never a second source of truth for report content, see
+    app/reports/exporters.py.
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    filename = safe_report_filename(case_file)
+    return Response(
+        content=render_pdf(case_file),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.pdf"'},
+    )
+
+
+@router.get("/{session_id}/report.docx")
+def get_report_docx(session_id: str) -> Response:
+    """Phase 2: a real DOCX counterpart to /report.pdf above."""
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    filename = safe_report_filename(case_file)
+    return Response(
+        content=render_docx(case_file),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.docx"'},
+    )
 
 
 @router.post("/{session_id}/start")

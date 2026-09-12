@@ -42,6 +42,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Content-Disposition carries the export's filename (see
+    # app/reports/exporters.py::safe_report_filename) - without exposing it,
+    # the frontend and backend normally being on different ports/origins
+    # means the browser hides this header from JS entirely (Fetch's default
+    # CORS-safelisted response headers don't include it), and the report
+    # download would silently fall back to a generic filename.
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(case_files_router)
