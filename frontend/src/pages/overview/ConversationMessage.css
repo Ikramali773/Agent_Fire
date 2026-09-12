@@ -1,0 +1,115 @@
+.ds-conv-row {
+  display: flex;
+  margin-bottom: var(--space-3);
+}
+
+.ds-conv-row--user {
+  justify-content: flex-end;
+}
+
+.ds-conv-row--agent {
+  justify-content: flex-start;
+}
+
+.ds-conv-row--system {
+  justify-content: center;
+}
+
+.ds-conv-bubble {
+  max-width: 640px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+}
+
+.ds-conv-bubble--user {
+  background: var(--accent-500);
+  color: var(--text-on-accent);
+  border-bottom-right-radius: var(--radius-xs);
+}
+
+.ds-conv-bubble--agent {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-bottom-left-radius: var(--radius-xs);
+}
+
+.ds-conv-system {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  padding: var(--space-1) var(--space-2);
+}
+
+.ds-conv-row__wide {
+  max-width: 640px;
+  width: 100%;
+}
+
+.ds-conv-card {
+  max-width: 640px;
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.ds-conv-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+}
+
+.ds-conv-card__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.ds-conv-card__body {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ds-conv-card__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.ds-conv-card__grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.ds-conv-card__grid dt {
+  color: var(--text-tertiary);
+}
+
+.ds-conv-card__grid dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+.ds-conv-card__notes {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

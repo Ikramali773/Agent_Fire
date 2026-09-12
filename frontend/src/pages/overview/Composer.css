@@ -1,0 +1,64 @@
+.ds-composer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-app);
+}
+
+.ds-composer__file-input {
+  display: none;
+}
+
+.ds-composer__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ds-composer__icon-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.ds-composer__icon-btn:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.ds-composer__icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ds-composer__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+}
+
+.ds-composer__input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.ds-composer__input:disabled {
+  color: var(--text-disabled);
+  background: var(--surface-sunken);
+}

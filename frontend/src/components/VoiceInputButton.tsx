@@ -1,4 +1,6 @@
+import { Mic, Square } from "lucide-react";
 import { useRef, useState } from "react";
+import "./VoiceInputButton.css";
 
 interface Props {
   onResult: (text: string) => void;
@@ -67,7 +69,7 @@ export function VoiceInputButton({ onResult, disabled }: Props) {
         aria-label={listening ? "Stop voice input" : "Start voice input"}
         title={listening ? "Stop voice input" : "Start voice input"}
       >
-        {listening ? "🔴" : "🎤"}
+        {listening ? <Square aria-hidden="true" /> : <Mic aria-hidden="true" />}
       </button>
       {error && <span className="voice-input__error">{error}</span>}
     </span>

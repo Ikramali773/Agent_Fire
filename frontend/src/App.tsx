@@ -1,169 +1,64 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import "./App.css";
-import { api, ApiError } from "./api/client";
-import { CaseSummaryPanel } from "./components/CaseSummaryPanel";
-import { ChatWindow } from "./components/ChatWindow";
-import { ReportView } from "./components/ReportView";
-import type { CaseFile, ChatMessage, IngestSummary } from "./types";
-
-const DISCLAIMER =
-  "Advisory only — not a statutory approval. Confirm with a licensed fire consultant before filing.";
+import { useState } from "react";
+import { CompliancePage } from "./pages/compliance/CompliancePage";
+import { CaseFilePage } from "./pages/case-file/CaseFilePage";
+import { ComingSoonPage } from "./pages/ComingSoonPage";
+import { DocumentsPage } from "./pages/documents/DocumentsPage";
+import { OverviewPage } from "./pages/overview/OverviewPage";
+import { ReportsPage } from "./pages/reports/ReportsPage";
+import { NAV_ITEMS, type ViewKey } from "./shell/nav";
+import { Shell } from "./shell/Shell";
+import type { CaseFile } from "./types";
 
 function App() {
+  const [activeView, setActiveView] = useState<ViewKey>("overview");
   const [caseFile, setCaseFile] = useState<CaseFile | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportMarkdown, setReportMarkdown] = useState<string | null>(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const initialized = useRef(false);
-
-  useEffect(() => {
-    if (initialized.current) return; // React StrictMode double-invokes effects in dev
-    initialized.current = true;
-
-    (async () => {
-      try {
-        const created = await api.createCaseFile();
-        const started = await api.startConversation(created.session_id);
-        setCaseFile(started.case_file);
-        setMessages([{ role: "agent", text: started.agent_message }]);
-      } catch (err) {
-        setError(describeError(err));
-      } finally {
-        setBusy(false);
-      }
-    })();
-  }, []);
-
-  const handleSend = useCallback(
-    async (text: string) => {
-      if (!caseFile) return;
-      setMessages((prev) => [...prev, { role: "user", text }]);
-      setBusy(true);
-      setError(null);
-      try {
-        const result = await api.sendMessage(caseFile.session_id, text);
-        setCaseFile(result.case_file);
-        setMessages((prev) => [...prev, { role: "agent", text: result.agent_message }]);
-      } catch (err) {
-        setError(describeError(err));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [caseFile],
-  );
-
-  const handleUploadDocument = useCallback(
-    async (file: File) => {
-      if (!caseFile) return;
-      setError(null);
-      try {
-        const result = await api.uploadDocument(caseFile.session_id, file);
-        setCaseFile(result.case_file);
-        setMessages((prev) => [
-          ...prev,
-          { role: "user", text: `📎 Uploaded ${file.name}` },
-          { role: "agent", text: describeUploadSummary(result.summary) },
-        ]);
-      } catch (err) {
-        setError(describeError(err));
-      }
-    },
-    [caseFile],
-  );
-
-  const handleOpenReport = useCallback(async () => {
-    if (!caseFile) return;
-    setReportOpen(true);
-    setReportLoading(true);
-    try {
-      const { markdown } = await api.getReport(caseFile.session_id);
-      setReportMarkdown(markdown);
-    } catch (err) {
-      setError(describeError(err));
-    } finally {
-      setReportLoading(false);
-    }
-  }, [caseFile]);
+  const [busy, setBusy] = useState(false);
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Fire Safety &amp; NOC Readiness Assistant</h1>
-        <p className="app-header__subtitle">NBCS 2026 Part F — Phase 1</p>
-      </header>
-
-      {error && (
-        <div className="app-error" role="alert">
-          {error}
-        </div>
-      )}
-
-      <main className="app-main">
-        <ChatWindow
-          messages={messages}
-          onSend={handleSend}
-          onUploadDocument={handleUploadDocument}
-          disabled={busy}
-          placeholder={busy ? "Waiting for a response…" : "Type your answer…"}
-        />
-        <CaseSummaryPanel caseFile={caseFile} />
-      </main>
-
-      {caseFile?.conversation_stage === "classified" && (
-        <div className="app-report-cta">
-          <button onClick={handleOpenReport}>View full report</button>
-        </div>
-      )}
-
-      <footer className="app-footer">{DISCLAIMER}</footer>
-
-      {reportOpen && (
-        <ReportView
-          markdown={reportMarkdown}
-          loading={reportLoading}
-          onClose={() => setReportOpen(false)}
-        />
-      )}
-    </div>
+    <Shell
+      activeView={activeView}
+      onNavigate={setActiveView}
+      projectName={caseFile?.project_name || "Untitled project"}
+      location={[caseFile?.city, caseFile?.state].filter(Boolean).join(", ") || "Location not yet known"}
+      codeEdition={caseFile?.code_edition ?? "2026"}
+      syncState={busy ? "saving" : "saved"}
+      userLabel="You"
+      caseFile={caseFile}
+    >
+      {activeView === "overview" && <OverviewPage caseFile={caseFile} onCaseFileChange={setCaseFile} onBusyChange={setBusy} />}
+      {activeView === "case-file" && <CaseFilePage caseFile={caseFile} onCaseFileChange={setCaseFile} />}
+      {activeView === "documents" && <DocumentsPage caseFile={caseFile} onCaseFileChange={setCaseFile} />}
+      {activeView === "compliance" && <CompliancePage caseFile={caseFile} />}
+      {activeView === "reports" && <ReportsPage caseFile={caseFile} />}
+      {(activeView === "plans" || activeView === "findings" || activeView === "review" || activeView === "history") &&
+        (() => {
+          const item = NAV_ITEMS.find((nav) => nav.key === activeView)!;
+          return (
+            <ComingSoonPage
+              icon={item.icon}
+              title={item.label}
+              phase={item.comingInPhase ?? 2}
+              description={comingSoonDescription(activeView)}
+            />
+          );
+        })()}
+    </Shell>
   );
 }
 
-function describeUploadSummary(summary: IngestSummary): string {
-  if (summary.tier_used === 0) {
-    return `Couldn't read that file: ${summary.failure_reason ?? "unknown error"}`;
+function comingSoonDescription(view: ViewKey): string {
+  switch (view) {
+    case "plans":
+      return "Geometry-aware plan viewing arrives once the Building Digital Model is built.";
+    case "findings":
+      return "Compliance findings will be shown here alongside the plan they were derived from.";
+    case "review":
+      return "A structured review queue for handing off human-review cases to a licensed consultant.";
+    case "history":
+      return "Track how a project's case file and classification have changed over time.";
+    default:
+      return "This part of the workspace isn't active yet.";
   }
-
-  const parts: string[] = [];
-  if (summary.fields_extracted.length > 0) {
-    parts.push(
-      `Found: ${summary.fields_extracted.join(", ")} — please confirm these are correct.`,
-    );
-  } else if (summary.fact_extraction_skipped_reason) {
-    parts.push(summary.fact_extraction_skipped_reason);
-  } else {
-    parts.push("I read the document but didn't find any details I could confidently extract.");
-  }
-
-  if (summary.needs_human_review && summary.fields_extracted.length > 0) {
-    parts.push("This was a lower-confidence read (tier " + summary.tier_used + ") — please double-check it.");
-  }
-
-  return parts.join(" ");
-}
-
-function describeError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 0) return "Could not reach the backend. Is it running?";
-    return `Something went wrong (${err.status}). ${err.message}`;
-  }
-  if (err instanceof TypeError) {
-    return "Could not reach the backend — check it's running and VITE_API_BASE_URL is correct.";
-  }
-  return "Something went wrong. Please try again.";
 }
 
 export default App;

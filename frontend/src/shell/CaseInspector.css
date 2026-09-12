@@ -1,0 +1,102 @@
+.ds-case-inspector {
+  width: var(--shell-inspector-width);
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-app);
+  border-left: 1px solid var(--border-subtle);
+  height: 100%;
+  overflow: hidden;
+  transition: width var(--duration-base) var(--easing-standard);
+}
+
+.ds-case-inspector--collapsed {
+  width: 44px;
+}
+
+.ds-case-inspector__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ds-case-inspector__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.ds-case-inspector__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.ds-case-inspector__toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+.ds-case-inspector__toggle svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ds-case-inspector__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ds-case-inspector__flag {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ds-case-inspector__rollup-note {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-2);
+  line-height: var(--leading-relaxed);
+}
+
+.ds-case-inspector__rollup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+/* Mobile: right inspector becomes a bottom sheet, not a persistent column. */
+@media (max-width: 1200px) {
+  .ds-case-inspector {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: 100%;
+    max-height: 60vh;
+    border-left: none;
+    border-top: 1px solid var(--border-default);
+    z-index: 70;
+  }
+
+  .ds-case-inspector--collapsed {
+    max-height: 44px;
+    width: 100%;
+  }
+}

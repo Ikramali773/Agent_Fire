@@ -1,0 +1,40 @@
+.ds-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ds-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+
+.ds-tabs__tab:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.ds-tabs__tab:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.ds-tabs__tab--active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-500);
+}
+
+.ds-tabs__badge {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}

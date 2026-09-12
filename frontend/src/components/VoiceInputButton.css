@@ -1,0 +1,55 @@
+.voice-input {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.voice-input__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.voice-input__button:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.voice-input__button:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.voice-input__button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.voice-input__button--active {
+  background: var(--status-fail-bg);
+  border-color: var(--status-fail-border);
+  color: var(--status-fail-fg);
+}
+
+.voice-input__error {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: var(--gray-900);
+  color: var(--gray-0);
+  font-size: var(--text-xs);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+}

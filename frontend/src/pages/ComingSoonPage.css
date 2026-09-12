@@ -1,0 +1,7 @@
+.ds-coming-soon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60%;
+  padding: var(--space-6);
+}

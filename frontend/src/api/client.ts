@@ -42,6 +42,12 @@ export const api = {
   getReport: (sessionId: string) =>
     request<{ markdown: string }>(`/case-files/${sessionId}/report`),
 
+  updateCaseFile: (sessionId: string, updates: Record<string, unknown>) =>
+    request<CaseFile>(`/case-files/${sessionId}`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    }),
+
   uploadDocument: async (sessionId: string, file: File): Promise<DocumentUploadResponse> => {
     const formData = new FormData();
     formData.append("file", file);

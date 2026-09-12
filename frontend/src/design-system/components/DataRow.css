@@ -1,0 +1,83 @@
+.ds-data-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 36px;
+}
+
+.ds-data-row:last-child {
+  border-bottom: none;
+}
+
+.ds-data-row--compact {
+  padding: 6px var(--space-2);
+  min-height: 28px;
+}
+
+.ds-data-row__label {
+  flex: 0 0 auto;
+  width: 132px;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-data-row--compact .ds-data-row__label {
+  width: 104px;
+}
+
+.ds-data-row__value {
+  flex: 1 1 auto;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-data-row__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background: var(--surface-sunken);
+  border: 1px solid var(--accent-400);
+  border-radius: var(--radius-xs);
+  padding: 2px 6px;
+  outline: none;
+}
+
+.ds-data-row__meta {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ds-data-row__edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.ds-data-row__edit:hover {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+.ds-data-row__edit svg {
+  width: 13px;
+  height: 13px;
+}

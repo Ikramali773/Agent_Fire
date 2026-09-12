@@ -1,0 +1,56 @@
+.ds-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ds-status-pill--md {
+  padding: 4px 8px;
+  font-size: var(--text-sm);
+}
+.ds-status-pill--sm {
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+}
+
+.ds-status-pill svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.ds-status-pill--pass {
+  background: var(--status-pass-bg);
+  color: var(--status-pass-fg);
+  border-color: var(--status-pass-border);
+}
+.ds-status-pill--fail {
+  background: var(--status-fail-bg);
+  color: var(--status-fail-fg);
+  border-color: var(--status-fail-border);
+}
+.ds-status-pill--warning {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+  border-color: var(--status-warning-border);
+}
+.ds-status-pill--unknown {
+  background: var(--status-unknown-bg);
+  color: var(--status-unknown-fg);
+  border-color: var(--status-unknown-border);
+}
+.ds-status-pill--human_review {
+  background: var(--status-review-bg);
+  color: var(--status-review-fg);
+  border-color: var(--status-review-border);
+}
+.ds-status-pill--info {
+  background: var(--status-info-bg);
+  color: var(--status-info-fg);
+  border-color: var(--status-info-border);
+}

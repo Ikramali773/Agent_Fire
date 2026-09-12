@@ -1,0 +1,91 @@
+.ds-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 9, 12, 0.4);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 90;
+}
+
+.ds-drawer {
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-overlay);
+  border-left: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
+  outline: none;
+}
+
+.ds-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  flex: 0 0 auto;
+}
+
+.ds-drawer__title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ds-drawer__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.ds-drawer__close:hover {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+.ds-drawer__close svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ds-drawer__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.ds-drawer__footer {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Mobile: right sheet becomes a bottom sheet, per the responsive spec. */
+@media (max-width: 720px) {
+  .ds-drawer-overlay {
+    align-items: flex-end;
+  }
+
+  .ds-drawer {
+    max-width: none;
+    width: 100%;
+    height: auto;
+    max-height: 85vh;
+    border-left: none;
+    border-top: 1px solid var(--border-default);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}
