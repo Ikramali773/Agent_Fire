@@ -211,6 +211,17 @@ Part B):
   classification result, and independently confirmed the row via `psql` — before this was
   considered done; the automated test suite still runs on SQLite (`tests/conftest.py` pins
   `DATABASE_URL` to a throwaway file) so `pytest` never needs a real database server available.
+  - **Schema changes against an existing database** (`app/db/init_db.py`) — `create_all_tables()`
+    only creates tables that don't exist yet (SQLAlchemy's `create_all`); it never alters one that
+    already exists, so a column added to a model after a database file/instance was first created
+    (e.g. `CaseFileRecord.owner_user_id`, Phase 2) went silently missing from any pre-existing
+    database and broke every query mentioning it with `no such column: case_files.owner_user_id` -
+    hit live against a pre-Phase-2 local `case_files.db`. Fixed with a lightweight, additive-only
+    migration pass that runs right after `create_all` on every boot: it adds any column a model
+    declares that the live table is missing. **Not a real migration tool** - no renames, drops, type
+    changes, or NOT-NULL backfill; only ever safe for a nullable column with no dependent backfill,
+    which is true of everything added this way so far (see `test_db_migration.py`). A schema change
+    beyond that needs real migrations (Alembic).
 
 ## Not yet built
 
@@ -238,7 +249,7 @@ Part B):
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 181 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 182 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and

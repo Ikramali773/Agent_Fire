@@ -13,9 +13,11 @@ from app.db.init_db import create_all_tables
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Idempotent (CREATE TABLE IF NOT EXISTS semantics via SQLAlchemy's
-    # create_all) - safe to run on every boot rather than requiring a
-    # separate migration step for Phase 1. Revisit with real migrations
-    # (Alembic) once the schema needs to change under existing data.
+    # create_all, plus a lightweight add-missing-columns pass - see
+    # app/db/init_db.py) - safe to run on every boot rather than requiring
+    # a separate migration step. Revisit with real migrations (Alembic)
+    # once a schema change needs more than an additive nullable column
+    # (a rename, a drop, a NOT NULL backfill).
     create_all_tables()
     yield
 
