@@ -220,6 +220,56 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Delete Case File",
+        "description": "Deletes a project: the case file AND its whole chat transcript.\n\nBoth, explicitly - a user deleting a project expects their conversation\nto go with it, not to be left behind in the database. Irreversible;\nthere is no soft-delete/undo, so the UI confirms first.",
+        "operationId": "delete_case_file_case_files__session_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/case-files/{session_id}/classify": {

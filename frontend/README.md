@@ -37,9 +37,31 @@ what's actually implemented server-side.
   - **A project is created lazily**, on the first real input - a typed answer or an uploaded
     document - not when the Overview page opens. Until then the greeting comes from
     `GET /case-files/opening-message`, which persists nothing. This fixes visiting Overview
-    repeatedly filling Project History with empty projects. "New project" (Project History header)
-    is how you deliberately start another one; `App.tsx` remembers the active project id in
-    `localStorage` so a reload resumes where you left off.
+    repeatedly filling Project History with empty projects. "New chat" (sidebar) or "New project"
+    (Project History header) is how you deliberately start another one; `App.tsx` remembers the
+    active project id in `localStorage` so a reload resumes where you left off.
+  - **Agent replies render as Markdown** (`design-system/components/Markdown.tsx`) - the model
+    answers with GFM tables, headings and bold labels, which previously showed on screen as literal
+    pipe characters and asterisks. One renderer is shared by the chat and the report preview so
+    both look the same. Raw HTML is deliberately NOT parsed: replies are LLM output shaped by user
+    input and uploaded documents, so react-markdown's default of escaping every tag is kept, which
+    is safe by construction with no sanitiser to get wrong. The one tag replies actually need is
+    `<br>` (the only way to break a line inside a table cell), handled by a ~15-line local remark
+    plugin that rewrites just that tag into a real hard break - `rehype-raw` + `rehype-sanitize`
+    were measured at +175 kB raw / +54 kB gzipped for the same thing and dropped.
+- **Chat history rail** (`src/shell/RecentChats.tsx`) — the sidebar section people expect from
+  Claude/ChatGPT: "New chat", then your recent conversations newest-first, one click away from
+  being continued (it opens Overview, not the Case File view - picking a project up again almost
+  always means continuing the chat). Rows are labelled by project name, falling back to city/state
+  then occupancy while the project is still unnamed, since a rail of identical "Untitled project"
+  rows is useless. Hover (or keyboard-focus) a row for its delete action.
+- **Projects state** (`src/projects/ProjectsContext.tsx`) — one owner of "the signed-in account's
+  projects", shared by the chat rail and the Project History page so a delete in either updates
+  both immediately instead of leaving a ghost row until reload. `DeleteProjectDialog.tsx` is the
+  confirmation: deleting is irreversible and takes the whole conversation with it, so it is a real
+  dialog (not `window.confirm`, which can't say what else goes with it, nor show a failed request).
+  Deleting the *active* project clears the workspace back to a blank draft; deleting any other one
+  leaves what you are working on alone.
 - **API client** (`src/api/client.ts`) — thin fetch wrapper (auto-attaches the auth token when
   signed in); `types.ts` derives `CaseFile`/`User`/etc. from a *generated* schema (`src/api/schema.ts`)
   instead of a hand-maintained duplicate — see "Generated API types" below.
@@ -118,11 +140,17 @@ browser check that a real API response still renders correctly end-to-end.
 ## Not yet built
 
 - **Project History is a project list, not a field-level change log** — `pages/history/ProjectHistoryPage.tsx`
-  lists every case file the signed-in account owns (via `GET /users/me/case-files`) and lets you
-  open one back into the Case File page (its chat comes back too - see "Conversation history"
-  above). It does NOT track *what* changed and *when* within a single case file (no per-field
-  diff/timeline) - that's a real gap if "history" is taken to mean a change log rather than a
-  project list.
+  lists every case file the signed-in account owns (via `GET /users/me/case-files`), lets you open
+  one back into its conversation (see "Conversation history" above) and delete it. It does NOT
+  track *what* changed and *when* within a single case file (no per-field diff/timeline) - that's a
+  real gap if "history" is taken to mean a change log rather than a project list.
+- **Chat titles are the project's name, not a summary of the conversation** - unlike Claude/ChatGPT,
+  nothing generates a title from what was said; the rail shows whatever identifying facts the case
+  file already holds. A chat started and abandoned before any of those are known still reads
+  "Untitled project".
+- **No search or grouping in the chat rail** - it shows the 8 most recent projects and links to the
+  full Project History table beyond that. No "Today/Yesterday/Last 7 days" date grouping, no
+  filtering, no rename, no pinning.
 - **No way to claim an anonymous case file after signing in** - `owner_user_id` is only set at
   creation time (`create_case_file`), so a project started before logging in stays anonymous
   forever; Project History only shows case files created *while* signed in.

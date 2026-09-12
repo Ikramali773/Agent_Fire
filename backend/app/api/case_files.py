@@ -31,6 +31,7 @@ from app.models.conversation import ConversationMessage, MessageKind, MessageRol
 from app.models.user import User
 from app.reports.exporters import render_docx, render_pdf, safe_report_filename
 from app.reports.generator import generate_report_markdown
+from app.store import delete as store_delete
 from app.store import get as store_get
 from app.store import save as store_save
 
@@ -132,6 +133,25 @@ def update_case_file(
     updated = CaseFile.model_validate(merged)
     updated.updated_at = datetime.now(timezone.utc)
     return store_save(updated)
+
+
+@router.delete("/{session_id}", status_code=204)
+def delete_case_file(
+    session_id: str, current_user: User | None = Depends(get_current_user_optional)
+) -> Response:
+    """Deletes a project: the case file AND its whole chat transcript.
+
+    Both, explicitly - a user deleting a project expects their conversation
+    to go with it, not to be left behind in the database. Irreversible;
+    there is no soft-delete/undo, so the UI confirms first.
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
+    message_store.delete_for_session(session_id)
+    store_delete(session_id)
+    return Response(status_code=204)
 
 
 @router.post("/{session_id}/classify", response_model=CaseFile)

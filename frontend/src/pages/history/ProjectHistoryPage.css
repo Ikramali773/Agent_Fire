@@ -68,3 +68,14 @@
 .ds-project-history__table tbody tr:last-child td {
   border-bottom: none;
 }
+
+.ds-project-history__row--active td {
+  background: var(--surface-selected);
+}
+
+.ds-project-history__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}

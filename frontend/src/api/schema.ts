@@ -62,7 +62,15 @@ export interface paths {
         /** Update Case File */
         put: operations["update_case_file_case_files__session_id__put"];
         post?: never;
-        delete?: never;
+        /**
+         * Delete Case File
+         * @description Deletes a project: the case file AND its whole chat transcript.
+         *
+         *     Both, explicitly - a user deleting a project expects their conversation
+         *     to go with it, not to be left behind in the database. Irreversible;
+         *     there is no soft-delete/undo, so the UI confirms first.
+         */
+        delete: operations["delete_case_file_case_files__session_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -800,6 +808,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CaseFile"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_case_file_case_files__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

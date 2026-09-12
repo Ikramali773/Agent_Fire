@@ -16,6 +16,9 @@ interface Props {
   codeEdition: "2026" | "2016";
   syncState: SyncState;
   caseFile: CaseFile | null;
+  onOpenChat: (caseFile: CaseFile) => void;
+  onNewChat: () => void;
+  onChatDeleted: (sessionId: string) => void;
   children: ReactNode;
 }
 
@@ -28,7 +31,19 @@ function isNarrowViewport(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(max-width: 1200px)").matches;
 }
 
-export function Shell({ activeView, onNavigate, projectName, location, codeEdition, syncState, caseFile, children }: Props) {
+export function Shell({
+  activeView,
+  onNavigate,
+  projectName,
+  location,
+  codeEdition,
+  syncState,
+  caseFile,
+  onOpenChat,
+  onNewChat,
+  onChatDeleted,
+  children,
+}: Props) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // Below 1200px the inspector renders as a bottom sheet over the page
   // content (see CaseInspector.css), so it starts collapsed there - open by
@@ -59,6 +74,16 @@ export function Shell({ activeView, onNavigate, projectName, location, codeEditi
             }}
             collapsed={sidebarCollapsed}
             onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+            activeSessionId={caseFile?.session_id ?? null}
+            onOpenChat={(opened) => {
+              onOpenChat(opened);
+              setMobileNavOpen(false);
+            }}
+            onNewChat={() => {
+              onNewChat();
+              setMobileNavOpen(false);
+            }}
+            onChatDeleted={onChatDeleted}
           />
         </div>
         <main className="ds-shell__main">{children}</main>

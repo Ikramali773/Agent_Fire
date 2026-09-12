@@ -21,13 +21,15 @@
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   line-height: var(--leading-relaxed);
-  white-space: pre-wrap;
 }
 
 .ds-conv-bubble--user {
   background: var(--accent-500);
   color: var(--text-on-accent);
   border-bottom-right-radius: var(--radius-xs);
+  /* Plain text, so newlines the user typed are honoured verbatim. Agent
+     replies are markdown instead and lay themselves out - see Markdown.tsx. */
+  white-space: pre-wrap;
 }
 
 .ds-conv-bubble--agent {
@@ -35,6 +37,9 @@
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
   border-bottom-left-radius: var(--radius-xs);
+  /* Roomier than a plain-text bubble: replies often contain a table. */
+  max-width: 760px;
+  min-width: 0;
 }
 
 .ds-conv-system {

@@ -53,39 +53,6 @@
   margin: 0;
 }
 
-.ds-reports-page__markdown {
-  color: var(--text-primary);
-  font-size: var(--text-base);
-  line-height: var(--leading-relaxed);
-}
-
-.ds-reports-page__markdown h1,
-.ds-reports-page__markdown h2,
-.ds-reports-page__markdown h3 {
-  color: var(--text-primary);
-  line-height: var(--leading-tight);
-}
-
-.ds-reports-page__markdown table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: var(--text-sm);
-}
-
-.ds-reports-page__markdown th,
-.ds-reports-page__markdown td {
-  border: 1px solid var(--border-subtle);
-  padding: 6px var(--space-2);
-  text-align: left;
-}
-
-.ds-reports-page__markdown code {
-  font-family: var(--font-mono);
-  background: var(--surface-sunken);
-  padding: 1px 4px;
-  border-radius: var(--radius-xs);
-}
-
 .ds-reports-page__spin {
   animation: ds-reports-page-spin 900ms linear infinite;
 }

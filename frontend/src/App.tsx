@@ -8,6 +8,7 @@ import { DocumentsPage } from "./pages/documents/DocumentsPage";
 import { ProjectHistoryPage } from "./pages/history/ProjectHistoryPage";
 import { OverviewPage } from "./pages/overview/OverviewPage";
 import { ReportsPage } from "./pages/reports/ReportsPage";
+import { useProjects } from "./projects/ProjectsContext";
 import { NAV_ITEMS, type ViewKey } from "./shell/nav";
 import { Shell } from "./shell/Shell";
 import type { CaseFile } from "./types";
@@ -19,21 +20,64 @@ const ACTIVE_SESSION_KEY = "fire-agent-active-session";
 
 function App() {
   const { loading: authLoading } = useAuth();
+  const { upsert: upsertProject } = useProjects();
   const [activeView, setActiveView] = useState<ViewKey>("overview");
   const [caseFileState, setCaseFileState] = useState<CaseFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(true);
 
-  const setCaseFile = useCallback((next: CaseFile | null) => {
-    setCaseFileState(next);
-    try {
-      if (next) localStorage.setItem(ACTIVE_SESSION_KEY, next.session_id);
-      else localStorage.removeItem(ACTIVE_SESSION_KEY);
-    } catch {
-      // Private browsing / storage disabled - losing the "resume where I
-      // left off" convenience is fine, breaking the app over it is not.
-    }
-  }, []);
+  const setCaseFile = useCallback(
+    (next: CaseFile | null) => {
+      setCaseFileState(next);
+      // Keep the chat rail in step with the live project: this is what
+      // makes a brand-new conversation appear there the moment it is
+      // created, and its title update once the project is named.
+      if (next) upsertProject(next);
+      try {
+        if (next) localStorage.setItem(ACTIVE_SESSION_KEY, next.session_id);
+        else localStorage.removeItem(ACTIVE_SESSION_KEY);
+      } catch {
+        // Private browsing / storage disabled - losing the "resume where I
+        // left off" convenience is fine, breaking the app over it is not.
+      }
+    },
+    [upsertProject],
+  );
+
+  // Opening a chat means continuing the conversation, so it always lands on
+  // Overview - the Case File view shows the extracted fields, not the chat.
+  const openChat = useCallback(
+    (opened: CaseFile) => {
+      setCaseFile(opened);
+      setActiveView("overview");
+    },
+    [setCaseFile],
+  );
+
+  // Clearing the active case file is all it takes: the Overview page
+  // creates one lazily on the first real input, so this starts a blank
+  // conversation without persisting anything yet.
+  const startNewChat = useCallback(() => {
+    setCaseFile(null);
+    setActiveView("overview");
+  }, [setCaseFile]);
+
+  const handleProjectDeleted = useCallback(
+    (sessionId: string) => {
+      // Only the project that was actually deleted gets dropped - deleting
+      // some other chat must not disturb what the user is working on.
+      setCaseFileState((current) => {
+        if (current?.session_id !== sessionId) return current;
+        try {
+          localStorage.removeItem(ACTIVE_SESSION_KEY);
+        } catch {
+          /* ignore */
+        }
+        return null;
+      });
+    },
+    [],
+  );
 
   // Reopen the last project on reload, so a refresh doesn't strand the user
   // in a blank conversation with their history only reachable via Project
@@ -78,6 +122,9 @@ function App() {
       codeEdition={caseFile?.code_edition ?? "2026"}
       syncState={busy ? "saving" : "saved"}
       caseFile={caseFile}
+      onOpenChat={openChat}
+      onNewChat={startNewChat}
+      onChatDeleted={handleProjectDeleted}
     >
       {/* Nothing renders until the "resume last project" lookup settles -
           otherwise Overview would briefly open a blank draft conversation
@@ -92,17 +139,10 @@ function App() {
       {!restoring && activeView === "reports" && <ReportsPage caseFile={caseFile} />}
       {!restoring && activeView === "history" && (
         <ProjectHistoryPage
-          onOpenCaseFile={(opened) => {
-            setCaseFile(opened);
-            setActiveView("case-file");
-          }}
-          onStartNewProject={() => {
-            // Clearing the active case file is all it takes: the Overview
-            // page creates one lazily on the first real input, so this
-            // starts a blank conversation without persisting anything yet.
-            setCaseFile(null);
-            setActiveView("overview");
-          }}
+          activeSessionId={caseFile?.session_id ?? null}
+          onOpenCaseFile={openChat}
+          onStartNewProject={startNewChat}
+          onProjectDeleted={handleProjectDeleted}
         />
       )}
       {!restoring && (activeView === "plans" || activeView === "findings" || activeView === "review") &&

@@ -1,9 +1,9 @@
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import { api, ApiError } from "../../api/client";
 import { Button } from "../../design-system/components/Button";
 import { EmptyState } from "../../design-system/components/EmptyState";
+import { Markdown } from "../../design-system/components/Markdown";
 import type { CaseFile } from "../../types";
 import "./ReportsPage.css";
 
@@ -104,11 +104,7 @@ export function ReportsPage({ caseFile }: Props) {
 
       <div className="ds-reports-page__document">
         {loading && <p className="ds-reports-page__loading">Loading report…</p>}
-        {!loading && markdown && (
-          <div className="ds-reports-page__markdown">
-            <ReactMarkdown>{markdown}</ReactMarkdown>
-          </div>
-        )}
+        {!loading && markdown && <Markdown>{markdown}</Markdown>}
         {!loading && !markdown && !error && <p className="ds-reports-page__loading">No report available yet.</p>}
       </div>
     </div>

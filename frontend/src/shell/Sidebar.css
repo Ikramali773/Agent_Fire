@@ -7,7 +7,9 @@
   background: var(--surface-app);
   border-right: 1px solid var(--border-subtle);
   height: 100%;
-  overflow-y: auto;
+  /* The chat-history section owns the leftover height and scrolls itself,
+     so the nav items and the collapse toggle stay put. */
+  overflow: hidden;
   transition: width var(--duration-base) var(--easing-standard);
 }
 
@@ -18,6 +20,7 @@
 .ds-sidebar__list {
   list-style: none;
   margin: 0;
+  flex: 0 0 auto;
   padding: var(--space-2);
   display: flex;
   flex-direction: column;
@@ -82,6 +85,7 @@
 }
 
 .ds-sidebar__collapse-toggle {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: var(--space-2);

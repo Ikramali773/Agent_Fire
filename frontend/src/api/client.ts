@@ -64,6 +64,20 @@ export const api = {
 
   getCaseFile: (sessionId: string) => request<CaseFile>(`/case-files/${sessionId}`),
 
+  // Deletes the project AND its whole chat transcript (the backend does
+  // both in one step - see delete_case_file). Not routed through request()
+  // because a 204 has no body to parse.
+  deleteCaseFile: async (sessionId: string): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
+    }
+  },
+
   // The assistant's greeting for a case file that doesn't exist yet -
   // persists nothing, so simply opening the Overview page no longer
   // creates a project (see backend's get_opening_message).

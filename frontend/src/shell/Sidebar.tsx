@@ -1,6 +1,8 @@
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Badge } from "../design-system/components/Badge";
+import { RecentChats } from "./RecentChats";
 import { NAV_ITEMS, type ViewKey } from "./nav";
+import type { CaseFile } from "../types";
 import "./Sidebar.css";
 
 interface Props {
@@ -8,9 +10,22 @@ interface Props {
   onNavigate: (view: ViewKey) => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  activeSessionId: string | null;
+  onOpenChat: (caseFile: CaseFile) => void;
+  onNewChat: () => void;
+  onChatDeleted: (sessionId: string) => void;
 }
 
-export function Sidebar({ activeView, onNavigate, collapsed, onToggleCollapsed }: Props) {
+export function Sidebar({
+  activeView,
+  onNavigate,
+  collapsed,
+  onToggleCollapsed,
+  activeSessionId,
+  onOpenChat,
+  onNewChat,
+  onChatDeleted,
+}: Props) {
   return (
     <nav className={`ds-sidebar${collapsed ? " ds-sidebar--collapsed" : ""}`} aria-label="Primary">
       <ul className="ds-sidebar__list">
@@ -39,6 +54,17 @@ export function Sidebar({ activeView, onNavigate, collapsed, onToggleCollapsed }
           );
         })}
       </ul>
+      {/* Collapsed to an icon rail there is no room for chat titles, so the
+          section is dropped entirely rather than shown truncated to nothing. */}
+      {!collapsed && (
+        <RecentChats
+          activeSessionId={activeSessionId}
+          onOpenChat={onOpenChat}
+          onNewChat={onNewChat}
+          onViewAll={() => onNavigate("history")}
+          onDeleted={onChatDeleted}
+        />
+      )}
       <button
         type="button"
         className="ds-sidebar__collapse-toggle"

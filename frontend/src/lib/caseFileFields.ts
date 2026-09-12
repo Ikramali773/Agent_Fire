@@ -47,3 +47,18 @@ export function normalizeClassification(raw: CaseFile["classification_result"]):
     notes: raw.notes ?? [],
   };
 }
+
+/** A human label for a project in a list, when it may not be named yet.
+ *
+ * The project name is collected partway through the intake, so a brand-new
+ * chat has none - and a rail of identical "Untitled project" rows is
+ * useless. Falls back to whatever the case file does already know, in
+ * decreasing order of how much it identifies the project.
+ */
+export function projectLabel(caseFile: CaseFile): string {
+  if (caseFile.project_name) return caseFile.project_name;
+  const place = [caseFile.city, caseFile.state].filter(Boolean).join(", ");
+  if (place) return place;
+  if (caseFile.occupancy_type) return formatLabel(caseFile.occupancy_type);
+  return "Untitled project";
+}

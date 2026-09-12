@@ -1,5 +1,6 @@
 import { Badge } from "../../design-system/components/Badge";
 import { DocumentResultCard } from "../../design-system/components/DocumentResultCard";
+import { Markdown } from "../../design-system/components/Markdown";
 import { ProgressSteps } from "../../design-system/components/ProgressSteps";
 import { StatusPill } from "../../design-system/components/StatusPill";
 import type { ConversationEntry } from "./conversation";
@@ -27,9 +28,14 @@ export function ConversationMessage({ entry }: Props) {
   }
 
   if (entry.kind === "agent") {
+    // Rendered as markdown, not raw text: replies routinely come back with
+    // tables, headings and bold labels, which previously showed as literal
+    // pipe characters and asterisks on screen.
     return (
       <div className="ds-conv-row ds-conv-row--agent">
-        <div className="ds-conv-bubble ds-conv-bubble--agent">{entry.text}</div>
+        <div className="ds-conv-bubble ds-conv-bubble--agent">
+          <Markdown compact>{entry.text}</Markdown>
+        </div>
       </div>
     );
   }

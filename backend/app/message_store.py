@@ -82,6 +82,23 @@ def list_for_session(
         return [_to_message(record) for record in reversed(records)]
 
 
+def delete_for_session(session_id: str) -> int:
+    """Removes a session's whole transcript. Returns how many messages went.
+
+    Called when a project is deleted: deleting the case file but leaving its
+    conversation behind would keep the user's chat content in the database
+    after they asked for the project to be removed.
+    """
+    with get_session() as session:
+        deleted = (
+            session.query(ConversationMessageRecord)
+            .filter(ConversationMessageRecord.session_id == session_id)
+            .delete()
+        )
+        session.commit()
+        return deleted
+
+
 def delete_all() -> None:
     """Test-only helper, mirrors app/store.py's delete_all()."""
     with get_session() as session:

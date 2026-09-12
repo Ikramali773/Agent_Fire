@@ -153,6 +153,57 @@ class TestTranscriptPersistence:
     def test_messages_404_for_a_missing_case_file(self):
         assert client.get("/case-files/does-not-exist/messages").status_code == 404
 
+    def test_deleting_a_project_removes_its_transcript_too(self):
+        session_id = self._session()
+        client.post(f"/case-files/{session_id}/start")
+        client.post(f"/case-files/{session_id}/message", json={"message": "Gujarat, Ahmedabad"})
+        assert len(client.get(f"/case-files/{session_id}/messages").json()) == 3
+
+        delete_resp = client.delete(f"/case-files/{session_id}")
+
+        assert delete_resp.status_code == 204
+        assert client.get(f"/case-files/{session_id}").status_code == 404
+        # The transcript must not survive the project it belonged to - check
+        # the store directly, since the endpoint now 404s on the case file.
+        assert message_store.list_for_session(session_id) == []
+
+    def test_deleting_one_project_leaves_another_untouched(self):
+        keep = self._session()
+        remove = self._session()
+        client.post(f"/case-files/{keep}/start")
+        client.post(f"/case-files/{remove}/start")
+
+        client.delete(f"/case-files/{remove}")
+
+        assert client.get(f"/case-files/{keep}").status_code == 200
+        assert len(client.get(f"/case-files/{keep}/messages").json()) == 1
+
+    def test_delete_404_for_a_missing_case_file(self):
+        assert client.delete("/case-files/does-not-exist").status_code == 404
+
+    def test_delete_respects_ownership(self):
+        owner_token = client.post(
+            "/auth/signup", json={"email": "owner@example.com", "password": "correct-horse"}
+        ).json()["access_token"]
+        session_id = client.post(
+            "/case-files", json=None, headers={"Authorization": f"Bearer {owner_token}"}
+        ).json()["session_id"]
+
+        # Anonymous, and a different account, are both refused.
+        assert client.delete(f"/case-files/{session_id}").status_code == 403
+        other_token = client.post(
+            "/auth/signup", json={"email": "other@example.com", "password": "correct-horse"}
+        ).json()["access_token"]
+        assert (
+            client.delete(f"/case-files/{session_id}", headers={"Authorization": f"Bearer {other_token}"}).status_code
+            == 403
+        )
+        # ...and the owner can.
+        assert (
+            client.delete(f"/case-files/{session_id}", headers={"Authorization": f"Bearer {owner_token}"}).status_code
+            == 204
+        )
+
     def test_messages_respect_case_file_ownership(self):
         owner_token = client.post(
             "/auth/signup", json={"email": "owner@example.com", "password": "correct-horse"}

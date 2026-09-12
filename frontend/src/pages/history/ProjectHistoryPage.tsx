@@ -1,19 +1,22 @@
-import { Plus } from "lucide-react";
-import { useEffect, useState } from "react";
-import { api, ApiError } from "../../api/client";
+import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { LoginModal } from "../../auth/LoginModal";
 import { Button } from "../../design-system/components/Button";
 import { EmptyState } from "../../design-system/components/EmptyState";
 import { StatusPill } from "../../design-system/components/StatusPill";
 import { formatLabel, normalizeClassification } from "../../lib/caseFileFields";
+import { DeleteProjectDialog } from "../../projects/DeleteProjectDialog";
+import { useProjects } from "../../projects/ProjectsContext";
 import { overallStatus } from "../compliance/complianceStatus";
 import type { CaseFile } from "../../types";
 import "./ProjectHistoryPage.css";
 
 interface Props {
+  activeSessionId: string | null;
   onOpenCaseFile: (caseFile: CaseFile) => void;
   onStartNewProject: () => void;
+  onProjectDeleted: (sessionId: string) => void;
 }
 
 // Phase 2's starting point for Project History: every case file the signed-
@@ -22,20 +25,14 @@ interface Props {
 // field-level change log - GET /users/me/case-files returns each case
 // file's current state only; a true "what changed and when" audit trail
 // (per-field diffs over time) isn't built yet.
-export function ProjectHistoryPage({ onOpenCaseFile, onStartNewProject }: Props) {
+//
+// The list itself comes from ProjectsContext, shared with the sidebar's
+// chat rail, so deleting in one place updates the other immediately.
+export function ProjectHistoryPage({ activeSessionId, onOpenCaseFile, onStartNewProject, onProjectDeleted }: Props) {
   const { user } = useAuth();
-  const [caseFiles, setCaseFiles] = useState<CaseFile[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { projects, loading, error } = useProjects();
   const [loginOpen, setLoginOpen] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    setError(null);
-    api
-      .myCaseFiles()
-      .then(setCaseFiles)
-      .catch((err) => setError(err instanceof ApiError ? `Could not load your projects (${err.status}).` : "Could not load your projects."));
-  }, [user]);
+  const [pendingDelete, setPendingDelete] = useState<CaseFile | null>(null);
 
   if (!user) {
     return (
@@ -75,16 +72,16 @@ export function ProjectHistoryPage({ onOpenCaseFile, onStartNewProject }: Props)
         </div>
       )}
 
-      {caseFiles === null && !error && <p className="ds-project-history__loading">Loading…</p>}
+      {projects === null && loading && !error && <p className="ds-project-history__loading">Loading…</p>}
 
-      {caseFiles !== null && caseFiles.length === 0 && (
+      {projects !== null && projects.length === 0 && (
         <EmptyState
           title="No projects yet"
           description="Start a conversation on the Overview page while signed in, and it'll show up here."
         />
       )}
 
-      {caseFiles !== null && caseFiles.length > 0 && (
+      {projects !== null && projects.length > 0 && (
         <table className="ds-project-history__table">
           <thead>
             <tr>
@@ -97,26 +94,44 @@ export function ProjectHistoryPage({ onOpenCaseFile, onStartNewProject }: Props)
             </tr>
           </thead>
           <tbody>
-            {caseFiles.map((caseFile) => {
+            {projects.map((caseFile) => {
               const result = normalizeClassification(caseFile.classification_result);
               const isClassified = caseFile.conversation_stage === "classified" && Boolean(result.table_7_ref);
               return (
-                <tr key={caseFile.session_id}>
+                <tr key={caseFile.session_id} className={caseFile.session_id === activeSessionId ? "ds-project-history__row--active" : undefined}>
                   <td>{caseFile.project_name || "Untitled project"}</td>
                   <td>{[caseFile.city, caseFile.state].filter(Boolean).join(", ") || "Not yet known"}</td>
                   <td>{formatLabel(caseFile.project_stage)}</td>
                   <td>{isClassified ? <StatusPill status={overallStatus(result)} size="sm" /> : <StatusPill status="unknown" label="Not classified" size="sm" />}</td>
                   <td className="tabular-nums">{new Date(caseFile.updated_at).toLocaleString()}</td>
                   <td>
-                    <Button variant="secondary" size="sm" onClick={() => onOpenCaseFile(caseFile)}>
-                      Open
-                    </Button>
+                    <div className="ds-project-history__actions">
+                      {/* Opens the conversation, not the field view - picking
+                          a project up again almost always means continuing
+                          the chat, and Case File is one nav click away. */}
+                      <Button variant="secondary" size="sm" onClick={() => onOpenCaseFile(caseFile)}>
+                        Open chat
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<Trash2 />}
+                        iconOnly
+                        aria-label={`Delete ${caseFile.project_name || "Untitled project"}`}
+                        title="Delete project"
+                        onClick={() => setPendingDelete(caseFile)}
+                      />
+                    </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      )}
+
+      {pendingDelete && (
+        <DeleteProjectDialog project={pendingDelete} onClose={() => setPendingDelete(null)} onDeleted={onProjectDeleted} />
       )}
     </div>
   );

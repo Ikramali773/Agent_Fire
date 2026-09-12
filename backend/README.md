@@ -188,6 +188,11 @@ Part B):
     Inside the Case File's JSON blob, every message would rewrite the entire history and then ship
     all of it on every case file response - quadratic in a long project. One indexed row per
     message keeps an append O(1) and lets a long conversation be paged instead of loaded whole.
+- **`DELETE /case-files/{id}`** (Phase 2) — deletes a project: the case file AND its whole
+  transcript, in one step. Both, explicitly - a user deleting a project expects their conversation
+  to go with it, not to be left behind in the database. Irreversible (no soft-delete, no undo), so
+  the frontend confirms first. Ownership is enforced by the same `_check_access()` as every other
+  endpoint, so one account can never delete another's project.
 - **`GET /case-files/opening-message`** (Phase 2) — the assistant's greeting for a case file that
   doesn't exist yet, persisting nothing. Fixes the other half of the same report: opening the
   Overview page used to create (and persist) a case file immediately, so every visit - and every

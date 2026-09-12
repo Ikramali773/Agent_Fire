@@ -66,6 +66,24 @@ def list_by_owner(owner_user_id: str) -> list[CaseFile]:
         return [CaseFile.model_validate(record.data) for record in records]
 
 
+def delete(session_id: str) -> bool:
+    """Removes one case file. Returns whether it existed.
+
+    Callers are responsible for the conversation transcript that belongs to
+    it (app/message_store.py's delete_for_session) - the two are separate
+    tables with no DB-level cascade, deliberately: the transcript store is
+    its own seam, and a silent ON DELETE CASCADE would make "what else does
+    deleting a project destroy?" invisible at the call site.
+    """
+    with get_session() as session:
+        record = session.get(CaseFileRecord, session_id)
+        if record is None:
+            return False
+        session.delete(record)
+        session.commit()
+        return True
+
+
 def delete_all() -> None:
     """Test-only helper to reset store state between test runs."""
     with get_session() as session:
