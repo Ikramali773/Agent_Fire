@@ -4,6 +4,13 @@
   padding: var(--space-6) var(--space-4);
 }
 
+.ds-project-history__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
 .ds-project-history__header h1 {
   margin: 0 0 4px;
   font-size: var(--text-xl);

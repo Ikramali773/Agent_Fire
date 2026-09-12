@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -12,6 +13,7 @@ import "./ProjectHistoryPage.css";
 
 interface Props {
   onOpenCaseFile: (caseFile: CaseFile) => void;
+  onStartNewProject: () => void;
 }
 
 // Phase 2's starting point for Project History: every case file the signed-
@@ -20,7 +22,7 @@ interface Props {
 // field-level change log - GET /users/me/case-files returns each case
 // file's current state only; a true "what changed and when" audit trail
 // (per-field diffs over time) isn't built yet.
-export function ProjectHistoryPage({ onOpenCaseFile }: Props) {
+export function ProjectHistoryPage({ onOpenCaseFile, onStartNewProject }: Props) {
   const { user } = useAuth();
   const [caseFiles, setCaseFiles] = useState<CaseFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,8 +57,16 @@ export function ProjectHistoryPage({ onOpenCaseFile }: Props) {
   return (
     <div className="ds-project-history">
       <header className="ds-project-history__header">
-        <h1>Project History</h1>
-        <p>Every case file your account owns. Case files created before you signed in aren't included.</p>
+        <div>
+          <h1>Project History</h1>
+          <p>Every case file your account owns. Case files created before you signed in aren't included.</p>
+        </div>
+        {/* A project is only created once you actually start one, so this is
+            how you deliberately begin a second one rather than continuing
+            the active project on the Overview page. */}
+        <Button variant="secondary" size="sm" icon={<Plus />} onClick={onStartNewProject}>
+          New project
+        </Button>
       </header>
 
       {error && (

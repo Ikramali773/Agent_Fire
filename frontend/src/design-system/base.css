@@ -109,3 +109,11 @@ select {
   white-space: nowrap;
   border: 0;
 }
+
+/* App-level "resume last project" placeholder - see App.tsx's `restoring`. */
+.ds-app-restoring {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}

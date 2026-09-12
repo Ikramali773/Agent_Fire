@@ -72,6 +72,30 @@
         }
       }
     },
+    "/case-files/opening-message": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Get Opening Message",
+        "description": "The greeting + first intake question for a not-yet-created case file.\n\nExists so the Overview page can show the assistant's opening message\nimmediately WITHOUT creating (and therefore persisting) a case file.\nBefore this, merely opening the Overview page created a project - so\nnavigating away and back repeatedly littered Project History with\nempty projects the user never actually started. A case file is now\nonly created once there's something real to record: a typed answer or\nan uploaded document. Persists nothing; `start_conversation` here runs\nagainst a throwaway in-memory CaseFile purely to render the prompt.",
+        "operationId": "get_opening_message_case_files_opening_message_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Opening Message Case Files Opening Message Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/case-files/{session_id}": {
       "get": {
         "tags": [
@@ -545,6 +569,97 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Start Case Files  Session Id  Start Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/messages": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Get Messages",
+        "description": "The persisted chat transcript, oldest-first - what the Overview page\nreloads so leaving the page (or reopening the project later from\nProject History) doesn't lose the conversation. Returns the most recent\n`limit` messages; page further back with `before_id` (the id of the\noldest message already held).",
+        "operationId": "get_messages_case_files__session_id__messages_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationMessage"
+                  },
+                  "title": "Response Get Messages Case Files  Session Id  Messages Get"
                 }
               }
             }
@@ -1286,6 +1401,56 @@
         ],
         "title": "CodeEdition"
       },
+      "ConversationMessage": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MessageRole"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MessageKind",
+            "default": "text"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload",
+            "description": "Structured data for a non-text kind: the IngestSummary for a document_result, the ClassificationResult for a classification_result. None for plain text messages."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "role",
+          "created_at"
+        ],
+        "title": "ConversationMessage"
+      },
       "ConversationStage": {
         "type": "string",
         "enum": [
@@ -1394,6 +1559,25 @@
           "G-3"
         ],
         "title": "IndustrialHazardBand"
+      },
+      "MessageKind": {
+        "type": "string",
+        "enum": [
+          "text",
+          "document_result",
+          "classification_result"
+        ],
+        "title": "MessageKind",
+        "description": "How the frontend should render this message - mirrors the\nConversationEntry union in frontend/src/pages/overview/conversation.ts.\nStored rather than re-derived so a reloaded transcript renders exactly\nas it did live (a document result as its result card, a classification\nas its summary card), instead of collapsing to undifferentiated text."
+      },
+      "MessageRole": {
+        "type": "string",
+        "enum": [
+          "user",
+          "agent",
+          "system"
+        ],
+        "title": "MessageRole"
       },
       "OccupancyBreakdownItem": {
         "properties": {

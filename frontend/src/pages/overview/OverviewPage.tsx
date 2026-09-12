@@ -3,7 +3,7 @@ import { api, ApiError } from "../../api/client";
 import type { CaseFile } from "../../types";
 import { Composer } from "./Composer";
 import { ConversationMessage } from "./ConversationMessage";
-import { nextEntryId, type ConversationEntry } from "./conversation";
+import { nextEntryId, toConversationEntries, type ConversationEntry } from "./conversation";
 import { normalizeClassification } from "../../lib/caseFileFields";
 import { parseQuickOptions } from "../../lib/quickOptions";
 import "./OverviewPage.css";
@@ -15,52 +15,94 @@ interface Props {
 }
 
 // The AI compliance workspace - a copilot over the Case File, not the whole
-// application. Keeps using the exact same conversational API (create /
-// start / message / documents) as before; this file only changes how that
-// exchange is presented.
+// application.
+//
+// Two things this page deliberately does NOT do, both fixing real reported
+// problems:
+//   1. It never creates a case file just because it mounted. Opening this
+//      page used to POST /case-files immediately, so every visit (and every
+//      section switch back) created a project, filling Project History with
+//      empty ones. A case file is now created lazily, on the first real
+//      input - a typed answer or an uploaded document - via ensureCaseFile().
+//      Until then the greeting comes from /case-files/opening-message, which
+//      persists nothing.
+//   2. It never treats its local `entries` state as the record. The
+//      transcript is persisted server-side and reloaded on mount, so leaving
+//      this page (or reopening the project later) no longer loses the chat.
 export function OverviewPage({ caseFile, onCaseFileChange, onBusyChange }: Props) {
   const [entries, setEntries] = useState<ConversationEntry[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const initialized = useRef(false);
+  // Which session's transcript `entries` currently holds. Also set straight
+  // after a lazy create, so the load effect below doesn't re-fetch over the
+  // optimistic entries of the very turn that created the case file.
+  // `undefined` (not null) is the "nothing loaded yet" sentinel - null is a
+  // real value here, meaning "a draft with no case file yet".
+  const loadedSessionId = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     onBusyChange(busy);
   }, [busy, onBusyChange]);
 
-  useEffect(() => {
-    if (initialized.current) return; // React StrictMode double-invokes effects in dev
-    initialized.current = true;
+  const sessionId = caseFile?.session_id ?? null;
 
+  useEffect(() => {
+    if (loadedSessionId.current === sessionId) return;
+    loadedSessionId.current = sessionId;
+    setBusy(true);
+    setError(null);
+
+    // Staleness is guarded by re-checking the ref when the request
+    // resolves, rather than by an unmount cleanup flag: React StrictMode
+    // invokes this effect twice in dev, and cancelling the first run's
+    // state updates would leave `busy` stuck true forever (the second run
+    // early-returns above, so nothing would ever clear it).
     (async () => {
       try {
-        const created = await api.createCaseFile();
-        const started = await api.startConversation(created.session_id);
-        onCaseFileChange(started.case_file);
-        setEntries([{ kind: "agent", id: nextEntryId(), text: started.agent_message }]);
+        if (sessionId) {
+          const messages = await api.getMessages(sessionId);
+          if (loadedSessionId.current === sessionId) setEntries(toConversationEntries(messages));
+        } else {
+          const { agent_message } = await api.getOpeningMessage();
+          if (loadedSessionId.current === sessionId) {
+            setEntries([{ kind: "agent", id: nextEntryId(), text: agent_message }]);
+          }
+        }
       } catch (err) {
-        setError(describeError(err));
+        if (loadedSessionId.current === sessionId) setError(describeError(err));
       } finally {
-        setBusy(false);
+        if (loadedSessionId.current === sessionId) setBusy(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entries]);
 
+  // Creates the case file on first real input and records the greeting the
+  // user has already been shown, so the persisted transcript matches the
+  // screen. Returns the case file to act on - callers must use this rather
+  // than the `caseFile` prop, which is still null on the turn that creates it.
+  const ensureCaseFile = useCallback(async (): Promise<CaseFile> => {
+    if (caseFile) return caseFile;
+    const created = await api.createCaseFile();
+    const started = await api.startConversation(created.session_id);
+    loadedSessionId.current = started.case_file.session_id;
+    onCaseFileChange(started.case_file);
+    return started.case_file;
+  }, [caseFile, onCaseFileChange]);
+
   const handleSend = useCallback(
     async (text: string) => {
-      if (!caseFile) return;
       setEntries((prev) => [...prev, { kind: "user", id: nextEntryId(), text }]);
       setBusy(true);
       setError(null);
       try {
-        const previousStage = caseFile.conversation_stage;
-        const result = await api.sendMessage(caseFile.session_id, text);
+        const active = await ensureCaseFile();
+        const previousStage = active.conversation_stage;
+        const result = await api.sendMessage(active.session_id, text);
         onCaseFileChange(result.case_file);
         setEntries((prev) => [...prev, { kind: "agent", id: nextEntryId(), text: result.agent_message }]);
         if (previousStage !== "classified" && result.case_file.conversation_stage === "classified") {
@@ -75,18 +117,18 @@ export function OverviewPage({ caseFile, onCaseFileChange, onBusyChange }: Props
         setBusy(false);
       }
     },
-    [caseFile, onCaseFileChange],
+    [ensureCaseFile, onCaseFileChange],
   );
 
   const handleUploadDocument = useCallback(
     async (file: File) => {
-      if (!caseFile) return;
       setError(null);
       setBusy(true);
       const entryId = nextEntryId();
       setEntries((prev) => [...prev, { kind: "document-uploading", id: entryId, fileName: file.name }]);
       try {
-        const result = await api.uploadDocument(caseFile.session_id, file);
+        const active = await ensureCaseFile();
+        const result = await api.uploadDocument(active.session_id, file);
         onCaseFileChange(result.case_file);
         setEntries((prev) =>
           prev.map((entry) =>
@@ -100,12 +142,12 @@ export function OverviewPage({ caseFile, onCaseFileChange, onBusyChange }: Props
         setBusy(false);
       }
     },
-    [caseFile, onCaseFileChange],
+    [ensureCaseFile, onCaseFileChange],
   );
 
   const lastAgentEntry = [...entries].reverse().find((entry) => entry.kind === "agent");
   const quickOptions =
-    !busy && lastAgentEntry && lastAgentEntry.kind === "agent" && caseFile && caseFile.conversation_stage !== "classified"
+    !busy && lastAgentEntry && lastAgentEntry.kind === "agent" && caseFile?.conversation_stage !== "classified"
       ? parseQuickOptions(lastAgentEntry.text)
       : null;
   // A document upload already shows its own in-progress card (see

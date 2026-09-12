@@ -21,6 +21,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/case-files/opening-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Opening Message
+         * @description The greeting + first intake question for a not-yet-created case file.
+         *
+         *     Exists so the Overview page can show the assistant's opening message
+         *     immediately WITHOUT creating (and therefore persisting) a case file.
+         *     Before this, merely opening the Overview page created a project - so
+         *     navigating away and back repeatedly littered Project History with
+         *     empty projects the user never actually started. A case file is now
+         *     only created once there's something real to record: a typed answer or
+         *     an uploaded document. Persists nothing; `start_conversation` here runs
+         *     against a throwaway in-memory CaseFile purely to render the prompt.
+         */
+        get: operations["get_opening_message_case_files_opening_message_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/case-files/{session_id}": {
         parameters: {
             query?: never;
@@ -158,6 +187,30 @@ export interface paths {
          *     file to get the first prompt to show the user.
          */
         post: operations["start_case_files__session_id__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Messages
+         * @description The persisted chat transcript, oldest-first - what the Overview page
+         *     reloads so leaving the page (or reopening the project later from
+         *     Project History) doesn't lose the conversation. Returns the most recent
+         *     `limit` messages; page further back with `before_id` (the id of the
+         *     oldest message already held).
+         */
+        get: operations["get_messages_case_files__session_id__messages_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -439,6 +492,33 @@ export interface components {
          * @enum {string}
          */
         CodeEdition: "2026" | "2016";
+        /** ConversationMessage */
+        ConversationMessage: {
+            /** Id */
+            id: number;
+            /** Session Id */
+            session_id: string;
+            role: components["schemas"]["MessageRole"];
+            /** @default text */
+            kind: components["schemas"]["MessageKind"];
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Payload
+             * @description Structured data for a non-text kind: the IngestSummary for a document_result, the ClassificationResult for a classification_result. None for plain text messages.
+             */
+            payload?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * ConversationStage
          * @enum {string}
@@ -501,6 +581,21 @@ export interface components {
          * @enum {string}
          */
         IndustrialHazardBand: "G-1" | "G-2" | "G-3";
+        /**
+         * MessageKind
+         * @description How the frontend should render this message - mirrors the
+         *     ConversationEntry union in frontend/src/pages/overview/conversation.ts.
+         *     Stored rather than re-derived so a reloaded transcript renders exactly
+         *     as it did live (a document result as its result card, a classification
+         *     as its summary card), instead of collapsing to undifferentiated text.
+         * @enum {string}
+         */
+        MessageKind: "text" | "document_result" | "classification_result";
+        /**
+         * MessageRole
+         * @enum {string}
+         */
+        MessageRole: "user" | "agent" | "system";
         /**
          * OccupancyBreakdownItem
          * @description One component of a mixed-occupancy building (B.4).
@@ -619,6 +714,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_opening_message_case_files_opening_message_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -890,6 +1007,42 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_messages_case_files__session_id__messages_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before_id?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationMessage"][];
                 };
             };
             /** @description Validation Error */

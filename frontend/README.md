@@ -28,6 +28,18 @@ what's actually implemented server-side.
   `api/client.ts`'s `setAuthToken(null)` is the default, so every Phase 1 flow (create a case file,
   no login at all) keeps working exactly as before. The top header's account menu is where you sign
   in/out.
+- **Conversation history** — the chat transcript is persisted server-side per case file, not held
+  in React state, so changing section (or reopening a project from Project History, or reloading
+  the browser) restores the conversation instead of losing it. `OverviewPage` reloads it from
+  `GET /case-files/{id}/messages` whenever the active project changes, and
+  `conversation.ts::toConversationEntries` rebuilds the document-result and classification cards
+  from the stored message kind rather than flattening them to text.
+  - **A project is created lazily**, on the first real input - a typed answer or an uploaded
+    document - not when the Overview page opens. Until then the greeting comes from
+    `GET /case-files/opening-message`, which persists nothing. This fixes visiting Overview
+    repeatedly filling Project History with empty projects. "New project" (Project History header)
+    is how you deliberately start another one; `App.tsx` remembers the active project id in
+    `localStorage` so a reload resumes where you left off.
 - **API client** (`src/api/client.ts`) — thin fetch wrapper (auto-attaches the auth token when
   signed in); `types.ts` derives `CaseFile`/`User`/etc. from a *generated* schema (`src/api/schema.ts`)
   instead of a hand-maintained duplicate — see "Generated API types" below.
@@ -107,9 +119,10 @@ browser check that a real API response still renders correctly end-to-end.
 
 - **Project History is a project list, not a field-level change log** — `pages/history/ProjectHistoryPage.tsx`
   lists every case file the signed-in account owns (via `GET /users/me/case-files`) and lets you
-  open one back into the Case File page. It does NOT track *what* changed and *when* within a
-  single case file (no per-field diff/timeline) - that's a real gap if "history" is taken to mean
-  a change log rather than a project list.
+  open one back into the Case File page (its chat comes back too - see "Conversation history"
+  above). It does NOT track *what* changed and *when* within a single case file (no per-field
+  diff/timeline) - that's a real gap if "history" is taken to mean a change log rather than a
+  project list.
 - **No way to claim an anonymous case file after signing in** - `owner_user_id` is only set at
   creation time (`create_case_file`), so a project started before logging in stays anonymous
   forever; Project History only shows case files created *while* signed in.

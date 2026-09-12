@@ -1,4 +1,11 @@
-import type { AuthResponse, CaseFile, ChatTurnResponse, DocumentUploadResponse, User } from "../types";
+import type {
+  AuthResponse,
+  CaseFile,
+  ChatTurnResponse,
+  ConversationMessage,
+  DocumentUploadResponse,
+  User,
+} from "../types";
 
 // Vite exposes env vars prefixed VITE_ on import.meta.env. Default targets
 // the backend's local dev port (see backend/README.md - uvicorn defaults to
@@ -56,6 +63,14 @@ export const api = {
     request<CaseFile>("/case-files", { method: "POST", body: "null" }),
 
   getCaseFile: (sessionId: string) => request<CaseFile>(`/case-files/${sessionId}`),
+
+  // The assistant's greeting for a case file that doesn't exist yet -
+  // persists nothing, so simply opening the Overview page no longer
+  // creates a project (see backend's get_opening_message).
+  getOpeningMessage: () => request<{ agent_message: string }>("/case-files/opening-message"),
+
+  getMessages: (sessionId: string) =>
+    request<ConversationMessage[]>(`/case-files/${sessionId}/messages`),
 
   startConversation: (sessionId: string) =>
     request<ChatTurnResponse>(`/case-files/${sessionId}/start`, { method: "POST" }),

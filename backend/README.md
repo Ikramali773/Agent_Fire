@@ -177,6 +177,22 @@ Part B):
     the real `classify()`, but never calls `store_save()` - the real, persisted case file is
     completely unaffected by exploring a scenario. Returns a full hypothetical `CaseFile` so the
     frontend can render it with the same components as the real one.
+- **Conversation transcript** (`app/models/conversation.py`, `app/message_store.py`, Phase 2) — the
+  chat history, persisted per case file and read back via `GET /case-files/{id}/messages`
+  (oldest-first, `limit` + `before_id` cursor). `/start`, `/message` and `/documents` each record
+  what was said; a document result and the moment of classification are stored as *structured*
+  messages (kind + payload) rather than prose, so a reloaded transcript re-renders the same cards
+  the user saw live instead of flattening to text. Fixes a reported problem: the transcript used to
+  live only in frontend state, so changing section lost the whole conversation with no way back.
+  - **Why its own table, not a list on the Case File**: a transcript is append-only and unbounded.
+    Inside the Case File's JSON blob, every message would rewrite the entire history and then ship
+    all of it on every case file response - quadratic in a long project. One indexed row per
+    message keeps an append O(1) and lets a long conversation be paged instead of loaded whole.
+- **`GET /case-files/opening-message`** (Phase 2) — the assistant's greeting for a case file that
+  doesn't exist yet, persisting nothing. Fixes the other half of the same report: opening the
+  Overview page used to create (and persist) a case file immediately, so every visit - and every
+  switch back to that section - added an empty project to Project History. The frontend now creates
+  a case file lazily, on the first real input (a typed answer or an uploaded document).
 - **Accounts** (`app/auth/`, `app/api/auth.py`, `app/api/users.py`, Phase 2 — "cases belong to a
   person instead of only an anonymous session") — `POST /auth/signup`, `POST /auth/login`,
   `GET /auth/me`, and `GET /users/me/case-files` (Project History's starting point). Deliberately
@@ -249,7 +265,7 @@ Part B):
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 182 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 198 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and

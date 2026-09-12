@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, String
+from sqlalchemy import JSON, DateTime, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -37,6 +37,29 @@ class CaseFileRecord(Base):
     # CaseFile.owner_user_id inside `data`. Nullable: an anonymous (Phase 1
     # style) case file has no owner.
     owner_user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+
+
+class ConversationMessageRecord(Base):
+    """One row per chat message - the one place in this schema that IS
+    normalized rather than blob-stored, and for a specific reason (see
+    app/models/conversation.py): a transcript is append-only and unbounded,
+    so it must not live inside the Case File's JSON blob where every new
+    message would rewrite (and re-ship) the whole history.
+
+    The integer primary key is what gives a total ordering: two messages in
+    the same turn (a user message and the agent's reply) can land in the
+    same clock tick, so created_at alone is not a reliable sort key.
+    """
+
+    __tablename__ = "conversation_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class UserRecord(Base):

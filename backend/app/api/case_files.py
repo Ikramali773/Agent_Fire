@@ -17,15 +17,17 @@ from datetime import datetime, timezone
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
+from app import message_store
 from app.auth.dependencies import get_current_user_optional
 from app.dialogue.manager import handle_turn, start_conversation
 from app.engine.classifier import classify
 from app.ingest.apply import ingest_document
 from app.llm.client import LLMClient
 from app.models.case_file import CaseFile, ConversationStage
+from app.models.conversation import ConversationMessage, MessageKind, MessageRole
 from app.models.user import User
 from app.reports.exporters import render_docx, render_pdf, safe_report_filename
 from app.reports.generator import generate_report_markdown
@@ -78,6 +80,26 @@ def create_case_file(
     if current_user is not None:
         case_file.owner_user_id = current_user.id
     return store_save(case_file)
+
+
+# NOTE: declared before the "/{session_id}" route below on purpose - FastAPI
+# matches routes in declaration order, so a literal path that could also be
+# read as a session id has to come first.
+@router.get("/opening-message")
+def get_opening_message() -> dict:
+    """The greeting + first intake question for a not-yet-created case file.
+
+    Exists so the Overview page can show the assistant's opening message
+    immediately WITHOUT creating (and therefore persisting) a case file.
+    Before this, merely opening the Overview page created a project - so
+    navigating away and back repeatedly littered Project History with
+    empty projects the user never actually started. A case file is now
+    only created once there's something real to record: a typed answer or
+    an uploaded document. Persists nothing; `start_conversation` here runs
+    against a throwaway in-memory CaseFile purely to render the prompt.
+    """
+    draft = CaseFile(session_id="")
+    return {"agent_message": start_conversation(draft).agent_message}
 
 
 @router.get("/{session_id}", response_model=CaseFile)
@@ -204,7 +226,28 @@ def start(session_id: str, current_user: User | None = Depends(get_current_user_
     _check_access(case_file, current_user)
     result = start_conversation(case_file)
     store_save(result.case_file)
+    message_store.append(session_id, MessageRole.AGENT, result.agent_message)
     return {"agent_message": result.agent_message, "case_file": result.case_file}
+
+
+@router.get("/{session_id}/messages", response_model=list[ConversationMessage])
+def get_messages(
+    session_id: str,
+    limit: int = Query(default=message_store.DEFAULT_PAGE_SIZE, ge=1, le=message_store.MAX_PAGE_SIZE),
+    before_id: int | None = Query(default=None),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> list[ConversationMessage]:
+    """The persisted chat transcript, oldest-first - what the Overview page
+    reloads so leaving the page (or reopening the project later from
+    Project History) doesn't lose the conversation. Returns the most recent
+    `limit` messages; page further back with `before_id` (the id of the
+    oldest message already held).
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
+    return message_store.list_for_session(session_id, limit=limit, before_id=before_id)
 
 
 @router.post("/{session_id}/message")
@@ -221,8 +264,29 @@ def send_message(
     user_message = body.get("message")
     if not user_message:
         raise HTTPException(status_code=422, detail="'message' is required")
+
+    previous_stage = case_file.conversation_stage
     result = handle_turn(case_file, user_message, llm)
     store_save(result.case_file)
+
+    message_store.append(session_id, MessageRole.USER, user_message)
+    message_store.append(session_id, MessageRole.AGENT, result.agent_message)
+    # The moment a case file becomes classified is recorded as its own
+    # structured message so a reloaded transcript still shows the
+    # classification card, rather than the frontend having to re-derive
+    # "this turn is where it got classified" from a stage it can no longer
+    # see the history of.
+    if (
+        previous_stage != ConversationStage.CLASSIFIED
+        and result.case_file.conversation_stage == ConversationStage.CLASSIFIED
+    ):
+        message_store.append(
+            session_id,
+            MessageRole.AGENT,
+            kind=MessageKind.CLASSIFICATION_RESULT,
+            payload=result.case_file.classification_result.model_dump(mode="json"),
+        )
+
     return {"agent_message": result.agent_message, "case_file": result.case_file}
 
 
@@ -256,8 +320,17 @@ async def upload_document(
     if len(file_bytes) > _MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="File too large (20 MB limit).")
 
+    filename = file.filename or "upload"
     updated_case_file, summary = ingest_document(
-        case_file, file_bytes, file.content_type, file.filename or "upload", llm
+        case_file, file_bytes, file.content_type, filename, llm
     )
     store_save(updated_case_file)
+    # Recorded as a structured message (not prose) so a reloaded transcript
+    # re-renders the same extraction-result card the user saw live.
+    message_store.append(
+        session_id,
+        MessageRole.AGENT,
+        kind=MessageKind.DOCUMENT_RESULT,
+        payload={"file_name": filename, "summary": asdict(summary)},
+    )
     return {"summary": asdict(summary), "case_file": updated_case_file}
