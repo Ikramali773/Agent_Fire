@@ -10,6 +10,7 @@ import type { ClassificationResult, IngestSummary } from "../../types";
 export type ConversationEntry =
   | { kind: "user"; id: string; text: string }
   | { kind: "agent"; id: string; text: string }
+  | { kind: "document-uploading"; id: string; fileName: string }
   | { kind: "document-result"; id: string; fileName: string; summary: IngestSummary }
   | { kind: "classification-result"; id: string; result: ClassificationResult }
   | { kind: "system"; id: string; text: string };

@@ -1,8 +1,17 @@
 import { Badge } from "../../design-system/components/Badge";
 import { DocumentResultCard } from "../../design-system/components/DocumentResultCard";
+import { ProgressSteps } from "../../design-system/components/ProgressSteps";
 import { StatusPill } from "../../design-system/components/StatusPill";
 import type { ConversationEntry } from "./conversation";
 import "./ConversationMessage.css";
+
+const UPLOADING_STEPS = [
+  { key: "uploaded", label: "Uploaded" },
+  { key: "reading", label: "Reading" },
+  { key: "extracting", label: "Extracting" },
+  { key: "confidence", label: "Checking confidence" },
+  { key: "ready", label: "Ready" },
+];
 
 interface Props {
   entry: ConversationEntry;
@@ -29,6 +38,22 @@ export function ConversationMessage({ entry }: Props) {
     return (
       <div className="ds-conv-row ds-conv-row--system">
         <span className="ds-conv-system">{entry.text}</span>
+      </div>
+    );
+  }
+
+  if (entry.kind === "document-uploading") {
+    return (
+      <div className="ds-conv-row ds-conv-row--agent">
+        <div className="ds-conv-card">
+          <div className="ds-conv-card__header">
+            <span className="ds-conv-card__title">{entry.fileName}</span>
+            <span className="ds-conv-card__uploading-label">Uploading…</span>
+          </div>
+          <div className="ds-conv-card__body">
+            <ProgressSteps steps={UPLOADING_STEPS} activeIndex={1} />
+          </div>
+        </div>
       </div>
     );
   }

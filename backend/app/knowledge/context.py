@@ -35,6 +35,7 @@ from functools import lru_cache
 
 from app.engine import rules_loader
 from app.knowledge.retriever import KeywordRetriever, Retriever
+from app.models.case_file import CaseFile
 
 
 @lru_cache(maxsize=1)
@@ -96,14 +97,76 @@ def _default_retriever() -> Retriever:
     return KeywordRetriever()
 
 
-def build_qa_context(question: str, retriever: Retriever | None = None, top_k: int = 5) -> str:
+def build_case_file_context(case_file: CaseFile) -> str:
+    """A compact summary of what's already known about the CURRENT case -
+    fixes a real bug (caught in live browser testing) where the Q&A
+    side-branch only ever saw static code-book material, so a question like
+    "what's the area of the file I just uploaded" got answered as if no
+    document had ever been uploaded, even though extraction had already
+    populated the case file. Every line here just reflects a value the case
+    file already has (from case_file.field_sources, or one of the
+    document-only fields - see manager.py's _confirmation_summary, which
+    shows the same data to the user), so this never tells the model
+    anything beyond what the case file itself already says.
+    """
+    known: list[str] = []
+    for name, source in case_file.field_sources.items():
+        value = getattr(case_file, name, None)
+        if value in (None, "", []):
+            continue
+        known.append(f"- {name}: {value} (source: {source.source.value})")
+
+    if case_file.floor_wise_area:
+        areas = "; ".join(f"{item.floor}: {item.area_sqm} sqm" for item in case_file.floor_wise_area)
+        known.append(f"- floor_wise_area: {areas}")
+    if case_file.kitchen_count is not None:
+        known.append(f"- kitchen_count: {case_file.kitchen_count}")
+    if case_file.door_count is not None:
+        known.append(f"- door_count: {case_file.door_count}")
+    if case_file.source_documents:
+        docs = ", ".join(doc.filename for doc in case_file.source_documents)
+        known.append(f"- documents already uploaded and read: {docs}")
+
+    if not known:
+        return ""
+
+    lines = [
+        "Known facts about the building/case currently being discussed - "
+        "already captured from the user or an uploaded document. Use these "
+        "directly to answer; never claim you cannot see an uploaded "
+        "document's contents when a fact from it is listed here.",
+        *known,
+    ]
+
+    result = case_file.classification_result
+    if result.table_7_ref:
+        lines.append(
+            f"- classification: applies={result.applies}, table_7_ref={result.table_7_ref}, "
+            f"protection_level={result.protection_level}"
+        )
+
+    return "\n".join(lines)
+
+
+def build_qa_context(
+    question: str,
+    retriever: Retriever | None = None,
+    top_k: int = 5,
+    case_file: CaseFile | None = None,
+) -> str:
     """The full context handed to answer_question(): the static summary
-    above, plus this question's own retrieved passages. Callers can inject a
-    fake Retriever (tests do); real callers get the default BM25 one, built
-    once and cached like the summary is.
+    above, this case's own known facts (if any), plus this question's own
+    retrieved passages. Callers can inject a fake Retriever (tests do);
+    real callers get the default BM25 one, built once and cached like the
+    summary is.
     """
     retriever = retriever if retriever is not None else _default_retriever()
     context = build_summary_context()
+
+    if case_file is not None:
+        case_context = build_case_file_context(case_file)
+        if case_context:
+            context = f"{context}\n\n{case_context}"
 
     results = retriever.retrieve(question, top_k=top_k)
     if not results:

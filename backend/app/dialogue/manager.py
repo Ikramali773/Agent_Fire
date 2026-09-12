@@ -223,14 +223,20 @@ def start_conversation(case_file: CaseFile) -> TurnResult:
     return TurnResult(case_file=case_file, agent_message=OPENING_PROMPT + prompt)
 
 
-def _safe_answer_question(llm: LLMClient, question: str) -> str:
+def _safe_answer_question(llm: LLMClient, question: str, case_file: CaseFile) -> str:
     """Wraps llm.answer_question with the same fail-open behavior every other
     LLM call in this module has. Both call sites below were, until a live
     browser test caught it, missing this - Knowledge Q&A with no LLM
     configured surfaced as an uncaught 500 instead of a graceful message.
+
+    Passing case_file through to build_qa_context() fixes a second live-
+    tested bug: without it, the Q&A side-branch only ever saw static
+    code-book material, so a question about a just-uploaded document was
+    answered as if nothing had been uploaded at all, even though the case
+    file already had the extracted facts.
     """
     try:
-        return llm.answer_question(question, build_qa_context(question))
+        return llm.answer_question(question, build_qa_context(question, case_file=case_file))
     except LLMUnavailableError:
         # Checked before the LLMNotConfiguredError branch below since it's a
         # subclass - a live deployment hit this exact case (Groq's free
@@ -252,7 +258,7 @@ def _safe_answer_question(llm: LLMClient, question: str) -> str:
 
 def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnResult:
     if case_file.conversation_stage == ConversationStage.CLASSIFIED:
-        answer = _safe_answer_question(llm, user_message)
+        answer = _safe_answer_question(llm, user_message, case_file)
         return TurnResult(case_file=case_file, agent_message=answer)
 
     if case_file.conversation_stage == ConversationStage.CONFIRMING:
@@ -300,7 +306,7 @@ def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnR
         intent = "answer"  # fail open to the deterministic spine when no LLM is configured
 
     if intent == "question":
-        answer = _safe_answer_question(llm, user_message)
+        answer = _safe_answer_question(llm, user_message, case_file)
         return TurnResult(
             case_file=case_file,
             agent_message=f"{answer}\n\n(Back to: {pending_question})",
@@ -374,7 +380,7 @@ def _handle_mixed_use_subdivision_turn(
         intent = "answer"
 
     if intent == "question":
-        answer = _safe_answer_question(llm, user_message)
+        answer = _safe_answer_question(llm, user_message, case_file)
         return TurnResult(
             case_file=case_file, agent_message=f"{answer}\n\n(Back to: {pending_question})"
         )

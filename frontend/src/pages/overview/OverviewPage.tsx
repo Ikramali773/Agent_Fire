@@ -82,12 +82,22 @@ export function OverviewPage({ caseFile, onCaseFileChange, onBusyChange }: Props
     async (file: File) => {
       if (!caseFile) return;
       setError(null);
+      setBusy(true);
+      const entryId = nextEntryId();
+      setEntries((prev) => [...prev, { kind: "document-uploading", id: entryId, fileName: file.name }]);
       try {
         const result = await api.uploadDocument(caseFile.session_id, file);
         onCaseFileChange(result.case_file);
-        setEntries((prev) => [...prev, { kind: "document-result", id: nextEntryId(), fileName: file.name, summary: result.summary }]);
+        setEntries((prev) =>
+          prev.map((entry) =>
+            entry.id === entryId ? { kind: "document-result", id: entryId, fileName: file.name, summary: result.summary } : entry,
+          ),
+        );
       } catch (err) {
         setError(describeError(err));
+        setEntries((prev) => prev.filter((entry) => entry.id !== entryId));
+      } finally {
+        setBusy(false);
       }
     },
     [caseFile, onCaseFileChange],
@@ -98,6 +108,10 @@ export function OverviewPage({ caseFile, onCaseFileChange, onBusyChange }: Props
     !busy && lastAgentEntry && lastAgentEntry.kind === "agent" && caseFile && caseFile.conversation_stage !== "classified"
       ? parseQuickOptions(lastAgentEntry.text)
       : null;
+  // A document upload already shows its own in-progress card (see
+  // ConversationMessage's "document-uploading" kind) - don't also show the
+  // generic "Thinking…" indicator underneath it.
+  const showThinking = busy && entries[entries.length - 1]?.kind !== "document-uploading";
 
   return (
     <div className="ds-overview">
@@ -110,7 +124,7 @@ export function OverviewPage({ caseFile, onCaseFileChange, onBusyChange }: Props
         {entries.map((entry) => (
           <ConversationMessage key={entry.id} entry={entry} />
         ))}
-        {busy && (
+        {showThinking && (
           <div className="ds-overview__thinking" aria-live="polite">
             Thinking…
           </div>
