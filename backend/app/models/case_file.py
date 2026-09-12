@@ -138,6 +138,16 @@ class ClassificationResult(BaseModel):
 
 class CaseFile(BaseModel):
     session_id: str
+    owner_user_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Phase 2: the account this case file belongs to, if any. None "
+            "means an anonymous case file (Phase 1's original model - the "
+            "session_id itself is the only access control, same as before). "
+            "When set, only that account may access this case file - see "
+            "app/api/case_files.py's _check_access()."
+        ),
+    )
     project_name: str = ""
     state: str = ""
     city: str = ""

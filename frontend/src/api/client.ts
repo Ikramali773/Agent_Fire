@@ -1,4 +1,4 @@
-import type { CaseFile, ChatTurnResponse, DocumentUploadResponse } from "../types";
+import type { AuthResponse, CaseFile, ChatTurnResponse, DocumentUploadResponse, User } from "../types";
 
 // Vite exposes env vars prefixed VITE_ on import.meta.env. Default targets
 // the backend's local dev port (see backend/README.md - uvicorn defaults to
@@ -14,9 +14,24 @@ class ApiError extends Error {
   }
 }
 
+// Phase 2 (accounts): set once after login/signup (see AuthContext), then
+// automatically attached to every request below. An anonymous caller never
+// sets this, so every existing Phase 1 flow (an anonymous case file, open
+// to anyone with its session_id - see backend's _check_access) is
+// completely unaffected.
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+function authHeaders(): Record<string, string> {
+  return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     ...options,
   });
   if (!response.ok) {
@@ -27,6 +42,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  signup: (email: string, password: string) =>
+    request<AuthResponse>("/auth/signup", { method: "POST", body: JSON.stringify({ email, password }) }),
+
+  login: (email: string, password: string) =>
+    request<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+
+  me: () => request<User>("/auth/me"),
+
+  myCaseFiles: () => request<CaseFile[]>("/users/me/case-files"),
+
   createCaseFile: () =>
     request<CaseFile>("/case-files", { method: "POST", body: "null" }),
 
@@ -58,7 +83,9 @@ export const api = {
     }),
 
   downloadReport: async (sessionId: string, format: "pdf" | "docx"): Promise<{ blob: Blob; filename: string }> => {
-    const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}/report.${format}`);
+    const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}/report.${format}`, {
+      headers: authHeaders(),
+    });
     if (!response.ok) {
       const body = await response.text();
       throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
@@ -81,6 +108,7 @@ export const api = {
     const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}/documents`, {
       method: "POST",
       body: formData,
+      headers: authHeaders(),
     });
     if (!response.ok) {
       const body = await response.text();

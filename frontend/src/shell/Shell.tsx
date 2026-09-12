@@ -15,7 +15,6 @@ interface Props {
   location: string;
   codeEdition: "2026" | "2016";
   syncState: SyncState;
-  userLabel: string;
   caseFile: CaseFile | null;
   children: ReactNode;
 }
@@ -29,7 +28,7 @@ function isNarrowViewport(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(max-width: 1200px)").matches;
 }
 
-export function Shell({ activeView, onNavigate, projectName, location, codeEdition, syncState, userLabel, caseFile, children }: Props) {
+export function Shell({ activeView, onNavigate, projectName, location, codeEdition, syncState, caseFile, children }: Props) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // Below 1200px the inspector renders as a bottom sheet over the page
   // content (see CaseInspector.css), so it starts collapsed there - open by
@@ -47,7 +46,6 @@ export function Shell({ activeView, onNavigate, projectName, location, codeEditi
         breadcrumb={["Projects", projectName, activeLabel]}
         codeEdition={codeEdition}
         syncState={syncState}
-        userLabel={userLabel}
         onMenuClick={() => setMobileNavOpen((open) => !open)}
       />
       <div className="ds-shell__body">

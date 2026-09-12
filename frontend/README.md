@@ -1,40 +1,41 @@
-# Fire Safety AI Agent — Frontend (Phase 1)
+# Fire Safety AI Agent — Frontend
 
-React + TypeScript chat UI (per product scope §B.10) for the Phase 1 conversational agent. Talks
-to the backend at `../backend/` via its `/case-files/*` REST + chat endpoints — see that directory's
-README for what's actually implemented server-side.
+React + TypeScript "Fire Safety Compliance Workspace" (the professional application shell that
+replaced the original Phase 1 chat prototype - see git history for that redesign) for the
+conversational agent + Phase 2 features. Talks to the backend at `../backend/` via its
+`/case-files/*`, `/auth/*`, and `/users/*` REST + chat endpoints — see that directory's README for
+what's actually implemented server-side.
 
 ## What's here
 
-- **Chat window** (`src/components/ChatWindow.tsx`) — message bubbles, input box. Creates a case
-  file and starts the guided intake automatically on load.
-- **Case summary panel** (`src/components/CaseSummaryPanel.tsx`) — shows every field the agent has
-  collected so far, and the classification result once available. Reads directly off the Case
-  File's `field_sources` map so it only shows what's actually been confirmed, never a guess.
-  Mixed Use's `occupancy_breakdown` and document-extracted `floor_wise_area` (a per-floor area
-  breakdown from a drawing's area-statement table) each get their own readable formatting instead of
-  the generic array-to-string fallback, which would otherwise print raw `[object Object]` entries.
-- **Report viewer** (`src/components/ReportView.tsx`) — modal that fetches and renders the
-  Markdown compliance report (`react-markdown`) once the case reaches `classified`.
-- **Document upload widget** (`src/components/DocumentUpload.tsx`) — a persistent "📎 Upload a
-  plan, NOC letter, or certificate" attach button next to the chat input, available at any point in
-  the conversation. Validates the file type client-side (PDF/PNG/JPEG) before sending; the backend
-  does the real OCR work (`../backend/app/ingest/README.md`). Posts the upload as `multipart/form-data`
-  to `POST /case-files/{id}/documents`, then renders the result as a chat message (which fields were
-  found, a low-confidence warning if the OCR tier used wasn't a clean text-layer read, or a plain
-  explanation if no LLM was configured to turn the extracted text into fields) and refreshes the
-  case summary panel — an uploaded field shows up there and is skipped in the guided intake, same as
-  a typed answer.
-- **API client** (`src/api/client.ts`) — thin fetch wrapper; `types.ts` derives the `CaseFile` etc.
-  types from a *generated* schema (`src/api/schema.ts`) instead of a hand-maintained duplicate — see
-  "Generated API types" below.
-- **Voice I/O** (`src/components/VoiceInputButton.tsx`, §B.1) — a 🎤 button next to the chat input
-  using the browser's own `SpeechRecognition` API to fill the text box (never auto-sends — a
-  misheard transcript should be reviewable before it's submitted, same as typing), and a "🔊 Read
-  replies aloud" checkbox above the chat that uses `SpeechSynthesis` to read each new agent message.
-  Both are pure feature detection: on a browser without `SpeechRecognition` (Firefox, most of Safari)
-  the mic button renders nothing at all rather than a broken control, and the read-aloud checkbox
-  only appears where `speechSynthesis` exists. No backend involvement either way.
+- **Application shell** (`src/shell/`) — the persistent frame every page renders inside: a top
+  header (project switcher, breadcrumb, code-edition badge, sync state, account menu), a
+  collapsible left sidebar (`Sidebar.tsx`, driven by `nav.ts` - Phase 1's active pages plus every
+  future-phase page shown but disabled and labeled "Coming in Phase X"), a collapsible right Case
+  Inspector panel (`CaseInspector.tsx` - every known field with its source/confidence), and a
+  persistent disclaimer footer.
+- **Design system** (`src/design-system/`) — tokens (`tokens.css`: color, spacing, radius,
+  elevation, type) plus the reusable components built on them (`StatusPill`, `SourceBadge`,
+  `DataRow`, `Card`, `Button`, `ProgressSteps`, `DocumentResultCard`, `Modal`, `Drawer`, ...).
+- **Pages** (`src/pages/`) — `overview/` (the AI copilot conversation: typed message cards, staged
+  document-processing feedback, classification results), `case-file/` (the full structured
+  inspector with click-to-edit, wired to `PUT /case-files/{id}`), `documents/` (drag-and-drop
+  upload + history), `compliance/` (status rollup + requirements, plus Phase 2's What-If scenario
+  panel), `reports/` (the Markdown report preview + real PDF/DOCX downloads).
+- **Accounts** (`src/auth/`, Phase 2) — `AuthContext.tsx` holds the signed-in `User` (or `null` for
+  an anonymous session) and persists the session token to `localStorage`; `LoginModal.tsx` is a
+  combined sign-in/sign-up dialog. Entirely optional from the rest of the app's perspective:
+  `api/client.ts`'s `setAuthToken(null)` is the default, so every Phase 1 flow (create a case file,
+  no login at all) keeps working exactly as before. The top header's account menu is where you sign
+  in/out.
+- **API client** (`src/api/client.ts`) — thin fetch wrapper (auto-attaches the auth token when
+  signed in); `types.ts` derives `CaseFile`/`User`/etc. from a *generated* schema (`src/api/schema.ts`)
+  instead of a hand-maintained duplicate — see "Generated API types" below.
+- **Voice I/O** (`src/components/VoiceInputButton.tsx`, §B.1) — a mic button in the Overview
+  composer using the browser's own `SpeechRecognition` API to fill the text box (never auto-sends —
+  a misheard transcript should be reviewable before it's submitted, same as typing). Pure feature
+  detection: on a browser without `SpeechRecognition` (Firefox, most of Safari) it renders nothing
+  at all rather than a broken control.
 
 ## Verified
 
@@ -104,4 +105,7 @@ browser check that a real API response still renders correctly end-to-end.
 
 ## Not yet built
 
-- Auth/accounts, project history — Phase 1 is explicitly single-session only per the product scope.
+- A real Project History page (Phase 2) — the backend's `GET /users/me/case-files` exists and is
+  tested, but nothing in the frontend calls it yet; "Project History" is still a "Coming in Phase 2"
+  sidebar placeholder.
+- Multi-state NOC checklists, real DWG/BIM plan understanding (Phase 4/5) — see `../backend/README.md`.

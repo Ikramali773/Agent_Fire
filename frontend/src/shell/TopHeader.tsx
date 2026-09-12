@@ -1,5 +1,9 @@
-import { Bell, ChevronRight, CircleCheck, HelpCircle, Loader2, Menu } from "lucide-react";
+import { Bell, ChevronRight, CircleCheck, HelpCircle, Loader2, LogOut, Menu } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "../auth/AuthContext";
+import { LoginModal } from "../auth/LoginModal";
 import { Badge } from "../design-system/components/Badge";
+import { Button } from "../design-system/components/Button";
 import "./TopHeader.css";
 
 export type SyncState = "saved" | "saving";
@@ -11,11 +15,13 @@ interface Props {
   codeEdition: "2026" | "2016";
   syncState: SyncState;
   onMenuClick: () => void;
-  userLabel: string;
 }
 
-export function TopHeader({ projectName, location, breadcrumb, codeEdition, syncState, onMenuClick, userLabel }: Props) {
-  const initial = userLabel.trim().charAt(0).toUpperCase() || "?";
+export function TopHeader({ projectName, location, breadcrumb, codeEdition, syncState, onMenuClick }: Props) {
+  const { user, logout } = useAuth();
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const initial = user?.email.trim().charAt(0).toUpperCase() || "?";
 
   return (
     <header className="ds-top-header">
@@ -65,10 +71,43 @@ export function TopHeader({ projectName, location, breadcrumb, codeEdition, sync
         <button type="button" className="ds-top-header__icon-btn" aria-label="Notifications">
           <Bell aria-hidden="true" />
         </button>
-        <span className="ds-top-header__avatar" title={userLabel} aria-label={userLabel}>
-          {initial}
-        </span>
+
+        {user ? (
+          <div className="ds-top-header__account">
+            <button
+              type="button"
+              className="ds-top-header__avatar"
+              title={user.email}
+              aria-label={`Signed in as ${user.email}`}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {initial}
+            </button>
+            {menuOpen && (
+              <div className="ds-top-header__account-menu">
+                <span className="ds-top-header__account-email">{user.email}</span>
+                <button
+                  type="button"
+                  className="ds-top-header__account-signout"
+                  onClick={() => {
+                    logout();
+                    setMenuOpen(false);
+                  }}
+                >
+                  <LogOut aria-hidden="true" />
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Button variant="secondary" size="sm" onClick={() => setLoginOpen(true)}>
+            Sign in
+          </Button>
+        )}
       </div>
+
+      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
     </header>
   );
 }

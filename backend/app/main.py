@@ -4,7 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.auth import router as auth_router
 from app.api.case_files import router as case_files_router
+from app.api.users import router as users_router
 from app.db.init_db import create_all_tables
 
 
@@ -52,6 +54,8 @@ app.add_middleware(
 )
 
 app.include_router(case_files_router)
+app.include_router(auth_router)
+app.include_router(users_router)
 
 
 @app.get("/health")

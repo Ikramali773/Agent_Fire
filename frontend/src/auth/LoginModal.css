@@ -1,0 +1,66 @@
+.ds-login-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ds-login-modal__note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  line-height: var(--leading-relaxed);
+}
+
+.ds-login-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.ds-login-modal__field input {
+  height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+}
+
+.ds-login-modal__field input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.ds-login-modal__error {
+  padding: var(--space-2) var(--space-3);
+  background: var(--status-fail-bg);
+  color: var(--status-fail-fg);
+  border: 1px solid var(--status-fail-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.ds-login-modal__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.ds-login-modal__switch {
+  border: none;
+  background: transparent;
+  color: var(--text-link);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: 0;
+}
+
+.ds-login-modal__switch:hover {
+  text-decoration: underline;
+}

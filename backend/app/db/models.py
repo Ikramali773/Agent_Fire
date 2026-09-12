@@ -31,3 +31,23 @@ class CaseFileRecord(Base):
     data: Mapped[dict] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Phase 2 (accounts): pulled out alongside created_at/updated_at for the
+    # same reason those are - genuinely useful to query/index on ("list my
+    # case files") independent of the blob, even though it's also part of
+    # CaseFile.owner_user_id inside `data`. Nullable: an anonymous (Phase 1
+    # style) case file has no owner.
+    owner_user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+
+
+class UserRecord(Base):
+    """Phase 2 (accounts). hashed_password never leaves app/auth/user_store.py -
+    every API-facing model is app/models/user.py's User, which has no
+    password field at all.
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

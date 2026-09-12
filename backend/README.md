@@ -177,6 +177,29 @@ Part B):
     the real `classify()`, but never calls `store_save()` - the real, persisted case file is
     completely unaffected by exploring a scenario. Returns a full hypothetical `CaseFile` so the
     frontend can render it with the same components as the real one.
+- **Accounts** (`app/auth/`, `app/api/auth.py`, `app/api/users.py`, Phase 2 — "cases belong to a
+  person instead of only an anonymous session") — `POST /auth/signup`, `POST /auth/login`,
+  `GET /auth/me`, and `GET /users/me/case-files` (Project History's starting point). Deliberately
+  additive, not a breaking change: `CaseFile.owner_user_id` (new, optional) is `None` for an
+  anonymous case file, which stays exactly as open as all of Phase 1 always had it (the
+  `session_id` itself is the access control) - every existing test and the entire pre-Phase-2
+  frontend flow keeps working with zero changes. A case file WITH an owner is locked to that
+  account; `app/api/case_files.py`'s `_check_access()` is the one place that's enforced, called by
+  every endpoint that touches an existing case file.
+  - **Passwords**: `bcrypt` directly (`app/auth/security.py`).
+  - **Session tokens**: hand-rolled HMAC-signed tokens (`app/auth/tokens.py`), NOT a JWT library -
+    this dev sandbox's system-installed `cryptography` package (which every JWT library pulls in,
+    even for the plain HMAC algorithm this needs) is broken here (a Rust/cffi panic on import,
+    confirmed directly; pip can't cleanly replace it either - "Cannot uninstall cryptography ...
+    RECORD file not found", a Debian-packaging quirk). Rather than depend on an environment-specific
+    `pip install --ignore-installed` workaround, the token format uses only `hmac`/`hashlib` from
+    the standard library - same two-part (payload + signature) shape as a JWT, so swapping to a
+    real JWT library later costs nothing if a use case ever needs one of its other features.
+    **Set `FIRE_AGENT_AUTH_SECRET` in any real deployment** - the built-in default is
+    dev-only and clearly labeled as such.
+  - **`owner_user_id` cannot be reassigned via `PUT /case-files/{id}`** - stripped from the update
+    dict before it's ever merged, so neither an accidental nor a malicious request body can
+    transfer/plant a case file onto a different account after creation.
 - **Database persistence** (`app/db/`, §B.10) — `app/store.py` (the only seam every caller uses)
   is now backed by SQLAlchemy instead of an in-memory dict; its public functions
   (`save`/`get`/`delete_all`) are unchanged, so nothing above the store had to change. One Case File
@@ -215,7 +238,7 @@ Part B):
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 159 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 181 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and

@@ -31,11 +31,13 @@ def save(case_file: CaseFile) -> CaseFile:
                 data=payload,
                 created_at=now,
                 updated_at=now,
+                owner_user_id=case_file.owner_user_id,
             )
             session.add(record)
         else:
             record.data = payload
             record.updated_at = now
+            record.owner_user_id = case_file.owner_user_id
         session.commit()
     return case_file
 
@@ -46,6 +48,22 @@ def get(session_id: str) -> CaseFile | None:
         if record is None:
             return None
         return CaseFile.model_validate(record.data)
+
+
+def list_by_owner(owner_user_id: str) -> list[CaseFile]:
+    """Phase 2 (accounts): every case file belonging to one account, newest
+    first - the query app/api/users.py's "my case files" endpoint needs.
+    Filters on the real `owner_user_id` column (see db/models.py), not by
+    scanning every row's JSON blob in Python.
+    """
+    with get_session() as session:
+        records = (
+            session.query(CaseFileRecord)
+            .filter(CaseFileRecord.owner_user_id == owner_user_id)
+            .order_by(CaseFileRecord.updated_at.desc())
+            .all()
+        )
+        return [CaseFile.model_validate(record.data) for record in records]
 
 
 def delete_all() -> None:

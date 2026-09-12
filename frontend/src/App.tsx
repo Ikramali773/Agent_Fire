@@ -22,7 +22,6 @@ function App() {
       location={[caseFile?.city, caseFile?.state].filter(Boolean).join(", ") || "Location not yet known"}
       codeEdition={caseFile?.code_edition ?? "2026"}
       syncState={busy ? "saving" : "saved"}
-      userLabel="You"
       caseFile={caseFile}
     >
       {activeView === "overview" && <OverviewPage caseFile={caseFile} onCaseFileChange={setCaseFile} onBusyChange={setBusy} />}

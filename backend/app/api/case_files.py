@@ -20,11 +20,13 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
+from app.auth.dependencies import get_current_user_optional
 from app.dialogue.manager import handle_turn, start_conversation
 from app.engine.classifier import classify
 from app.ingest.apply import ingest_document
 from app.llm.client import LLMClient
 from app.models.case_file import CaseFile, ConversationStage
+from app.models.user import User
 from app.reports.exporters import render_docx, render_pdf, safe_report_filename
 from app.reports.generator import generate_report_markdown
 from app.store import get as store_get
@@ -46,28 +48,60 @@ def get_llm_client() -> LLMClient:
     return LLMClient()
 
 
+def _check_access(case_file: CaseFile, current_user: User | None) -> None:
+    """Phase 2 (accounts): a case file with no owner is an anonymous, Phase
+    1-style case file - open to anyone who knows its session_id, exactly
+    Phase 1's original (unauthenticated) model, so nothing that already
+    depends on that behavior breaks. A case file WITH an owner is only
+    accessible to that account - every other endpoint below calls this
+    immediately after fetching the case file, before doing anything else
+    with it.
+    """
+    if case_file.owner_user_id is None:
+        return
+    if current_user is None or current_user.id != case_file.owner_user_id:
+        raise HTTPException(status_code=403, detail="You do not have access to this case file")
+
+
 @router.post("", response_model=CaseFile, status_code=201)
-def create_case_file(case_file: CaseFile | None = None) -> CaseFile:
+def create_case_file(
+    case_file: CaseFile | None = None,
+    current_user: User | None = Depends(get_current_user_optional),
+) -> CaseFile:
     if case_file is None:
         case_file = CaseFile(session_id=str(uuid.uuid4()))
     elif not case_file.session_id:
         case_file.session_id = str(uuid.uuid4())
+    # A logged-in caller's case files belong to their account from the
+    # start; an anonymous caller gets Phase 1's original behavior
+    # (owner_user_id stays None, open to anyone with the session_id).
+    if current_user is not None:
+        case_file.owner_user_id = current_user.id
     return store_save(case_file)
 
 
 @router.get("/{session_id}", response_model=CaseFile)
-def get_case_file(session_id: str) -> CaseFile:
+def get_case_file(session_id: str, current_user: User | None = Depends(get_current_user_optional)) -> CaseFile:
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
     return case_file
 
 
 @router.put("/{session_id}", response_model=CaseFile)
-def update_case_file(session_id: str, updates: dict) -> CaseFile:
+def update_case_file(
+    session_id: str, updates: dict, current_user: User | None = Depends(get_current_user_optional)
+) -> CaseFile:
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
+    # owner_user_id can only be set at creation (create_case_file) - never
+    # let a PUT body reassign ownership, whether by accident or by a
+    # malicious client trying to transfer/plant a case file onto another
+    # account.
+    updates.pop("owner_user_id", None)
     # model_copy(update=...) would set raw dict values without re-validating/
     # coercing them (e.g. a plain "Storage" string would never become the
     # OccupancyType enum member) - round-trip through model_validate instead
@@ -79,10 +113,13 @@ def update_case_file(session_id: str, updates: dict) -> CaseFile:
 
 
 @router.post("/{session_id}/classify", response_model=CaseFile)
-def classify_case_file(session_id: str) -> CaseFile:
+def classify_case_file(
+    session_id: str, current_user: User | None = Depends(get_current_user_optional)
+) -> CaseFile:
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
     case_file.classification_result = classify(case_file)
     case_file.conversation_stage = ConversationStage.CLASSIFIED
     case_file.updated_at = datetime.now(timezone.utc)
@@ -90,7 +127,9 @@ def classify_case_file(session_id: str) -> CaseFile:
 
 
 @router.post("/{session_id}/what-if", response_model=CaseFile)
-def what_if_case_file(session_id: str, updates: dict) -> CaseFile:
+def what_if_case_file(
+    session_id: str, updates: dict, current_user: User | None = Depends(get_current_user_optional)
+) -> CaseFile:
     """Phase 2: "what if this field were X" - reclassifies a hypothetical
     copy of the case file so the UI can show the resulting classification/
     compliance without ever touching the real one. Same merge-and-
@@ -103,6 +142,8 @@ def what_if_case_file(session_id: str, updates: dict) -> CaseFile:
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
+    updates.pop("owner_user_id", None)
     merged = {**case_file.model_dump(), **updates}
     hypothetical = CaseFile.model_validate(merged)
     hypothetical.classification_result = classify(hypothetical)
@@ -110,15 +151,16 @@ def what_if_case_file(session_id: str, updates: dict) -> CaseFile:
 
 
 @router.get("/{session_id}/report")
-def get_report(session_id: str) -> dict:
+def get_report(session_id: str, current_user: User | None = Depends(get_current_user_optional)) -> dict:
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
     return {"markdown": generate_report_markdown(case_file)}
 
 
 @router.get("/{session_id}/report.pdf")
-def get_report_pdf(session_id: str) -> Response:
+def get_report_pdf(session_id: str, current_user: User | None = Depends(get_current_user_optional)) -> Response:
     """Phase 2: a real PDF of the same report /report already returns as
     markdown - never a second source of truth for report content, see
     app/reports/exporters.py.
@@ -126,6 +168,7 @@ def get_report_pdf(session_id: str) -> Response:
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
     filename = safe_report_filename(case_file)
     return Response(
         content=render_pdf(case_file),
@@ -135,11 +178,12 @@ def get_report_pdf(session_id: str) -> Response:
 
 
 @router.get("/{session_id}/report.docx")
-def get_report_docx(session_id: str) -> Response:
+def get_report_docx(session_id: str, current_user: User | None = Depends(get_current_user_optional)) -> Response:
     """Phase 2: a real DOCX counterpart to /report.pdf above."""
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
     filename = safe_report_filename(case_file)
     return Response(
         content=render_docx(case_file),
@@ -149,7 +193,7 @@ def get_report_docx(session_id: str) -> Response:
 
 
 @router.post("/{session_id}/start")
-def start(session_id: str) -> dict:
+def start(session_id: str, current_user: User | None = Depends(get_current_user_optional)) -> dict:
     """Returns the opening question (product scope B.5, Node 0/1) without
     consuming a user message - call this once right after creating a case
     file to get the first prompt to show the user.
@@ -157,6 +201,7 @@ def start(session_id: str) -> dict:
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
     result = start_conversation(case_file)
     store_save(result.case_file)
     return {"agent_message": result.agent_message, "case_file": result.case_file}
@@ -164,11 +209,15 @@ def start(session_id: str) -> dict:
 
 @router.post("/{session_id}/message")
 def send_message(
-    session_id: str, body: dict, llm: LLMClient = Depends(get_llm_client)
+    session_id: str,
+    body: dict,
+    llm: LLMClient = Depends(get_llm_client),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
     user_message = body.get("message")
     if not user_message:
         raise HTTPException(status_code=422, detail="'message' is required")
@@ -182,6 +231,7 @@ async def upload_document(
     session_id: str,
     file: UploadFile = File(...),
     llm: LLMClient = Depends(get_llm_client),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
     """Product scope §B.7 - runs the tiered OCR/vision pipeline on an
     uploaded PDF/PNG/JPEG, extracts whatever Case File facts it can, and
@@ -194,6 +244,7 @@ async def upload_document(
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
 
     if file.content_type not in _SUPPORTED_UPLOAD_TYPES:
         raise HTTPException(
