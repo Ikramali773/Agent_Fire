@@ -55,6 +55,8 @@ export const api = {
   createCaseFile: () =>
     request<CaseFile>("/case-files", { method: "POST", body: "null" }),
 
+  getCaseFile: (sessionId: string) => request<CaseFile>(`/case-files/${sessionId}`),
+
   startConversation: (sessionId: string) =>
     request<ChatTurnResponse>(`/case-files/${sessionId}/start`, { method: "POST" }),
 

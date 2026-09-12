@@ -3,6 +3,7 @@ import { CompliancePage } from "./pages/compliance/CompliancePage";
 import { CaseFilePage } from "./pages/case-file/CaseFilePage";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { DocumentsPage } from "./pages/documents/DocumentsPage";
+import { ProjectHistoryPage } from "./pages/history/ProjectHistoryPage";
 import { OverviewPage } from "./pages/overview/OverviewPage";
 import { ReportsPage } from "./pages/reports/ReportsPage";
 import { NAV_ITEMS, type ViewKey } from "./shell/nav";
@@ -29,7 +30,15 @@ function App() {
       {activeView === "documents" && <DocumentsPage caseFile={caseFile} onCaseFileChange={setCaseFile} />}
       {activeView === "compliance" && <CompliancePage caseFile={caseFile} />}
       {activeView === "reports" && <ReportsPage caseFile={caseFile} />}
-      {(activeView === "plans" || activeView === "findings" || activeView === "review" || activeView === "history") &&
+      {activeView === "history" && (
+        <ProjectHistoryPage
+          onOpenCaseFile={(opened) => {
+            setCaseFile(opened);
+            setActiveView("case-file");
+          }}
+        />
+      )}
+      {(activeView === "plans" || activeView === "findings" || activeView === "review") &&
         (() => {
           const item = NAV_ITEMS.find((nav) => nav.key === activeView)!;
           return (
@@ -53,8 +62,6 @@ function comingSoonDescription(view: ViewKey): string {
       return "Compliance findings will be shown here alongside the plan they were derived from.";
     case "review":
       return "A structured review queue for handing off human-review cases to a licensed consultant.";
-    case "history":
-      return "Track how a project's case file and classification have changed over time.";
     default:
       return "This part of the workspace isn't active yet.";
   }

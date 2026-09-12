@@ -43,7 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "findings", label: "Findings", icon: Search, comingInPhase: 4 },
   { key: "reports", label: "Reports", icon: ClipboardList },
   { key: "review", label: "Review", icon: ClipboardCheck, comingInPhase: 3 },
-  { key: "history", label: "Project History", icon: History, comingInPhase: 2 },
+  { key: "history", label: "Project History", icon: History },
 ];
 
 export const VIEW_LABELS: Record<ViewKey, string> = Object.fromEntries(

@@ -105,7 +105,12 @@ browser check that a real API response still renders correctly end-to-end.
 
 ## Not yet built
 
-- A real Project History page (Phase 2) — the backend's `GET /users/me/case-files` exists and is
-  tested, but nothing in the frontend calls it yet; "Project History" is still a "Coming in Phase 2"
-  sidebar placeholder.
+- **Project History is a project list, not a field-level change log** — `pages/history/ProjectHistoryPage.tsx`
+  lists every case file the signed-in account owns (via `GET /users/me/case-files`) and lets you
+  open one back into the Case File page. It does NOT track *what* changed and *when* within a
+  single case file (no per-field diff/timeline) - that's a real gap if "history" is taken to mean
+  a change log rather than a project list.
+- **No way to claim an anonymous case file after signing in** - `owner_user_id` is only set at
+  creation time (`create_case_file`), so a project started before logging in stays anonymous
+  forever; Project History only shows case files created *while* signed in.
 - Multi-state NOC checklists, real DWG/BIM plan understanding (Phase 4/5) — see `../backend/README.md`.
