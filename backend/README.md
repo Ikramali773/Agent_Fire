@@ -172,6 +172,11 @@ Part B):
     occupancy, routing to human review otherwise.
 - **API** (`app/api/`, `app/main.py`) — CRUD + classify + report, `/start` and `/message` for
   the conversational flow, and `/documents` for document upload.
+  - **`POST /{id}/what-if`** (Phase 2) — "what if this field were X": merges the given updates into
+    a copy of the case file (same merge-and-revalidate `PUT /{id}` uses) and reclassifies it with
+    the real `classify()`, but never calls `store_save()` - the real, persisted case file is
+    completely unaffected by exploring a scenario. Returns a full hypothetical `CaseFile` so the
+    frontend can render it with the same components as the real one.
 - **Database persistence** (`app/db/`, §B.10) — `app/store.py` (the only seam every caller uses)
   is now backed by SQLAlchemy instead of an in-memory dict; its public functions
   (`save`/`get`/`delete_all`) are unchanged, so nothing above the store had to change. One Case File
@@ -210,7 +215,7 @@ Part B):
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 157 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 159 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and

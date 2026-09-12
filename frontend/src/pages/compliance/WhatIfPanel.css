@@ -1,0 +1,115 @@
+.ds-what-if__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ds-what-if__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.ds-what-if__close:hover {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+.ds-what-if__close svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ds-what-if__note {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.ds-what-if__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.ds-what-if__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.ds-what-if__field input,
+.ds-what-if__field select {
+  height: 30px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+}
+
+.ds-what-if__field input:focus-visible,
+.ds-what-if__field select:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.ds-what-if__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ds-what-if__error {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--status-fail-bg);
+  color: var(--status-fail-fg);
+  border: 1px solid var(--status-fail-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.ds-what-if__result {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-strong);
+}
+
+.ds-what-if__result-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.ds-what-if__clauses {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ds-what-if__clauses li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}

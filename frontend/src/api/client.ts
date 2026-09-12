@@ -48,6 +48,15 @@ export const api = {
       body: JSON.stringify(updates),
     }),
 
+  whatIf: (sessionId: string, updates: Record<string, unknown>) =>
+    // Phase 2: reclassifies a hypothetical copy of the case file - never
+    // persisted server-side (see backend/app/api/case_files.py's
+    // what_if_case_file, which deliberately never calls store_save()).
+    request<CaseFile>(`/case-files/${sessionId}/what-if`, {
+      method: "POST",
+      body: JSON.stringify(updates),
+    }),
+
   downloadReport: async (sessionId: string, format: "pdf" | "docx"): Promise<{ blob: Blob; filename: string }> => {
     const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}/report.${format}`);
     if (!response.ok) {

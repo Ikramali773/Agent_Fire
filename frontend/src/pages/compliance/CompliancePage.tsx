@@ -4,6 +4,7 @@ import { StatusPill } from "../../design-system/components/StatusPill";
 import { normalizeClassification } from "../../lib/caseFileFields";
 import type { CaseFile } from "../../types";
 import { clauseStatus, overallStatus } from "./complianceStatus";
+import { WhatIfPanel } from "./WhatIfPanel";
 import "./CompliancePage.css";
 
 interface Props {
@@ -86,6 +87,8 @@ export function CompliancePage({ caseFile }: Props) {
           </ul>
         </Card>
       )}
+
+      <WhatIfPanel caseFile={caseFile} />
     </div>
   );
 }

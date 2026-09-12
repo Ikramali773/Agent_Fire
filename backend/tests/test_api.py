@@ -82,6 +82,44 @@ def test_full_flow_create_update_classify_report():
     assert docx_resp.content.startswith(b"PK")
 
 
+def test_what_if_reclassifies_a_hypothetical_copy_without_touching_the_real_one():
+    create_resp = client.post("/case-files", json=None)
+    session_id = create_resp.json()["session_id"]
+    client.put(
+        f"/case-files/{session_id}",
+        json={
+            "project_name": "Test Warehouse",
+            "state": "Gujarat",
+            "occupancy_type": "Storage",
+            "height_m": 9.5,
+            "built_up_area_sqm": 600,
+            "number_of_staircases": 1,
+        },
+    )
+    real_classify_resp = client.post(f"/case-files/{session_id}/classify")
+    assert real_classify_resp.json()["classification_result"]["protection_level"] == "HL-5"
+
+    # 1500 sqm crosses into a different Table 7H band (CL-6, 1001-2000 sqm)
+    # than the real 600 sqm case file (HL-5, 501-1000 sqm) - proves the
+    # what-if endpoint actually reclassifies, not just echoes the request.
+    what_if_resp = client.post(f"/case-files/{session_id}/what-if", json={"built_up_area_sqm": 1500})
+    assert what_if_resp.status_code == 200
+    hypothetical = what_if_resp.json()
+    assert hypothetical["built_up_area_sqm"] == 1500
+    assert hypothetical["classification_result"]["protection_level"] == "CL-6"
+
+    # The real, persisted case file must be completely unaffected.
+    real_resp = client.get(f"/case-files/{session_id}")
+    real = real_resp.json()
+    assert real["built_up_area_sqm"] == 600
+    assert real["classification_result"]["protection_level"] == "HL-5"
+
+
+def test_what_if_404_for_missing_case_file():
+    resp = client.post("/case-files/does-not-exist/what-if", json={"height_m": 10})
+    assert resp.status_code == 404
+
+
 def test_get_missing_case_file_404():
     resp = client.get("/case-files/does-not-exist")
     assert resp.status_code == 404

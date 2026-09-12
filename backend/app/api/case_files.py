@@ -89,6 +89,26 @@ def classify_case_file(session_id: str) -> CaseFile:
     return store_save(case_file)
 
 
+@router.post("/{session_id}/what-if", response_model=CaseFile)
+def what_if_case_file(session_id: str, updates: dict) -> CaseFile:
+    """Phase 2: "what if this field were X" - reclassifies a hypothetical
+    copy of the case file so the UI can show the resulting classification/
+    compliance without ever touching the real one. Same merge-and-
+    revalidate `update_case_file` above uses, then the same `classify()`
+    real classification uses - deliberately no separate what-if business
+    logic to keep in sync with the real rules - but this never calls
+    store_save(), so the persisted case file (and its conversation_stage)
+    is completely unaffected by exploring a scenario.
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    merged = {**case_file.model_dump(), **updates}
+    hypothetical = CaseFile.model_validate(merged)
+    hypothetical.classification_result = classify(hypothetical)
+    return hypothetical
+
+
 @router.get("/{session_id}/report")
 def get_report(session_id: str) -> dict:
     case_file = store_get(session_id)
