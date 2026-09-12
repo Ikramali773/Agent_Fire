@@ -107,8 +107,9 @@ def test_confirmation_summary_shows_document_only_floor_wise_area():
 
 def test_renewal_goal_nudges_towards_document_upload():
     """Node 2a: answering the goal question with "renew_noc" should prepend
-    the upload nudge to the very next agent message (the following node's
-    prompt), but a different goal answer should not.
+    its own upload nudge to the very next agent message (the following
+    node's prompt) - the renewal-specific wording, distinct from every other
+    goal's own nudge (see the tests below).
     """
     case_file = make_case_file()
     llm = ScriptedLLMClient(
@@ -127,7 +128,11 @@ def test_renewal_goal_nudges_towards_document_upload():
     assert "primary use of the building" in result.agent_message  # still shows the next question
 
 
-def test_non_renewal_goal_does_not_nudge_upload():
+def test_non_renewal_goal_gets_its_own_upload_nudge_wording():
+    """Every goal now gets an upload nudge (broadened from renewal-only),
+    but each goal's wording is distinct - a non-renewal goal must never see
+    the renewal-specific phrasing.
+    """
     case_file = make_case_file()
     llm = ScriptedLLMClient(
         extractions={
@@ -142,6 +147,24 @@ def test_non_renewal_goal_does_not_nudge_upload():
     result = handle_turn(case_file, "just understand requirements", llm)
 
     assert "upload your existing NOC" not in result.agent_message
+    assert "you can upload it now" in result.agent_message
+
+
+def test_general_qa_goal_gets_a_lighter_touch_upload_mention():
+    case_file = make_case_file()
+    llm = ScriptedLLMClient(
+        extractions={
+            "Gujarat, Ahmedabad": {"state": "Gujarat", "city": "Ahmedabad"},
+            "just have questions": {"goal": "general_qa"},
+        }
+    )
+    start_conversation(case_file)
+    result = handle_turn(case_file, "Gujarat, Ahmedabad", llm)
+    case_file = result.case_file
+
+    result = handle_turn(case_file, "just have questions", llm)
+
+    assert "upload it any time" in result.agent_message
 
 
 def test_small_residential_building_skips_egress_and_systems_questions():
@@ -225,6 +248,62 @@ def test_larger_residential_building_still_asks_egress_and_systems():
     assert "self-certification" not in result.agent_message
     assert "staircases" in result.agent_message
     assert case_file.conversation_stage == ConversationStage.INTAKE
+
+
+def test_mixed_use_asks_dedicated_followup_for_missing_component_subdivision():
+    """Node 3c: when Node 3b's free-text answer names a component's
+    occupancy but not its subdivision (e.g. "Mercantile" without saying
+    underground-shopping-complex-or-not), a dedicated follow-up question is
+    asked for that specific component, distinct from relying on the LLM to
+    infer it from the original free-text answer.
+    """
+    case_file = make_case_file()
+    from app.models.case_file import OccupancyBreakdownItem, OccupancyType
+
+    llm = ScriptedLLMClient(
+        extractions={
+            "Gujarat, Ahmedabad": {"state": "Gujarat", "city": "Ahmedabad"},
+            "just understand requirements": {"goal": "understand_requirements"},
+            "Mixed Use": {"occupancy_type": "Mixed Use"},
+            "ground floor retail, 1200 sqm; floors 1-5 storage, 600 sqm": {
+                "occupancy_breakdown": [
+                    OccupancyBreakdownItem(
+                        type=OccupancyType.MERCANTILE, floor_range="G", floor_area_sqm=1200
+                    ),
+                    OccupancyBreakdownItem(
+                        type=OccupancyType.STORAGE, floor_range="1-5", floor_area_sqm=600
+                    ),
+                ]
+            },
+            "just a regular shop, not underground": {"occupancy_subdivision": "F"},
+        }
+    )
+
+    start_conversation(case_file)
+    turns = [
+        "Gujarat, Ahmedabad",
+        "just understand requirements",
+        "Mixed Use",
+        "ground floor retail, 1200 sqm; floors 1-5 storage, 600 sqm",
+    ]
+    result = None
+    for turn in turns:
+        result = handle_turn(case_file, turn, llm)
+        case_file = result.case_file
+
+    # The very next question should be the dedicated Mercantile subdivision
+    # follow-up, not height/area or anything else.
+    assert "Mercantile component (G)" in result.agent_message
+    assert "F-II" in result.agent_message  # the underground-complex option listed
+
+    result = handle_turn(case_file, "just a regular shop, not underground", llm)
+    case_file = result.case_file
+
+    assert case_file.occupancy_breakdown[0].subdivision == "F"
+    assert case_file.occupancy_breakdown[1].type == OccupancyType.STORAGE  # untouched
+    # Storage doesn't need a subdivision, so intake should now move on to
+    # the next regular node (height) rather than asking about it again.
+    assert "height" in result.agent_message.lower() or "meters" in result.agent_message.lower()
 
 
 def test_mixed_use_intake_collects_breakdown_and_classifies():

@@ -86,6 +86,17 @@ def test_drops_occupancy_subdivision_code_that_does_not_exist():
     assert result == {}
 
 
+def test_extracts_kitchen_and_door_counts():
+    backend = FakeBackend(json_return={"kitchen_count": 2, "door_count": 14})
+    llm = LLMClient(backend=backend)
+
+    result = extract_case_file_facts(
+        "2 kitchens and a total of 14 doors across the building", llm
+    )
+
+    assert result == {"kitchen_count": 2, "door_count": 14}
+
+
 def test_empty_text_short_circuits_without_calling_llm():
     backend = FakeBackend(json_return={"should": "never see this"})
     llm = LLMClient(backend=backend)

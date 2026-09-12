@@ -20,9 +20,14 @@ const FIELD_LABELS: Record<string, string> = {
   existing_fire_systems: "Existing fire systems",
 };
 
-// floor_wise_area has no intake node (document-upload-only, see backend
-// dialogue/nodes.py) so it isn't gated by field_sources the way the fields
-// above are - it's shown separately, below, whenever the list is non-empty.
+// floor_wise_area/kitchen_count/door_count have no intake node
+// (document-upload-only, see backend dialogue/nodes.py) so they aren't
+// gated by field_sources the way the fields above are - each is shown
+// separately, below, only when actually present.
+const DOCUMENT_ONLY_COUNT_FIELDS: { key: "kitchen_count" | "door_count"; label: string }[] = [
+  { key: "kitchen_count", label: "Kitchens" },
+  { key: "door_count", label: "Doors" },
+];
 
 function formatOccupancyBreakdown(items: OccupancyBreakdownItem[]): string {
   return items
@@ -54,11 +59,13 @@ export function CaseSummaryPanel({ caseFile }: Props) {
   );
 
   const result = caseFile.classification_result;
+  const presentCountFields = DOCUMENT_ONLY_COUNT_FIELDS.filter(({ key }) => caseFile[key] !== null);
+  const hasAnyData = knownFields.length > 0 || caseFile.floor_wise_area.length > 0 || presentCountFields.length > 0;
 
   return (
     <aside className="summary-panel">
       <h2>Case summary</h2>
-      {knownFields.length === 0 && caseFile.floor_wise_area.length === 0 ? (
+      {!hasAnyData ? (
         <p className="summary-panel__empty">Nothing collected yet — answer the questions in chat.</p>
       ) : (
         <dl>
@@ -74,6 +81,12 @@ export function CaseSummaryPanel({ caseFile }: Props) {
               <dd>{formatFloorWiseArea(caseFile.floor_wise_area)}</dd>
             </div>
           )}
+          {presentCountFields.map(({ key, label }) => (
+            <div className="summary-panel__row" key={key}>
+              <dt>{label}</dt>
+              <dd>{caseFile[key]}</dd>
+            </div>
+          ))}
         </dl>
       )}
 

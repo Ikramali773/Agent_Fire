@@ -123,6 +123,47 @@ def _fix_orientation(image: Image.Image) -> Image.Image:
     return image
 
 
+# Confirmed via direct testing (not a guess): Tesseract's default full-page
+# layout analysis (PSM 3, what image_to_data/image_to_string use with no
+# config override) can return NOTHING for a ruled-line/bordered table - it
+# misclassifies the bordered region as a non-text layout element rather
+# than running OCR inside it - while "--psm 11" (sparse text, no page
+# layout assumptions) recovers at least partial words from the same region.
+# A rasterized architectural drawing's area-statement or door-schedule box
+# is exactly this shape, so Tiers 2/3 ran a real risk of silently dropping
+# it entirely, not just reading it poorly.
+_SPARSE_TEXT_PSM_CONFIG = "--psm 11"
+
+
+def _ocr_sparse_text(image: Image.Image) -> str:
+    """Supplementary OCR pass for content the primary pass misses entirely
+    (see module comment above). This does NOT reconstruct row/column
+    structure the way Tier 1's find_tables() does for native-text PDFs -
+    it's a best-effort "don't lose it completely" fallback for scanned/
+    photographed drawings, merged in by _merge_sparse_text() and tagged
+    distinctly so the LLM (and a human reviewer) can tell it's a lower-
+    confidence supplementary read, not the primary transcription.
+    """
+    try:
+        return pytesseract.image_to_string(image, config=_SPARSE_TEXT_PSM_CONFIG).strip()
+    except pytesseract.TesseractError:
+        return ""
+
+
+def _merge_sparse_text(primary_text: str, sparse_text: str) -> str:
+    if not sparse_text:
+        return primary_text
+    primary_words = set(primary_text.lower().split())
+    new_words = [w for w in sparse_text.split() if w.lower() not in primary_words]
+    # Only worth appending if the sparse pass actually found content the
+    # primary pass didn't - otherwise it's just re-finding (usually less
+    # accurately) what's already there, adding noise instead of value.
+    if len(new_words) < 2:
+        return primary_text
+    tag = "[Additional text detected via sparse-text OCR - may include a table/schedule the main pass missed]"
+    return f"{primary_text}\n\n{tag}\n{sparse_text}" if primary_text else f"{tag}\n{sparse_text}"
+
+
 def _ocr_with_confidence(image: Image.Image) -> tuple[str, float]:
     data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
     words = []
@@ -147,6 +188,7 @@ def ocr_standard(images: list[Image.Image]) -> TierResult:
     for image in images:
         image = _fix_orientation(image)
         text, confidence = _ocr_with_confidence(image)
+        text = _merge_sparse_text(text, _ocr_sparse_text(image))
         texts.append(text)
         confidences.append(confidence)
     overall_confidence = sum(confidences) / len(confidences) if confidences else 0.0
@@ -184,6 +226,7 @@ def ocr_with_preprocessing(images: list[Image.Image]) -> TierResult:
         image = _fix_orientation(image)
         preprocessed = _preprocess_for_ocr(image)
         text, confidence = _ocr_with_confidence(preprocessed)
+        text = _merge_sparse_text(text, _ocr_sparse_text(preprocessed))
         texts.append(text)
         confidences.append(confidence)
     overall_confidence = sum(confidences) / len(confidences) if confidences else 0.0

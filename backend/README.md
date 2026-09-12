@@ -8,9 +8,11 @@ Part B):
   subdivision (e.g. A-I lodging house vs A-V starred hotel) and the original B.4 schema had no field
   for it; `OccupancyBreakdownItem.floor_area_sqm`/`.subdivision`, needed for the same reason on a
   per-component basis once Mixed Use classification (below) actually looks up each component's own
-  Table 7 band instead of only tracking which occupancies are present; and `floor_wise_area`
+  Table 7 band instead of only tracking which occupancies are present; `floor_wise_area`
   (`FloorAreaItem`), a per-floor area breakdown extracted from a drawing's area-statement table
-  (below) — report-facing/informational only, since no digitized NBCS clause currently keys off it.
+  (below); and `kitchen_count`/`door_count`, simple counts (not a full schedule with sizes or fire
+  ratings) — all three report-facing/informational only, since no digitized NBCS clause currently
+  keys off any of them.
 - **Deterministic classification engine** (`app/engine/`, §B.6) — reads the digitized rule data at
   `../data/rules/nbcs_2026_partf/` and never guesses: applicability, the high-rise flag, and Table 7
   band matching are all driven by structured criteria traceable to a specific clause. Where the
@@ -25,13 +27,16 @@ Part B):
     between every two occupancies present from
     `data/rules/nbcs_2026_partf/group_k_mixed_occupancy_separation.json` — a combination the matrix
     marks `"NP"` (not permitted) is always forced to human review rather than silently accepted.
-  - **State NOC checklist framework, §B.10** — `app/engine/state_checklists.py` attaches
-    `ClassificationResult.applicable_state_checklist_id` for Gujarat/Maharashtra. **The checklist
-    content itself is a placeholder** (every item a literal `"TODO: ..."`) — see
+  - **State NOC checklist framework, §B.10 — deferred/optional** — `app/engine/state_checklists.py`
+    attaches `ClassificationResult.applicable_state_checklist_id` for Gujarat/Maharashtra, and the
+    content itself is a placeholder (every item a literal `"TODO: ..."`) — see
     `data/rules/state_checklists/README.md` for why: nobody has yet supplied the actual government
     checklist documents, and inventing content that looks official for a compliance product would be
-    actively harmful. This is the wiring (data model → engine → report section) that real content
-    drops into later without further code changes.
+    actively harmful. **This was deliberately deprioritized** (product decision): the product's launch
+    plan is India-wide NBCS 2026 Part F classification first, state-specific checklists later only if
+    they turn out to be needed. The wiring is left in place (harmless when unused - it only adds a
+    placeholder-tagged section to the report) so real content can drop in later without code changes,
+    but it is not being actively developed right now.
 - **Report generator** (`app/reports/generator.py`, §B.9) — templated Markdown; no LLM call.
 - **LLM abstraction layer** (`app/llm/`) — the only code allowed to call an LLM, per the product
   scope's Part G Principle 1 ("LLM reasons and explains; deterministic engines decide") and its
@@ -77,21 +82,41 @@ Part B):
     component occupancy + its own floor area (extracted as a nested `list[OccupancyBreakdownItem]`
     in one LLM call — see `app/llm/schema.py`'s new Pydantic-model/Enum schema support, added for
     this), feeding `classify_mixed_use()` above.
-  - **Node 2a, the renewal-upload nudge** — answering the goal question with "renew an existing NOC"
-    prepends a message pointing at the upload widget (below) for that one turn, rather than only
-    supporting upload as a button the user has to notice unprompted.
-- **Q&A retrieval** (`app/knowledge/`, a lightweight pass at §B.8) — `app/knowledge/corpus.py` chunks
-  the entire digitized rule corpus (`data/rules/**/*.json` + READMEs) into ~500 small, citeable
-  passages; `app/knowledge/retriever.py` is a `Retriever` Protocol (mirrors the `LLMBackend` pattern)
-  with one implementation today, a hand-rolled BM25 keyword scorer — no external dependency, no
-  network call. `app/knowledge/context.py`'s `build_qa_context()` combines this with the original
-  small hand-built summary (kept for the handful of facts a wrong retrieval would be costliest to
-  get wrong) and hands both to `answer_question()`. **This is deliberately not full embeddings-based
-  semantic search** — real §B.8 needs a network path to an embeddings-capable provider (Voyage,
-  OpenAI, Cohere, ...), and this dev sandbox's network policy blocks all of them (verified directly:
-  `api.groq.com`, `api.openai.com`, `api.cohere.ai`, `api.voyageai.com`, and `huggingface.co` are all
-  unreachable here). The `Retriever` Protocol exists so a real embeddings backend can be dropped in
-  later, in an environment that can actually reach one, without any caller changing.
+  - **Node 3c, per-component subdivision follow-up** — after Node 3b, if a component's occupancy
+    needs a subdivision (per `SUBDIVISION_OPTIONS`, e.g. Mercantile's general-shop-vs-underground-
+    complex split) but Node 3b's free-text answer didn't say which, a dedicated follow-up question
+    is asked for that specific component (dynamically chosen, so it isn't a fixed `dialogue/nodes.py`
+    Node) rather than relying on the LLM to infer it from the original answer.
+  - **Node 2a, the upload nudge** — answering the goal question prepends a message pointing at the
+    upload widget (below) for that one turn, tailored to the goal (renewal gets "upload your existing
+    NOC certificate", others get a more general "upload your plan to speed this up") — broadened from
+    renewal-only, since the upload speeds up every goal and a user with a plan handy shouldn't have
+    to guess that uploading is even an option.
+- **Q&A retrieval** (`app/knowledge/`, §B.8) — `app/knowledge/corpus.py` chunks the entire digitized
+  rule corpus (`data/rules/**/*.json` + READMEs) into ~500 small, citeable passages;
+  `app/knowledge/retriever.py`'s `Retriever` Protocol (mirrors the `LLMBackend` pattern) has two
+  implementations:
+  - **`KeywordRetriever`** (BM25, hand-rolled, no dependency, no network call) — the **default**,
+    since this dev sandbox's network policy blocks every embeddings-capable provider and Hugging
+    Face (verified directly: `api.groq.com`, `api.openai.com`, `api.cohere.ai`, `api.voyageai.com`,
+    and `huggingface.co` are all unreachable here).
+  - **`EmbeddingRetriever`** (`app/knowledge/embedding_retriever.py`) — real semantic (dense-vector)
+    search via a local, free `sentence-transformers` model (no per-call cost, no rate limit, same
+    "avoid paid APIs" direction as Groq). Opt in with `FIRE_AGENT_RETRIEVER=embeddings` in an
+    environment that can actually reach Hugging Face to download the model (~90 MB, first use only);
+    falls back to `KeywordRetriever` automatically (never crashes Q&A) if the package isn't
+    installed or the model can't load. **Not installed by default** — `pip install
+    sentence-transformers` separately if you want it, since it pulls in `torch` and most deployments
+    won't need it. **Not verified end-to-end in this dev sandbox** for the same Hugging Face reason
+    above — the retrieval/ranking math (cosine similarity, top-k) is fully tested with an injectable
+    fake encoder (`tests/test_knowledge_embedding_retriever.py`), and the real encoder is confirmed
+    to fail with a clear, catchable error rather than crash when the package is missing (exactly
+    this environment's actual state) — but loading and running the real model needs verification in
+    an environment with real internet access.
+
+  `app/knowledge/context.py`'s `build_qa_context()` combines whichever retriever is active with the
+  original small hand-built summary (kept for the handful of facts a wrong retrieval would be
+  costliest to get wrong) and hands both to `answer_question()`.
 - **Document ingest / OCR pipeline** (`app/ingest/`, §B.7) — a tiered, fail-safe pipeline for
   turning an uploaded plan, NOC letter, or certificate (PDF/PNG/JPEG) into text and then into Case
   File fields, escalating tier by tier only when the cheaper tier isn't good enough: Tier 1 native
@@ -110,8 +135,15 @@ Part B):
     ruled-line schedule (an area statement, a door schedule) gets handed to the LLM as real rows
     instead of scrambled-together flat text. This is what makes `floor_wise_area` (a per-floor area
     breakdown, distinct from the single `built_up_area_sqm` total) reliably extractable from a real
-    architectural drawing. Only covers native-text PDFs' vector tables today — the OCR path (Tiers
-    2/3) has no equivalent table reconstruction yet, a known gap for scanned/photographed drawings.
+    architectural drawing. Only covers native-text PDFs' vector tables — Tiers 2/3's OCR path has a
+    separate, weaker fix instead (below), since a rasterized/scanned page has no vector ruling lines
+    to detect in the first place.
+  - **Tiers 2/3 sparse-text supplementary OCR pass** — confirmed directly (not assumed): Tesseract's
+    default full-page layout analysis can return *nothing at all* for a ruled-line/bordered table
+    image (misclassifies the bordered region as non-text), not just a poor read. A supplementary
+    `--psm 11` ("sparse text") pass recovers at least partial content in that case, merged in and
+    tagged distinctly so it's clear this is a lower-confidence, best-effort recovery — not real
+    row/column reconstruction the way Tier 1's `find_tables()` is for native-text PDFs.
   - `DOCUMENT_FIELD_TYPES` (`app/ingest/fact_extraction.py`) also includes `occupancy_subdivision`
     now — a document implying "a 5-star hotel" or "underground shopping complex" fills the same
     field the chat intake's dedicated subdivision question does, so that question is correctly
@@ -134,22 +166,22 @@ Part B):
 
 ## Not yet built
 
-- The Node 0 document-upload conversational branch offering itself proactively for *every* goal —
-  the OCR pipeline (`app/ingest/`), the frontend upload widget, and Node 2a's renewal-specific nudge
-  (above) all exist, but the dialogue manager only proactively suggests uploading when the user says
-  they're renewing an existing NOC. For every other goal, uploading is still a standing button the
-  user has to notice on their own, not a step the agent offers.
-- Real embeddings-based semantic search for Q&A (§B.8) — see the "Q&A retrieval" section above for
-  what exists instead (real chunking + keyword/BM25 retrieval) and exactly why full embeddings
-  aren't wired up yet (a verified network-access constraint in this dev sandbox, not a design
-  choice) — a Retriever Protocol is already in place for it.
 - Real state NOC checklist content for Gujarat/Maharashtra — the framework (data model, engine hook,
   report section) is fully wired per the "State NOC checklist framework" section above, but every
-  checklist item ships as an explicit placeholder pending the actual government source documents.
-- Per-component subdivision disambiguation UI for Mixed Use — `OccupancyBreakdownItem.subdivision`
-  exists and `classify_mixed_use()` uses it, but Node 3b's single free-text prompt relies on the LLM
-  inferring a subdivision from phrasing (e.g. "a 5-star hotel component") rather than asking a
-  dedicated follow-up per component the way the single-occupancy `subdivision` node does.
+  checklist item ships as an explicit placeholder — **deliberately deprioritized**, not scheduled
+  for this phase, pending both the actual government source documents and a product decision that
+  state-specific checklists are worth building (the current plan is India-wide classification first).
+- `EmbeddingRetriever`'s real model verified end-to-end — see the "Q&A retrieval" section above; the
+  retrieval math is tested for real, but loading and running the actual `sentence-transformers`
+  model needs an environment with real internet access, which this dev sandbox doesn't have.
+- Table reconstruction for the OCR path (Tiers 2/3) — Tier 1's `find_tables()` only works on a
+  native-text PDF's vector ruling lines; a scanned/photographed drawing's schedule table gets a
+  best-effort supplementary sparse-text OCR pass (recovers content the primary pass would otherwise
+  miss entirely — see the "Document ingest / OCR pipeline" section above) rather than real
+  row/column reconstruction.
+- Kitchen presence/door count are simple counts (`kitchen_count`, `door_count`), not a full schedule
+  with sizes or fire ratings — informational/report-facing only, same as `floor_wise_area`, since no
+  digitized NBCS clause currently keys off either one.
 - Voice input only fills the chat's text box (via the browser's SpeechRecognition) rather than
   auto-sending — a deliberate choice (misheard transcripts should be reviewable before sending), not
   a gap, but worth noting if a fully hands-free flow is wanted later.
@@ -158,7 +190,7 @@ Part B):
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 127 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 146 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and
@@ -172,3 +204,11 @@ degrades to "Sorry, I didn't catch that" for every turn instead of extracting fi
 and `POST /documents` still runs the OCR pipeline and stores the extracted text, but skips turning
 it into Case File fields (`fact_extraction_skipped_reason` in the response explains why) — none of
 this crashes, but none of it is a full experience without a key.
+
+### Generated API types
+
+`scripts/export_openapi.py` dumps this app's OpenAPI schema (FastAPI already builds it automatically
+from the Pydantic models) to `../frontend/openapi.json`, which `frontend`'s `npm run generate:types`
+turns into `frontend/src/api/schema.ts` — see `frontend/README.md`'s "Generated API types" section
+for the full workflow. Run `python scripts/export_openapi.py` (from `backend/`) whenever a Case
+File/API model changes, then regenerate on the frontend side and commit both files.

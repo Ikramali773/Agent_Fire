@@ -25,8 +25,9 @@ README for what's actually implemented server-side.
   explanation if no LLM was configured to turn the extracted text into fields) and refreshes the
   case summary panel — an uploaded field shows up there and is skipped in the guided intake, same as
   a typed answer.
-- **API client** (`src/api/client.ts`) — thin fetch wrapper; `types.ts` mirrors the backend's
-  `CaseFile` Pydantic model by hand (no generated client yet — a later cleanup, not a blocker).
+- **API client** (`src/api/client.ts`) — thin fetch wrapper; `types.ts` derives the `CaseFile` etc.
+  types from a *generated* schema (`src/api/schema.ts`) instead of a hand-maintained duplicate — see
+  "Generated API types" below.
 - **Voice I/O** (`src/components/VoiceInputButton.tsx`, §B.1) — a 🎤 button next to the chat input
   using the browser's own `SpeechRecognition` API to fill the text box (never auto-sends — a
   misheard transcript should be reviewable before it's submitted, same as typing), and a "🔊 Read
@@ -82,11 +83,25 @@ npm run build   # type-checks (tsc -b) then produces dist/
 npm run lint    # oxlint
 ```
 
+### Generated API types
+
+`src/api/schema.ts` is generated from the backend's OpenAPI schema, not hand-written - the frontend
+and backend's `CaseFile` etc. shapes can no longer silently drift out of sync. `src/types.ts` derives
+the types the rest of the app actually imports (`CaseFile`, `ClassificationResult`, ...) from it,
+wrapped in `Required<...>` since FastAPI/Pydantic marks any field with a default as "not required" in
+the OpenAPI spec (a *request* could omit it) even though a *response* the backend sends always
+includes every field (Pydantic serialization never omits one) - so treating them as always-present
+is a correct, not just convenient, simplification.
+
+To regenerate after a backend model change:
+```bash
+cd ../backend && python scripts/export_openapi.py   # writes ../frontend/openapi.json
+cd ../frontend && npm run generate:types             # writes src/api/schema.ts
+```
+Commit both `openapi.json` and `schema.ts`. Verified: built the real backend's OpenAPI schema this
+way and confirmed `npm run build`/`npm run lint` are clean against the generated types, plus a live
+browser check that a real API response still renders correctly end-to-end.
+
 ## Not yet built
 
-- The dialogue manager only proactively offers the upload widget when the user says they're
-  renewing an existing NOC — for every other goal it's still a standing option the user has to
-  notice, not something the agent proposes. See the backend README's "Not yet built" section.
 - Auth/accounts, project history — Phase 1 is explicitly single-session only per the product scope.
-- A generated API client — `src/types.ts` is hand-maintained against the backend's Pydantic models
-  and will drift if one changes without the other; fine for now, worth automating later.

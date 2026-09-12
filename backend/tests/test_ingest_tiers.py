@@ -10,6 +10,8 @@ from PIL import Image
 
 from app.ingest.tiers import (
     TIER1_MIN_TEXT_LENGTH,
+    _merge_sparse_text,
+    _ocr_with_confidence,
     extract_text_layer,
     ocr_standard,
     ocr_with_preprocessing,
@@ -112,6 +114,26 @@ class TestTier1TableDetection:
         assert "Table(s) detected" not in result.text
 
 
+class TestMergeSparseText:
+    def test_appends_sparse_text_that_adds_new_content(self):
+        merged = _merge_sparse_text("Height 12 meters", "Floor Area Remarks Ground 120 Retail")
+        assert "sparse-text OCR" in merged
+        assert "Ground 120 Retail" in merged
+
+    def test_does_not_append_when_sparse_text_adds_nothing_new(self):
+        # Avoids noise/duplication when the primary pass already got
+        # everything - only worth appending if it found something new.
+        merged = _merge_sparse_text("Height 12 meters", "meters Height")
+        assert merged == "Height 12 meters"
+
+    def test_handles_empty_primary_text(self):
+        merged = _merge_sparse_text("", "Floor Area Remarks")
+        assert "Floor Area Remarks" in merged
+
+    def test_handles_empty_sparse_text(self):
+        assert _merge_sparse_text("Height 12 meters", "") == "Height 12 meters"
+
+
 class TestTier2And3Ocr:
     def test_ocr_standard_reads_rendered_text_correctly(self):
         pdf_bytes = make_text_pdf(["Built-up area: 4500 sqm", "Floors above ground: 10"])
@@ -120,6 +142,46 @@ class TestTier2And3Ocr:
         assert result.tier == 2
         assert "4500" in result.text
         assert result.confidence > 60
+
+    def test_ocr_standard_recovers_content_from_a_table_the_primary_pass_totally_misses(self):
+        """Regression test for a real, confirmed Tesseract limitation:
+        default full-page OCR (PSM 3, what image_to_data/image_to_string use
+        with no config) can return NOTHING AT ALL for a ruled-line/bordered
+        table image - not just a poor read, a total miss, because it
+        misclassifies the bordered region as a non-text layout element. This
+        specific table geometry (confirmed directly, not assumed) reproduces
+        exactly that: image_to_data finds zero words at all. A rasterized
+        architectural drawing's area-statement or door-schedule box can be
+        this shape. The sparse-text supplementary pass (--psm 11) recovers
+        at least partial content instead of losing the table entirely.
+        """
+        doc = pymupdf.open()
+        page = doc.new_page()
+        x0, y0, col_w, row_h = 50, 50, 120, 25
+        rows_data = [
+            ["Floor", "Area (sqm)", "Remarks"],
+            ["Ground", "120.5", "Retail"],
+            ["First", "110.0", "Office"],
+        ]
+        for r in range(len(rows_data) + 1):
+            page.draw_line((x0, y0 + r * row_h), (x0 + 3 * col_w, y0 + r * row_h))
+        for c in range(4):
+            page.draw_line((x0 + c * col_w, y0), (x0 + c * col_w, y0 + len(rows_data) * row_h))
+        for r, row in enumerate(rows_data):
+            for c, value in enumerate(row):
+                page.insert_text((x0 + c * col_w + 5, y0 + r * row_h + 17), value, fontsize=11)
+        pdf_bytes = doc.tobytes()
+        doc.close()
+
+        images = render_pdf_pages(pdf_bytes)
+        # Confirm the premise before testing the fix: the primary OCR pass
+        # really does find nothing for this exact table.
+        assert _ocr_with_confidence(images[0]) == ("", 0.0)
+
+        result = ocr_standard(images)
+
+        assert "sparse-text OCR" in result.text
+        assert result.text.strip() != ""
 
     def test_ocr_corrects_180_degree_rotation(self):
         # Tesseract's orientation detection (OSD) needs a reasonable amount

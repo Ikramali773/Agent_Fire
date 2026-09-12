@@ -44,6 +44,8 @@ DOCUMENT_FIELD_TYPES: dict[str, type] = {
     "number_of_staircases": int,
     "number_of_exits": int,
     "existing_fire_systems": list[str],
+    "kitchen_count": int,
+    "door_count": int,
 }
 
 _SUBDIVISION_GLOSSARY = "; ".join(
@@ -61,7 +63,10 @@ _CONTEXT = (
     "floor_wise_area - one entry per floor/level with its own area_sqm, "
     "distinct from built_up_area_sqm which is the whole building's total. "
     "Only fill occupancy_subdivision if occupancy_type is one of these and "
-    f"the document clearly implies which: {_SUBDIVISION_GLOSSARY}."
+    f"the document clearly implies which: {_SUBDIVISION_GLOSSARY}. "
+    "kitchen_count and door_count are simple counts (how many kitchens, how "
+    "many doors total) if the document states or a door/room schedule "
+    "table implies them - not a full schedule with sizes or fire ratings."
 )
 
 

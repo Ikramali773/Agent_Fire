@@ -1,9 +1,6 @@
 """Knowledge grounding for the Q&A side-branch (product scope B.3's
-Code/Knowledge Agent), per the lightweight-RAG approach agreed for this pass
-of §B.8 (see backend/README.md's RAG section for the full reasoning: real
-embeddings-based retrieval needs a network path to an embeddings-capable
-provider that this dev sandbox's network policy doesn't allow, verified
-against Groq/OpenAI/Cohere/Voyage/Hugging Face).
+Code/Knowledge Agent), per the lightweight-RAG approach agreed for §B.8 (see
+backend/README.md's RAG section for the full reasoning).
 
 Two layers, concatenated by build_qa_context():
 1. build_summary_context() - a short, static, hand-built summary of the
@@ -12,12 +9,18 @@ Two layers, concatenated by build_qa_context():
    survivor rule). Kept small and manually verified rather than retrieved,
    since these are exactly the facts a wrong retrieval would be most costly
    to get wrong.
-2. Retrieved chunks (app/knowledge/retriever.py, over app/knowledge/
-   corpus.py's chunked rule data) - real, citeable passages specific to
-   THIS question, keyword-scored rather than embedded (see retriever.py's
-   docstring for why). This is what makes this genuinely more than the old
-   fixed fact-sheet: a question the static summary doesn't cover can still
-   surface real source material instead of just "I don't have that."
+2. Retrieved chunks (over app/knowledge/corpus.py's chunked rule data) -
+   real, citeable passages specific to THIS question. Two Retriever
+   implementations exist (app/knowledge/retriever.py's Protocol): the
+   default, KeywordRetriever (BM25, no dependencies, always works, chosen
+   as the default because this dev sandbox's network policy blocks every
+   embeddings-capable provider and Hugging Face - verified directly), and
+   EmbeddingRetriever (app/knowledge/embedding_retriever.py, real semantic
+   search via a local sentence-transformers model) - opt in with
+   FIRE_AGENT_RETRIEVER=embeddings in an environment that can actually
+   reach Hugging Face to download the model; falls back to KeywordRetriever
+   automatically if it can't be constructed (package missing, model can't
+   download), never crashing Q&A over a retrieval-backend problem.
 
 answer_question()'s system prompt still instructs the model to say so
 plainly when neither layer covers the question, rather than guessing a
@@ -27,6 +30,7 @@ clause number or threshold - the guardrail this module exists to serve
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 
 from app.engine import rules_loader
@@ -77,6 +81,18 @@ def build_summary_context() -> str:
 
 @lru_cache(maxsize=1)
 def _default_retriever() -> Retriever:
+    if os.environ.get("FIRE_AGENT_RETRIEVER", "keyword") == "embeddings":
+        try:
+            from app.knowledge.embedding_retriever import EmbeddingRetriever
+
+            return EmbeddingRetriever()
+        except Exception:
+            # Package not installed, model couldn't download (this dev
+            # sandbox's network policy blocks huggingface.co - see module
+            # docstring), out of memory, whatever the cause - Q&A retrieval
+            # must never be the thing that breaks over an opt-in feature's
+            # setup problem. Silent fallback, not a crash.
+            pass
     return KeywordRetriever()
 
 

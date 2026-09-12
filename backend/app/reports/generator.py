@@ -44,6 +44,20 @@ def _floor_wise_area_line(case_file: CaseFile) -> str:
     return f"- **Floor-wise area:** {breakdown}{source_tag}"
 
 
+def _document_only_count_line(case_file: CaseFile, field_name: str, label: str) -> str | None:
+    """kitchen_count/door_count are document-upload-only (no intake node
+    asks for them, same as floor_wise_area) - shown only when actually
+    present, rather than as an always-present "Not provided" row like the
+    core B.4 fields below, since the user was never asked to supply them.
+    """
+    value = getattr(case_file, field_name)
+    if value is None:
+        return None
+    source = case_file.field_sources.get(field_name)
+    source_tag = f" _({_FIELD_SOURCE_LABEL[source.source]})_" if source else ""
+    return f"- **{label}:** {value}{source_tag}"
+
+
 def _case_summary_lines(case_file: CaseFile) -> list[str]:
     lines = []
     plain_fields = [
@@ -71,6 +85,10 @@ def _case_summary_lines(case_file: CaseFile) -> list[str]:
         lines.append(f"- **{label}:** {value}{source_tag}")
     if case_file.floor_wise_area:
         lines.append(_floor_wise_area_line(case_file))
+    for field_name, label in (("kitchen_count", "Kitchens"), ("door_count", "Doors")):
+        line = _document_only_count_line(case_file, field_name, label)
+        if line:
+            lines.append(line)
     return lines
 
 

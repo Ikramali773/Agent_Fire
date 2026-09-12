@@ -170,6 +170,16 @@ class CaseFile(BaseModel):
     number_of_staircases: Optional[int] = None
     number_of_exits: Optional[int] = None
     existing_fire_systems: list[str] = Field(default_factory=list)
+    kitchen_count: Optional[int] = Field(
+        default=None,
+        description=(
+            "Additions beyond the original B.4 schema, alongside door_count. "
+            "Report-facing/informational only, same as floor_wise_area - no "
+            "digitized NBCS Table 7 lookup currently keys off kitchen "
+            "presence or door count, so these never feed classify()."
+        ),
+    )
+    door_count: Optional[int] = None
 
     project_stage: Optional[ProjectStage] = None
     goal: Optional[Goal] = None

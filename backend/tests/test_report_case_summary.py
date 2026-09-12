@@ -51,3 +51,22 @@ def test_floor_wise_area_omitted_when_absent():
     case_file = CaseFile(session_id="s1", occupancy_type=OccupancyType.STORAGE)
     report = generate_report_markdown(case_file)
     assert "Floor-wise area" not in report
+
+
+def test_kitchen_and_door_counts_shown_when_present():
+    case_file = CaseFile(session_id="s1", kitchen_count=2, door_count=14)
+    case_file.field_sources["kitchen_count"] = FieldSource(
+        value=2, source=FieldSourceKind.DOCUMENT, confidence=0.8
+    )
+
+    report = generate_report_markdown(case_file)
+
+    assert "**Kitchens:** 2 _(extracted from document)_" in report
+    assert "**Doors:** 14" in report
+
+
+def test_kitchen_and_door_counts_omitted_when_absent():
+    case_file = CaseFile(session_id="s1", occupancy_type=OccupancyType.STORAGE)
+    report = generate_report_markdown(case_file)
+    assert "Kitchens" not in report
+    assert "Doors" not in report

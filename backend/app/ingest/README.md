@@ -25,11 +25,19 @@ Each tier only runs if the one before it wasn't good enough — cheapest/fastest
    (`tiers.render_pdf_pages`, 200 DPI), auto-correct orientation via Tesseract's OSD
    (`tiers._fix_orientation` — a real, observed Tesseract limitation: OSD needs multiple lines of
    text to detect rotation reliably, a single short line isn't enough signal), then run Tesseract
-   and score the result by its own reported word-level confidence.
+   and score the result by its own reported word-level confidence. Also runs a supplementary
+   sparse-text pass (`tiers._ocr_sparse_text`, `--psm 11`) and merges in anything it finds that the
+   primary pass missed (`tiers._merge_sparse_text`) — confirmed directly, not assumed: Tesseract's
+   default full-page layout analysis can return *nothing at all* for a ruled-line/bordered table
+   image (misclassifies the bordered region as non-text, not just a poor read), which a rasterized
+   architectural drawing's area-statement or door-schedule box is exactly the shape of. This is a
+   best-effort "don't lose it completely" recovery, tagged distinctly in the merged text - it does
+   NOT reconstruct row/column structure the way Tier 1's `find_tables()` does for native-text PDFs.
 3. **Preprocessed OCR retry** (`tiers.ocr_with_preprocessing`) — if standard OCR's confidence is
    too low (`TIER2_MIN_CONFIDENCE`), retry after grayscale/upscale/denoise/binarize (Pillow only —
    no deskew, no OpenCV; a noisy phone photo of a printed certificate is the target case here, not
-   a heavily skewed scan).
+   a heavily skewed scan). Runs the same sparse-text supplementary pass as Tier 2, on the
+   preprocessed image.
 4. **Vision LLM** (`vision.run_vision_tier`) — if OCR still isn't confident enough
    (`pipeline.TIER4_CONFIDENCE`), send each page image to the configured backend's
    `generate_json_from_image` and ask it to transcribe the page. Only runs if an LLM backend is
@@ -46,9 +54,11 @@ Each tier only runs if the one before it wasn't good enough — cheapest/fastest
 Whatever text came out of the tiers above is run through the same `LLMClient.extract_fields`
 machinery the chat flow uses, against `DOCUMENT_FIELD_TYPES` (the Case File's structured fields,
 including `floor_wise_area` - a nested `list[FloorAreaItem]` the LLM fills straight from a detected
-table's rows, distinct from `built_up_area_sqm`'s single whole-building total - and
-`occupancy_subdivision`, so a drawing implying e.g. "a 5-star hotel" correctly skips the chat's
-dedicated subdivision question too, not just the occupancy question).
+table's rows, distinct from `built_up_area_sqm`'s single whole-building total; `occupancy_subdivision`,
+so a drawing implying e.g. "a 5-star hotel" correctly skips the chat's dedicated subdivision question
+too, not just the occupancy question - and, if there's more than one occupancy component (Mixed
+Use), the chat's Node 3c per-component follow-up as well; and `kitchen_count`/`door_count`, simple
+counts, informational/report-facing only).
 `apply.ingest_document` then merges anything extracted into the Case File with
 `FieldSourceKind.DOCUMENT`, at a confidence scaled by *that upload's* OCR/vision confidence
 (`result.confidence / 100.0`) — not a flat number — per the product scope's warning that text
@@ -65,14 +75,11 @@ section for the max_tokens + LLMUnavailableError fix).
 ## What isn't built here yet
 
 - Real per-field confidence from the vision tier (see the "always human review" note above).
-- Table reconstruction for the OCR path (Tiers 2/3) — `find_tables()` only works on a native-text
-  PDF's vector ruling lines; a scanned/photographed drawing's schedule table still gets flattened
-  into plain OCR text with no row/column structure recovered.
-- Fields the OCR pipeline still doesn't extract even with table detection — kitchen presence/count
-  and a door count/schedule were considered and deliberately deferred (per an explicit product
-  decision) since today's digitized NBCS Table 7 lookups don't key off either one; only floor-wise
-  area and occupancy_subdivision were added.
-- The dialogue manager doesn't yet *offer* uploading as an intake step — see the backend README's
-  "Not yet built" section.
+- Real table reconstruction for the OCR path (Tiers 2/3) — the sparse-text supplementary pass (above)
+  recovers content that would otherwise be lost entirely, but it doesn't reconstruct row/column
+  structure the way Tier 1's `find_tables()` does for native-text PDFs' vector ruling lines.
+- A full door schedule (sizes, fire ratings) — `door_count` is a simple count, not a schedule;
+  kitchen_count/door_count are both informational/report-facing only, since today's digitized NBCS
+  Table 7 lookups don't key off either one (a deliberate product decision, not an oversight).
 - Multi-document conflict handling (two uploads disagreeing on the same field) beyond "last upload
   wins" — the dialogue manager's existing re-confirmation step is the only backstop today.

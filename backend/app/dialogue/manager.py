@@ -15,20 +15,20 @@ Drives the guided intake as a state machine over CaseFile.conversation_stage:
     CLASSIFIED  -> classify() has run; further messages are treated as
                    open Knowledge Q&A (the intake is done).
 
-Node 2a (the renewal-upload nudge) and Node 3a (the residential early-exit
-shortcut) are both handled here rather than as dialogue/nodes.py Nodes: each
-is a one-off message appended around an existing node transition, not a
-field to collect - the actual "skip egress/existing_systems" logic for Node
-3a lives in those nodes' own `applicable` callbacks
-(residential_self_cert_eligible in dialogue/nodes.py). Deliberately still
-deferred (see backend/README.md): the Node 0 document-upload branch
-proactively offering itself as a step for every goal (not just renewal).
+Node 2a (the upload nudge, now shown for every goal - originally
+renewal-only) and Node 3a (the residential early-exit shortcut) are both
+handled here rather than as dialogue/nodes.py Nodes: each is a one-off
+message appended around an existing node transition, not a field to
+collect - the actual "skip egress/existing_systems" logic for Node 3a lives
+in those nodes' own `applicable` callbacks (residential_self_cert_eligible
+in dialogue/nodes.py).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Literal
 
 from app.dialogue.nodes import NODES, SUBDIVISION_OPTIONS, next_node, residential_self_cert_eligible
 from app.engine.classifier import classify
@@ -44,15 +44,34 @@ OPENING_PROMPT = (
     "me a general question at any point.\n\n"
 )
 
-# Node 2a, product scope §B.5: when the user says they're renewing an
-# existing NOC, proactively point them at the upload widget (reuses the
-# already-built OCR ingest pipeline, §B.7) instead of only supporting it as
-# a passive button they have to notice on their own.
-RENEWAL_UPLOAD_NUDGE = (
-    "Since you're renewing an existing NOC, you can upload your existing NOC "
-    "certificate or approved plan now (the 📎 attach button below) and I'll "
-    "pull in whatever details it has — or just keep answering by hand.\n\n"
-)
+# Node 2a, product scope §B.5, extended to every goal: right after the
+# user says what they're trying to do, proactively point them at the upload
+# widget (reuses the already-built OCR ingest pipeline, §B.7) instead of
+# only supporting it as a passive button they have to notice on their own.
+# Originally renewal-only; broadened since the upload speeds up every goal,
+# not just renewal, and a user with a plan handy shouldn't have to guess
+# that uploading is even an option.
+_GOAL_UPLOAD_NUDGES: dict[Goal, str] = {
+    Goal.RENEW_NOC: (
+        "Since you're renewing an existing NOC, you can upload your existing NOC "
+        "certificate or approved plan now (the 📎 attach button below) and I'll "
+        "pull in whatever details it has — or just keep answering by hand.\n\n"
+    ),
+    Goal.PREP_NOC: (
+        "If you have an approved plan or architectural drawing handy, you can "
+        "upload it now (the 📎 attach button below) and I'll pull in whatever "
+        "building details it has — or just keep answering by hand.\n\n"
+    ),
+    Goal.UNDERSTAND_REQUIREMENTS: (
+        "If you have a building plan or drawing handy, you can upload it now "
+        "(the 📎 attach button below) to speed this up — or just keep answering "
+        "by hand.\n\n"
+    ),
+    Goal.GENERAL_QA: (
+        "By the way, if you have a building plan handy, you can upload it any "
+        "time (the 📎 attach button below) if it becomes relevant.\n\n"
+    ),
+}
 
 # Node 3a: once a Residential building's height/area put it within Table
 # 7A's self-certification threshold, the remaining egress/existing-systems
@@ -66,6 +85,60 @@ RESIDENTIAL_SELF_CERT_NUDGE = (
     "questions.\n\n"
 )
 
+# Node 3c: a per-component follow-up for Mixed Use occupancy_breakdown
+# items that need a subdivision (per SUBDIVISION_OPTIONS) but don't have one
+# yet - e.g. Node 3b's free-text answer named the occupancy ("Mercantile")
+# without saying whether it's an underground shopping complex. Not a fixed
+# dialogue/nodes.py Node since it targets one specific list item, chosen
+# dynamically, rather than a fixed Case File field - handled as its own
+# mini turn-handler below (_handle_mixed_use_subdivision_turn), the same
+# pattern Node 2a/3a use for logic that doesn't fit the Node abstraction.
+def _missing_subdivision_index(case_file: CaseFile) -> int | None:
+    for index, item in enumerate(case_file.occupancy_breakdown):
+        if item.type.value in SUBDIVISION_OPTIONS and not item.subdivision:
+            return index
+    return None
+
+
+def _mixed_use_subdivision_prompt(item) -> str:
+    options = SUBDIVISION_OPTIONS.get(item.type.value, {})
+    return (
+        f"For the {item.type.value} component ({item.floor_range}), which of these best "
+        "describes it?\n" + "\n".join(f"- {code}: {label}" for code, label in options.items())
+    )
+
+
+def _mixed_use_subdivision_field_types(item) -> dict[str, type]:
+    options = SUBDIVISION_OPTIONS.get(item.type.value, {})
+    return {"occupancy_subdivision": Literal[tuple(options.keys())]}  # type: ignore[valid-type]
+
+
+def _apply_mixed_use_subdivision(case_file: CaseFile, index: int, subdivision: str) -> CaseFile:
+    updated_items = list(case_file.occupancy_breakdown)
+    updated_items[index] = updated_items[index].model_copy(update={"subdivision": subdivision})
+    case_file.occupancy_breakdown = updated_items
+    case_file.updated_at = datetime.now(timezone.utc)
+    return case_file
+
+
+def _all_intake_fields_complete(case_file: CaseFile) -> bool:
+    return _missing_subdivision_index(case_file) is None and next_node(case_file) is None
+
+
+def _next_step_message(case_file: CaseFile) -> str:
+    """What to ask/show next, given _all_intake_fields_complete(case_file) is
+    False (the caller must check that first - this never returns the
+    confirmation summary itself). Shared by the regular node path and the
+    Node 3c subdivision follow-up path, since either can hand off to the
+    other or to a plain node.
+    """
+    next_subdivision_index = _missing_subdivision_index(case_file)
+    if next_subdivision_index is not None:
+        return _mixed_use_subdivision_prompt(case_file.occupancy_breakdown[next_subdivision_index])
+    next_pending = next_node(case_file)
+    return next_pending.prompt(case_file)
+
+
 _ALL_FIELD_TYPES = {name: typ for node in NODES for name, typ in node.field_types.items()}
 
 
@@ -77,8 +150,6 @@ class TurnResult:
 
 def _field_types_for(node, case_file: CaseFile) -> dict[str, type]:
     if node.id == "subdivision":
-        from typing import Literal
-
         options = SUBDIVISION_OPTIONS.get(
             case_file.occupancy_type.value if case_file.occupancy_type else "", {}
         )
@@ -128,19 +199,27 @@ def _confirmation_summary(case_file: CaseFile) -> str:
         value = getattr(case_file, name, None)
         if source is not None:
             lines.append(f"- {name}: {_format_field_value(name, value)}")
-    # floor_wise_area is document-upload-only (no intake node asks for it -
-    # see dialogue/nodes.py's module docstring), so it's never in
-    # _ALL_FIELD_TYPES above; shown here whenever a document supplied it so
-    # the user can actually see and correct what was extracted.
+    # floor_wise_area/kitchen_count/door_count are document-upload-only (no
+    # intake node asks for them - see dialogue/nodes.py's module docstring),
+    # so they're never in _ALL_FIELD_TYPES above; shown here whenever a
+    # document supplied one so the user can actually see and correct what
+    # was extracted, rather than it silently never appearing.
     if case_file.floor_wise_area:
         lines.append(f"- floor_wise_area: {_format_floor_wise_area(case_file.floor_wise_area)}")
+    if case_file.kitchen_count is not None:
+        lines.append(f"- kitchen_count: {case_file.kitchen_count}")
+    if case_file.door_count is not None:
+        lines.append(f"- door_count: {case_file.door_count}")
     lines.append("\nIs this all correct, or is anything off?")
     return "\n".join(lines)
 
 
 def start_conversation(case_file: CaseFile) -> TurnResult:
-    node = next_node(case_file)
-    prompt = node.prompt(case_file) if node else _confirmation_summary(case_file)
+    prompt = (
+        _confirmation_summary(case_file)
+        if _all_intake_fields_complete(case_file)
+        else _next_step_message(case_file)
+    )
     return TurnResult(case_file=case_file, agent_message=OPENING_PROMPT + prompt)
 
 
@@ -200,6 +279,10 @@ def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnR
         return TurnResult(case_file=case_file, agent_message=summary)
 
     # INTAKE stage
+    subdivision_index = _missing_subdivision_index(case_file)
+    if subdivision_index is not None:
+        return _handle_mixed_use_subdivision_turn(case_file, user_message, llm, subdivision_index)
+
     node = next_node(case_file)
     if node is None:
         case_file.conversation_stage = ConversationStage.CONFIRMING
@@ -236,13 +319,12 @@ def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnR
     case_file = _apply_extracted_fields(case_file, extracted)
 
     nudge = ""
-    if node.id == "goal" and case_file.goal == Goal.RENEW_NOC:
-        nudge += RENEWAL_UPLOAD_NUDGE
+    if node.id == "goal" and case_file.goal in _GOAL_UPLOAD_NUDGES:
+        nudge += _GOAL_UPLOAD_NUDGES[case_file.goal]
     if node.id in ("height", "area") and residential_self_cert_eligible(case_file):
         nudge += RESIDENTIAL_SELF_CERT_NUDGE
 
-    next_pending = next_node(case_file)
-    if next_pending is None:
+    if _all_intake_fields_complete(case_file):
         case_file.conversation_stage = ConversationStage.CONFIRMING
         return TurnResult(
             case_file=case_file, agent_message=nudge + _confirmation_summary(case_file)
@@ -268,4 +350,68 @@ def handle_turn(case_file: CaseFile, user_message: str, llm: LLMClient) -> TurnR
             agent_message=f"Sorry, I didn't catch that. {pending_question}",
         )
 
-    return TurnResult(case_file=case_file, agent_message=nudge + next_pending.prompt(case_file))
+    return TurnResult(case_file=case_file, agent_message=nudge + _next_step_message(case_file))
+
+
+def _handle_mixed_use_subdivision_turn(
+    case_file: CaseFile, user_message: str, llm: LLMClient, index: int
+) -> TurnResult:
+    """Node 3c's own mini turn-handler - same shape as the regular node path
+    in handle_turn (Q&A side-branch, fail-open on rate limit/no LLM, re-ask
+    on an unparseable answer), but applies its result to one specific
+    occupancy_breakdown item's subdivision instead of a top-level field.
+    """
+    item = case_file.occupancy_breakdown[index]
+    pending_question = _mixed_use_subdivision_prompt(item)
+
+    rate_limited = False
+    try:
+        intent = llm.classify_intent(user_message, pending_question)
+    except LLMUnavailableError:
+        intent = "answer"
+        rate_limited = True
+    except LLMNotConfiguredError:
+        intent = "answer"
+
+    if intent == "question":
+        answer = _safe_answer_question(llm, user_message)
+        return TurnResult(
+            case_file=case_file, agent_message=f"{answer}\n\n(Back to: {pending_question})"
+        )
+
+    try:
+        extracted = llm.extract_fields(
+            user_message,
+            _mixed_use_subdivision_field_types(item),
+            context=(
+                f"The user is describing the {item.type.value} component "
+                f"({item.floor_range}) of a Mixed Use building."
+            ),
+        )
+    except LLMUnavailableError:
+        extracted = {}
+        rate_limited = True
+    except LLMNotConfiguredError:
+        extracted = {}
+
+    subdivision = extracted.get("occupancy_subdivision")
+    if not subdivision:
+        if rate_limited:
+            return TurnResult(
+                case_file=case_file,
+                agent_message=(
+                    "The AI provider is temporarily rate-limited or unavailable - "
+                    f"please try again in a minute. {pending_question}"
+                ),
+            )
+        return TurnResult(
+            case_file=case_file, agent_message=f"Sorry, I didn't catch that. {pending_question}"
+        )
+
+    case_file = _apply_mixed_use_subdivision(case_file, index, subdivision)
+
+    if _all_intake_fields_complete(case_file):
+        case_file.conversation_stage = ConversationStage.CONFIRMING
+        return TurnResult(case_file=case_file, agent_message=_confirmation_summary(case_file))
+
+    return TurnResult(case_file=case_file, agent_message=_next_step_message(case_file))

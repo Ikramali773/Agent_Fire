@@ -1,0 +1,994 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Fire Safety & NOC Compliance Platform - API",
+    "description": "Phase 1 backend (product scope Part B). Deterministic classification engine, report generator, LLM-driven dialogue manager, frontend, database persistence, and the OCR document-ingest pipeline are live; the RAG knowledge base is not yet wired in - see README.md.",
+    "version": "0.1.0-phase1"
+  },
+  "paths": {
+    "/case-files": {
+      "post": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Create Case File",
+        "operationId": "create_case_file_case_files_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CaseFile"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Case File"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Get Case File",
+        "operationId": "get_case_file_case_files__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Update Case File",
+        "operationId": "update_case_file_case_files__session_id__put",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Updates"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/classify": {
+      "post": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Classify Case File",
+        "operationId": "classify_case_file_case_files__session_id__classify_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/report": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Get Report",
+        "operationId": "get_report_case_files__session_id__report_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Report Case Files  Session Id  Report Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/start": {
+      "post": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Start",
+        "description": "Returns the opening question (product scope B.5, Node 0/1) without\nconsuming a user message - call this once right after creating a case\nfile to get the first prompt to show the user.",
+        "operationId": "start_case_files__session_id__start_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Start Case Files  Session Id  Start Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/message": {
+      "post": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Send Message",
+        "operationId": "send_message_case_files__session_id__message_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Send Message Case Files  Session Id  Message Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/documents": {
+      "post": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Upload Document",
+        "description": "Product scope \u00a7B.7 - runs the tiered OCR/vision pipeline on an\nuploaded PDF/PNG/JPEG, extracts whatever Case File facts it can, and\nmerges them in as document-sourced (never higher-confidence than a\nuser's own chat answer - see app/ingest/apply.py). Every field this\nfinds still needs the same B.5 Node 8 confirmation as any other\ndocument-sourced fact before a report is generated - this endpoint pre-\nfills, it never finalizes.",
+        "operationId": "upload_document_case_files__session_id__documents_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_document_case_files__session_id__documents_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Upload Document Case Files  Session Id  Documents Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_upload_document_case_files__session_id__documents_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_document_case_files__session_id__documents_post"
+      },
+      "CaseFile": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name",
+            "default": ""
+          },
+          "state": {
+            "type": "string",
+            "title": "State",
+            "default": ""
+          },
+          "city": {
+            "type": "string",
+            "title": "City",
+            "default": ""
+          },
+          "occupancy_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OccupancyType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occupancy_subdivision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupancy Subdivision",
+            "description": "NBCS subdivision code where Table 7's bands genuinely differ by subdivision (e.g. 'A-I' lodging house vs 'A-V' starred hotel within Residential; 'C-I' hospitals vs 'C-II_C-III' custodial/penal within Institutional; 'E-I'/'E-II' human-occupied vs datacentre within Business; 'F'/'F-II' vs underground shopping within Mercantile). NOT part of the original B.4 schema in the product scope document - added because the classifier cannot safely pick a Table 7 band without it for these occupancies. Industrial does not need this field; use industrial_hazard_band."
+          },
+          "industrial_hazard_band": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndustrialHazardBand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mixed_occupancy": {
+            "type": "boolean",
+            "title": "Mixed Occupancy",
+            "default": false
+          },
+          "occupancy_breakdown": {
+            "items": {
+              "$ref": "#/components/schemas/OccupancyBreakdownItem"
+            },
+            "type": "array",
+            "title": "Occupancy Breakdown"
+          },
+          "height_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height M"
+          },
+          "is_high_rise": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is High Rise"
+          },
+          "floors_above_ground": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floors Above Ground"
+          },
+          "floors_below_ground": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floors Below Ground"
+          },
+          "built_up_area_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Built Up Area Sqm"
+          },
+          "floor_wise_area": {
+            "items": {
+              "$ref": "#/components/schemas/FloorAreaItem"
+            },
+            "type": "array",
+            "title": "Floor Wise Area"
+          },
+          "number_of_staircases": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number Of Staircases"
+          },
+          "number_of_exits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number Of Exits"
+          },
+          "existing_fire_systems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Existing Fire Systems"
+          },
+          "kitchen_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kitchen Count",
+            "description": "Additions beyond the original B.4 schema, alongside door_count. Report-facing/informational only, same as floor_wise_area - no digitized NBCS Table 7 lookup currently keys off kitchen presence or door count, so these never feed classify()."
+          },
+          "door_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Door Count"
+          },
+          "project_stage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectStage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Goal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code_edition": {
+            "$ref": "#/components/schemas/CodeEdition",
+            "description": "Which code edition governs this case. Defaults to 2026 (the live/primary source) unless the case involves a building certified under 2016 and not yet reassessed.",
+            "default": "2026"
+          },
+          "source_documents": {
+            "items": {
+              "$ref": "#/components/schemas/SourceDocument"
+            },
+            "type": "array",
+            "title": "Source Documents"
+          },
+          "field_sources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FieldSource"
+            },
+            "type": "object",
+            "title": "Field Sources"
+          },
+          "classification_result": {
+            "$ref": "#/components/schemas/ClassificationResult"
+          },
+          "conversation_stage": {
+            "$ref": "#/components/schemas/ConversationStage",
+            "default": "intake"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id"
+        ],
+        "title": "CaseFile"
+      },
+      "ClassificationResult": {
+        "properties": {
+          "applies": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applies"
+          },
+          "table_7_ref": {
+            "type": "string",
+            "title": "Table 7 Ref",
+            "default": ""
+          },
+          "applicable_clauses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Applicable Clauses"
+          },
+          "applicable_state_checklist_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicable State Checklist Id"
+          },
+          "is_high_rise": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is High Rise"
+          },
+          "require_human_review_flag": {
+            "type": "boolean",
+            "title": "Require Human Review Flag",
+            "default": false
+          },
+          "protection_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protection Level",
+            "description": "e.g. 'HL-3' or 'CL-4' from Table 7A-7J"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "title": "ClassificationResult"
+      },
+      "CodeEdition": {
+        "type": "string",
+        "enum": [
+          "2026",
+          "2016"
+        ],
+        "title": "CodeEdition"
+      },
+      "ConversationStage": {
+        "type": "string",
+        "enum": [
+          "intake",
+          "confirming",
+          "classified",
+          "report_ready"
+        ],
+        "title": "ConversationStage"
+      },
+      "FieldSource": {
+        "properties": {
+          "value": {
+            "title": "Value"
+          },
+          "source": {
+            "$ref": "#/components/schemas/FieldSourceKind",
+            "default": "unknown"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "FieldSource"
+      },
+      "FieldSourceKind": {
+        "type": "string",
+        "enum": [
+          "user",
+          "document",
+          "inferred",
+          "unknown"
+        ],
+        "title": "FieldSourceKind"
+      },
+      "FloorAreaItem": {
+        "properties": {
+          "floor": {
+            "type": "string",
+            "title": "Floor"
+          },
+          "area_sqm": {
+            "type": "number",
+            "title": "Area Sqm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "floor",
+          "area_sqm"
+        ],
+        "title": "FloorAreaItem",
+        "description": "One row of a floor-wise area breakdown - an addition beyond the\noriginal B.4 schema (which only has a single built_up_area_sqm total).\nAdded because architectural drawings' \"area statement\" schedules give\narea per floor, not just a building total, and that's useful to capture\neven though today's digitized NBCS Table 7 lookups still key off the\nsingle built_up_area_sqm total (see classifier.py) - this is\ninformational/report-facing only, not a classification input, per an\nexplicit product decision to not invent NBCS clause logic that doesn't\nexist in the digitized rule data."
+      },
+      "Goal": {
+        "type": "string",
+        "enum": [
+          "understand_requirements",
+          "prep_noc",
+          "renew_noc",
+          "general_qa"
+        ],
+        "title": "Goal"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IndustrialHazardBand": {
+        "type": "string",
+        "enum": [
+          "G-1",
+          "G-2",
+          "G-3"
+        ],
+        "title": "IndustrialHazardBand"
+      },
+      "OccupancyBreakdownItem": {
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/OccupancyType"
+          },
+          "floor_range": {
+            "type": "string",
+            "title": "Floor Range"
+          },
+          "floor_area_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Area Sqm"
+          },
+          "subdivision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subdivision",
+            "description": "Same purpose as CaseFile.occupancy_subdivision, but per-component: needed when this component's occupancy type is one of the ones whose Table 7 has multiple genuinely different subdivisions (see occupancy_subdivision's docstring)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "floor_range"
+        ],
+        "title": "OccupancyBreakdownItem",
+        "description": "One component of a mixed-occupancy building (B.4).\n\nfloor_area_sqm is an addition beyond the original B.4 schema: Table 7's\nbands are height/area-driven, so classifying a single component requires\nits own floor area even though the whole building shares one height_m.\nOptional because the union-of-clauses logic (see\napp/engine/classifier.py's classify_mixed_use) still degrades to \"flag\nfor human review\" rather than guessing when it's missing for a component."
+      },
+      "OccupancyType": {
+        "type": "string",
+        "enum": [
+          "Residential",
+          "Educational",
+          "Institutional",
+          "Assembly",
+          "Business",
+          "Mercantile",
+          "Industrial",
+          "Storage",
+          "Hazardous",
+          "Mixed Use"
+        ],
+        "title": "OccupancyType"
+      },
+      "ProjectStage": {
+        "type": "string",
+        "enum": [
+          "concept",
+          "plan_submitted",
+          "under_construction",
+          "renewal"
+        ],
+        "title": "ProjectStage"
+      },
+      "SourceDocument": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages",
+            "default": 0
+          },
+          "extraction_tier_used": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Tier Used",
+            "description": "1-5, see B.7 tiered OCR pipeline"
+          },
+          "overall_confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Overall Confidence",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename"
+        ],
+        "title": "SourceDocument"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
