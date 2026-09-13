@@ -1,0 +1,44 @@
+.ds-rename-project {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ds-rename-project__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+}
+
+.ds-rename-project__input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-app);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-family: inherit;
+}
+
+.ds-rename-project__input:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 1px;
+}
+
+.ds-rename-project__hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: var(--leading-relaxed);
+}
+
+.ds-rename-project__error {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--status-fail-bg);
+  color: var(--status-fail-fg);
+  border: 1px solid var(--status-fail-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}

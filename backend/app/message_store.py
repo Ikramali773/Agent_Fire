@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from sqlalchemy import func
+
 from app.db.models import ConversationMessageRecord
 from app.db.session import get_session
 from app.timestamps import as_utc
@@ -81,6 +83,59 @@ def list_for_session(
         # conversation rather than where the user actually left off.
         records = query.order_by(ConversationMessageRecord.id.desc()).limit(limit).all()
         return [_to_message(record) for record in reversed(records)]
+
+
+# How much of a first message to keep as a chat title. Long enough to tell
+# two projects apart at a glance, short enough for a sidebar row.
+TITLE_MAX_CHARS = 60
+
+
+def _to_title(text: str) -> str:
+    """One line of a first message, trimmed to fit a sidebar row."""
+    collapsed = " ".join(text.split())
+    if len(collapsed) <= TITLE_MAX_CHARS:
+        return collapsed
+    # Cut at a word boundary rather than mid-word, unless the first word is
+    # itself longer than the limit.
+    clipped = collapsed[:TITLE_MAX_CHARS].rsplit(" ", 1)[0] or collapsed[:TITLE_MAX_CHARS]
+    return f"{clipped}…"
+
+
+def first_user_messages(session_ids: list[str]) -> dict[str, str]:
+    """The opening user message of each given session, as a chat title.
+
+    What a chat rail needs to tell projects apart before one has a name:
+    the project name is collected partway through the intake, so a rail of
+    freshly-started chats would otherwise be a column of identical
+    "Untitled project" rows.
+
+    Only USER messages count - the agent's greeting is identical in every
+    conversation and would title them all the same.
+    """
+    if not session_ids:
+        return {}
+    with get_session() as session:
+        # The lowest id per session is its first message; grouping and then
+        # joining back is what fetches only those rows rather than pulling
+        # every message of every project into Python to pick the first.
+        firsts = (
+            session.query(
+                ConversationMessageRecord.session_id.label("session_id"),
+                func.min(ConversationMessageRecord.id).label("first_id"),
+            )
+            .filter(
+                ConversationMessageRecord.role == MessageRole.USER.value,
+                ConversationMessageRecord.session_id.in_(session_ids),
+            )
+            .group_by(ConversationMessageRecord.session_id)
+            .subquery()
+        )
+        rows = (
+            session.query(ConversationMessageRecord.session_id, ConversationMessageRecord.text)
+            .join(firsts, ConversationMessageRecord.id == firsts.c.first_id)
+            .all()
+        )
+        return {session_id: _to_title(text) for session_id, text in rows if text.strip()}
 
 
 def delete_for_session(session_id: str) -> int:

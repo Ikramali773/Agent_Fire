@@ -64,11 +64,13 @@ export interface paths {
         post?: never;
         /**
          * Delete Case File
-         * @description Deletes a project: the case file AND its whole chat transcript.
+         * @description Deletes a project: the case file, its whole chat transcript AND its
+         *     change log.
          *
-         *     Both, explicitly - a user deleting a project expects their conversation
-         *     to go with it, not to be left behind in the database. Irreversible;
-         *     there is no soft-delete/undo, so the UI confirms first.
+         *     All three, explicitly - a user deleting a project expects their
+         *     conversation and its history to go with it, not to be left behind in
+         *     the database. Irreversible; there is no soft-delete/undo, so the UI
+         *     confirms first.
          */
         delete: operations["delete_case_file_case_files__session_id__delete"];
         options?: never;
@@ -398,6 +400,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/me/chat-titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Chat Titles
+         * @description A title for each of this account's chats, from its first user
+         *     message - what lets the sidebar tell projects apart before one is
+         *     named. Scoped to case files this account owns, so it can never expose
+         *     another account's conversation. Sessions with no user message yet are
+         *     simply absent.
+         */
+        get: operations["list_my_chat_titles_users_me_chat_titles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -533,6 +559,22 @@ export interface components {
          * @enum {string}
          */
         ChangeSource: "user" | "dialogue" | "document" | "system";
+        /**
+         * ChatTitle
+         * @description A chat's title derived from what was actually said in it.
+         *
+         *     Deliberately NOT a field on the Case File: a title is a presentation
+         *     detail of the conversation, the Case File schema is fixed, and
+         *     persisting one would mean keeping it in step with a transcript that
+         *     already contains the answer. Served as a small side-lookup the chat
+         *     rail merges over the project list it already has.
+         */
+        ChatTitle: {
+            /** Session Id */
+            session_id: string;
+            /** Title */
+            title: string;
+        };
         /** ClassificationResult */
         ClassificationResult: {
             /** Applies */
@@ -1455,6 +1497,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseFile"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_chat_titles_users_me_chat_titles_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatTitle"][];
                 };
             };
             /** @description Validation Error */

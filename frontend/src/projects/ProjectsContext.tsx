@@ -8,13 +8,17 @@ import type { CaseFile } from "../types";
 interface ProjectsContextValue {
   /** null until the first load finishes (or while signed out). */
   projects: CaseFile[] | null;
+  /** session_id -> title derived from that chat's first user message. */
+  titles: Record<string, string>;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
   /** Insert or replace one project locally, keeping newest-first order. */
   upsert: (caseFile: CaseFile) => void;
-  /** Deletes server-side (case file + transcript), then drops it locally. */
+  /** Deletes server-side (case file + transcript + change log), then drops it locally. */
   remove: (sessionId: string) => Promise<void>;
+  /** Renames a project - an ordinary Case File edit, logged like any other. */
+  rename: (sessionId: string, projectName: string) => Promise<CaseFile>;
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | null>(null);
@@ -34,19 +38,25 @@ function byUpdatedAtDesc(a: CaseFile, b: CaseFile): number {
 export function ProjectsProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<CaseFile[] | null>(null);
+  const [titles, setTitles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!user) {
       setProjects(null);
+      setTitles({});
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const list = await api.myCaseFiles();
+      // Fetched together: a project list without its titles renders a
+      // column of "Untitled project" rows that then shift under the
+      // reader a moment later.
+      const [list, chatTitles] = await Promise.all([api.myCaseFiles(), api.myChatTitles()]);
       setProjects([...list].sort(byUpdatedAtDesc));
+      setTitles(Object.fromEntries(chatTitles.map((item) => [item.session_id, item.title])));
     } catch (err) {
       setError(err instanceof ApiError ? `Could not load your projects (${err.status}).` : "Could not load your projects.");
     } finally {
@@ -73,10 +83,26 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const remove = useCallback(async (sessionId: string) => {
     await api.deleteCaseFile(sessionId);
     setProjects((current) => (current === null ? current : current.filter((item) => item.session_id !== sessionId)));
+    setTitles((current) => {
+      if (!(sessionId in current)) return current;
+      const { [sessionId]: _removed, ...rest } = current;
+      return rest;
+    });
+  }, []);
+
+  const rename = useCallback(async (sessionId: string, projectName: string) => {
+    // The project name IS the Case File's own field, so renaming a chat
+    // is an ordinary edit - it shows up in that project's change log like
+    // any other, rather than being a separate piece of hidden UI state.
+    const updated = await api.updateCaseFile(sessionId, { project_name: projectName });
+    setProjects((current) =>
+      current === null ? current : current.map((item) => (item.session_id === sessionId ? updated : item)),
+    );
+    return updated;
   }, []);
 
   return (
-    <ProjectsContext.Provider value={{ projects, loading, error, refresh, upsert, remove }}>
+    <ProjectsContext.Provider value={{ projects, titles, loading, error, refresh, upsert, remove, rename }}>
       {children}
     </ProjectsContext.Provider>
   );

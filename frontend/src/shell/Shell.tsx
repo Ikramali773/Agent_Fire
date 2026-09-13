@@ -19,6 +19,7 @@ interface Props {
   onOpenChat: (caseFile: CaseFile) => void;
   onNewChat: () => void;
   onChatDeleted: (sessionId: string) => void;
+  onChatRenamed: (caseFile: CaseFile) => void;
   children: ReactNode;
 }
 
@@ -42,6 +43,7 @@ export function Shell({
   onOpenChat,
   onNewChat,
   onChatDeleted,
+  onChatRenamed,
   children,
 }: Props) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -84,6 +86,7 @@ export function Shell({
               setMobileNavOpen(false);
             }}
             onChatDeleted={onChatDeleted}
+            onChatRenamed={onChatRenamed}
           />
         </div>
         <main className="ds-shell__main">{children}</main>

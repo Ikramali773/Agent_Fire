@@ -56,11 +56,25 @@ what's actually implemented server-side.
     plugin that rewrites just that tag into a real hard break - `rehype-raw` + `rehype-sanitize`
     were measured at +175 kB raw / +54 kB gzipped for the same thing and dropped.
 - **Chat history rail** (`src/shell/RecentChats.tsx`) — the sidebar section people expect from
-  Claude/ChatGPT: "New chat", then your recent conversations newest-first, one click away from
-  being continued (it opens Overview, not the Case File view - picking a project up again almost
-  always means continuing the chat). Rows are labelled by project name, falling back to city/state
-  then occupancy while the project is still unnamed, since a rail of identical "Untitled project"
-  rows is useless. Hover (or keyboard-focus) a row for its delete action.
+  Claude/ChatGPT: "New chat", a search box, pinned chats, then recent conversations grouped by when
+  they were last touched (Today / Yesterday / Previous 7 days / Previous 30 days / Older), each one
+  click away from being continued. It opens Overview, not the Case File view - picking a project up
+  again almost always means continuing the chat.
+  - **Titles** come from the project's name, falling back to what the user opened the conversation
+    with (`GET /users/me/chat-titles`), then the location, then the occupancy. "A twelve storey
+    hospital in Pune" identifies a project far better than its city does, and a rail of identical
+    "Untitled project" rows is useless.
+  - **Grouping** counts calendar days, not elapsed hours (`shell/chatGroups.ts`): something touched
+    at 11pm is "Yesterday" by 1am, not "Today".
+  - **Search** filters across every project the account has, not just the ~8 the rail shows -
+    otherwise it could only ever find what was already on screen.
+  - **Row menu** (`shell/ChatRowMenu.tsx`) — pin, rename, delete behind one overflow button, since
+    three inline controls do not fit a narrow rail. Renaming sets the Case File's own
+    `project_name`, so it shows up in that project's change log like any other edit rather than
+    being separate hidden UI state.
+  - **Pins** (`projects/usePinnedChats.ts`) live in `localStorage`, namespaced by account id so two
+    people sharing a machine don't see each other's. See "Not yet built" for the limitation that
+    comes with that.
 - **Projects state** (`src/projects/ProjectsContext.tsx`) — one owner of "the signed-in account's
   projects", shared by the chat rail and the Project History page so a delete in either updates
   both immediately instead of leaving a ghost row until reload. `DeleteProjectDialog.tsx` is the
@@ -129,7 +143,7 @@ conversation rather than see the graceful fallback message on every turn, `GROQ_
 ```bash
 npm run build   # type-checks (tsc -b) then produces dist/
 npm run lint    # oxlint
-npm test        # vitest run - 74 tests
+npm test        # vitest run - 106 tests
 ```
 
 ### Tests
@@ -154,6 +168,10 @@ actually broken here before, rather than chasing coverage:
   prose (an absent value is "Not set", a list of structured rows is "3 entries" rather than raw
   JSON), fields set together fold into one event, and paging asks for changes before the oldest one
   already held.
+- `shell/RecentChats.test.tsx` + `shell/chatGroups.test.ts` + `projects/usePinnedChats.test.ts` —
+  titles fall back in the right order, grouping counts calendar days rather than elapsed hours,
+  search reaches projects the rail isn't showing, a pinned chat is lifted out of the date groups,
+  and two accounts sharing a browser don't see each other's pins.
 - `lib/relativeTime.test.ts` — unit selection, and that an offset-less API timestamp is read as UTC
   rather than as local time (see the backend README's "UTC on every timestamp"): without that, a
   change made seconds ago showed as hours ago for anyone outside UTC.
@@ -184,11 +202,14 @@ browser check that a real API response still renders correctly end-to-end.
 
 ## Not yet built
 
-- **Chat titles are the project's name, not a summary of the conversation** - unlike Claude/ChatGPT,
-  nothing generates a title from what was said; the rail shows whatever identifying facts the case
-  file already holds. A chat started and abandoned before any of those are known still reads
-  "Untitled project".
-- **No search or grouping in the chat rail** - it shows the 8 most recent projects and links to the
-  full Project History table beyond that. No "Today/Yesterday/Last 7 days" date grouping, no
-  filtering, no rename, no pinning.
+- **A chat's title is its first message, not a summary of the conversation** - unlike Claude/ChatGPT,
+  no model writes a title from what was discussed; the rail shows the opening message verbatim,
+  trimmed. A chat abandoned before anything was typed still reads "Untitled project".
+- **Pinned chats don't follow the account to another browser** - a pin is per-user UI state, and
+  the Case File schema is fixed, so pins live in that browser's `localStorage` (namespaced by
+  account id). Making them follow the account needs a per-user preferences store, which doesn't
+  exist yet.
+- **Chat search matches the title only** - not the conversation's contents or the case file's
+  fields, and it is a plain substring match with no ranking. Finding "that project where we
+  discussed the atrium" still means opening chats.
 - Multi-state NOC checklists, real DWG/BIM plan understanding (Phase 4/5) — see `../backend/README.md`.

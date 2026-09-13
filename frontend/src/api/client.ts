@@ -1,6 +1,7 @@
 import type {
   AuthResponse,
   CaseFile,
+  ChatTitle,
   ChatTurnResponse,
   ConversationMessage,
   DocumentUploadResponse,
@@ -59,6 +60,11 @@ export const api = {
   me: () => request<User>("/auth/me"),
 
   myCaseFiles: () => request<CaseFile[]>("/users/me/case-files"),
+
+  // A title per chat, derived from its first user message - what lets the
+  // sidebar tell projects apart before one has a name. A side-lookup, not
+  // a Case File field: see the backend's ChatTitle.
+  myChatTitles: () => request<ChatTitle[]>("/users/me/chat-titles"),
 
   createCaseFile: () =>
     request<CaseFile>("/case-files", { method: "POST", body: "null" }),

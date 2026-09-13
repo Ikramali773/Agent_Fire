@@ -52,11 +52,18 @@ export function normalizeClassification(raw: CaseFile["classification_result"]):
  *
  * The project name is collected partway through the intake, so a brand-new
  * chat has none - and a rail of identical "Untitled project" rows is
- * useless. Falls back to whatever the case file does already know, in
- * decreasing order of how much it identifies the project.
+ * useless. Falls back to whatever else identifies the project, in
+ * decreasing order of how well it does so:
+ *
+ * 1. the name the user gave it;
+ * 2. what they opened the conversation with (`chatTitle`, from
+ *    GET /users/me/chat-titles) - "a twelve storey hospital in Pune" says
+ *    far more than the city alone;
+ * 3. the location, then the occupancy, from the case file itself.
  */
-export function projectLabel(caseFile: CaseFile): string {
+export function projectLabel(caseFile: CaseFile, chatTitle?: string): string {
   if (caseFile.project_name) return caseFile.project_name;
+  if (chatTitle) return chatTitle;
   const place = [caseFile.city, caseFile.state].filter(Boolean).join(", ");
   if (place) return place;
   if (caseFile.occupancy_type) return formatLabel(caseFile.occupancy_type);

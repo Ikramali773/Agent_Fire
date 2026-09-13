@@ -5,15 +5,17 @@ import { makeCaseFile } from "../test/fixtures";
 import { ProjectsProvider, useProjects } from "./ProjectsContext";
 import type { User } from "../types";
 
-const { myCaseFiles, deleteCaseFile } = vi.hoisted(() => ({
+const { myCaseFiles, myChatTitles, deleteCaseFile, updateCaseFile } = vi.hoisted(() => ({
   myCaseFiles: vi.fn(),
+  myChatTitles: vi.fn(),
   deleteCaseFile: vi.fn(),
+  updateCaseFile: vi.fn(),
 }));
 let currentUser: User | null = null;
 let authLoading = false;
 
 vi.mock("../api/client", () => ({
-  api: { myCaseFiles, deleteCaseFile },
+  api: { myCaseFiles, myChatTitles, deleteCaseFile, updateCaseFile },
   ApiError: class ApiError extends Error {
     status: number;
     constructor(message: string, status: number) {
@@ -30,9 +32,11 @@ vi.mock("../auth/AuthContext", () => ({
 const USER: User = { id: "user-1", email: "a@example.com", created_at: "2026-01-01T00:00:00Z" };
 
 function Probe() {
-  const { projects, remove, upsert } = useProjects();
+  const { projects, titles, remove, upsert, rename } = useProjects();
   return (
     <div>
+      <span data-testid="titles">{JSON.stringify(titles)}</span>
+      <button onClick={() => void rename("a", "Renamed").catch(() => undefined)}>rename a</button>
       <ul data-testid="rows">
         {(projects ?? []).map((project) => (
           <li key={project.session_id}>{project.session_id}</li>
@@ -70,7 +74,11 @@ beforeEach(() => {
     makeCaseFile({ session_id: "a", updated_at: "2026-01-01T00:00:00Z" }),
     makeCaseFile({ session_id: "b", updated_at: "2026-02-01T00:00:00Z" }),
   ]);
+  myChatTitles.mockResolvedValue([]);
   deleteCaseFile.mockResolvedValue(undefined);
+  updateCaseFile.mockImplementation((sessionId: string, updates: Record<string, unknown>) =>
+    Promise.resolve(makeCaseFile({ session_id: sessionId, ...updates })),
+  );
 });
 
 afterEach(cleanup);
@@ -143,6 +151,38 @@ describe("ProjectsProvider", () => {
     await userEvent.click(screen.getByRole("button", { name: "touch b" }));
 
     await waitFor(() => expect(ids()).toEqual(["b", "c", "a"]));
+  });
+
+  it("loads chat titles alongside the projects", async () => {
+    // Fetched together on purpose: a project list without its titles
+    // renders "Untitled project" rows that shift under the reader a
+    // moment later.
+    myChatTitles.mockResolvedValue([{ session_id: "a", title: "A hospital in Pune" }]);
+    renderProbe();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("titles").textContent).toBe('{"a":"A hospital in Pune"}'),
+    );
+  });
+
+  it("forgets a deleted project's title too", async () => {
+    myChatTitles.mockResolvedValue([{ session_id: "a", title: "A hospital in Pune" }]);
+    renderProbe();
+    await waitFor(() => expect(screen.getByTestId("titles").textContent).toContain("Pune"));
+
+    await userEvent.click(screen.getByRole("button", { name: "remove a" }));
+
+    await waitFor(() => expect(screen.getByTestId("titles").textContent).toBe("{}"));
+  });
+
+  it("renames a project in place without reordering the list", async () => {
+    renderProbe();
+    await waitFor(() => expect(ids()).toEqual(["b", "a"]));
+
+    await userEvent.click(screen.getByRole("button", { name: "rename a" }));
+
+    await waitFor(() => expect(updateCaseFile).toHaveBeenCalledWith("a", { project_name: "Renamed" }));
+    expect(ids()).toEqual(["b", "a"]);
   });
 
   it("surfaces a load failure instead of pretending the account has no projects", async () => {

@@ -188,6 +188,14 @@ Part B):
     Inside the Case File's JSON blob, every message would rewrite the entire history and then ship
     all of it on every case file response - quadratic in a long project. One indexed row per
     message keeps an append O(1) and lets a long conversation be paged instead of loaded whole.
+- **`GET /users/me/chat-titles`** (Phase 2) — one title per chat, taken from its first *user*
+  message (the agent's greeting is identical in every conversation and would title them all the
+  same), collapsed to one line and trimmed at a word boundary. What lets the sidebar tell projects
+  apart before one is named. Deliberately NOT a Case File field: a title is a presentation detail
+  of the conversation, the Case File schema is fixed, and persisting one would mean keeping it in
+  step with a transcript that already contains the answer. Scoped to case files the account owns,
+  so it can never surface another account's conversation; one grouped query rather than loading
+  every message of every project.
 - **Case File change log** (`app/models/change_log.py`, `app/change_log.py`, Phase 2) — the per-field
   audit trail, read back via `GET /case-files/{id}/changes` (newest-first, `limit` + `before_id`
   cursor). Every endpoint that mutates a case file records what changed and where it came from:

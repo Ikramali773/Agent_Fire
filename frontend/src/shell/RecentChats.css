@@ -46,6 +46,29 @@
   flex: 0 0 auto;
 }
 
+.ds-recent-chats__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ds-recent-chats__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ds-recent-chats__group-label {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-tertiary);
+}
+
 .ds-recent-chats__list {
   list-style: none;
   margin: 0;
@@ -53,8 +76,38 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  overflow-y: auto;
-  min-height: 0;
+}
+
+.ds-recent-chats__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.ds-recent-chats__search-icon {
+  position: absolute;
+  left: var(--space-2);
+  width: 13px;
+  height: 13px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.ds-recent-chats__search-input {
+  width: 100%;
+  padding: 6px var(--space-2) 6px calc(var(--space-2) * 2 + 13px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: inherit;
+}
+
+.ds-recent-chats__search-input:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 1px;
 }
 
 .ds-recent-chats__row {
@@ -117,36 +170,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* Hidden until the row is hovered or the delete button itself is focused,
-   so the rail stays quiet - but never hidden from keyboard users. */
-.ds-recent-chats__delete {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  opacity: 0;
-}
-
-.ds-recent-chats__row:hover .ds-recent-chats__delete,
-.ds-recent-chats__delete:focus-visible {
-  opacity: 1;
-}
-
-.ds-recent-chats__delete:hover {
-  color: var(--status-fail-fg);
-}
-
-.ds-recent-chats__delete svg {
-  width: 14px;
-  height: 14px;
 }
 
 .ds-recent-chats__note {

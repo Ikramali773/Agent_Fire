@@ -62,6 +62,13 @@ function App() {
     setActiveView("overview");
   }, [setCaseFile]);
 
+  // A rename is an ordinary Case File edit, so the open project has to
+  // pick it up too - otherwise the header would keep showing the old name
+  // until the next navigation.
+  const handleProjectRenamed = useCallback((renamed: CaseFile) => {
+    setCaseFileState((current) => (current?.session_id === renamed.session_id ? renamed : current));
+  }, []);
+
   const handleProjectDeleted = useCallback(
     (sessionId: string) => {
       // Only the project that was actually deleted gets dropped - deleting
@@ -148,6 +155,7 @@ function App() {
       onOpenChat={openChat}
       onNewChat={startNewChat}
       onChatDeleted={handleProjectDeleted}
+      onChatRenamed={handleProjectRenamed}
     >
       {/* Nothing renders until the "resume last project" lookup settles -
           otherwise Overview would briefly open a blank draft conversation

@@ -14,6 +14,7 @@ interface Props {
   onOpenChat: (caseFile: CaseFile) => void;
   onNewChat: () => void;
   onChatDeleted: (sessionId: string) => void;
+  onChatRenamed: (caseFile: CaseFile) => void;
 }
 
 export function Sidebar({
@@ -25,6 +26,7 @@ export function Sidebar({
   onOpenChat,
   onNewChat,
   onChatDeleted,
+  onChatRenamed,
 }: Props) {
   return (
     <nav className={`ds-sidebar${collapsed ? " ds-sidebar--collapsed" : ""}`} aria-label="Primary">
@@ -63,6 +65,7 @@ export function Sidebar({
           onNewChat={onNewChat}
           onViewAll={() => onNavigate("history")}
           onDeleted={onChatDeleted}
+          onRenamed={onChatRenamed}
         />
       )}
       <button
