@@ -82,6 +82,32 @@ what's actually implemented server-side.
   dialog (not `window.confirm`, which can't say what else goes with it, nor show a failed request).
   Deleting the *active* project clears the workspace back to a blank draft; deleting any other one
   leaves what you are working on alone.
+- **Review** (`src/pages/review/`, Phase 3) — the Review nav item is live. Master-detail rather than
+  a table, because acting on a case needs the reasons, the handoff pack and the verdict form
+  together; bouncing between a list page and a detail page per case is how a queue stops getting
+  worked.
+  - `ReviewQueue.tsx` renders the backend's order verbatim (**oldest first** — see the backend
+    README for why) and never re-sorts. Each row says whether the case is yours or shared with you,
+    because that decides whether you can change its facts at all.
+  - `ReviewDetail.tsx` shows the engine's typed reasons in plain words *and* in full, the handoff
+    pack download, the verdict form, and the whole verdict history. It says out loud that a verdict
+    is recorded alongside the classification and never replaces it.
+  - `ReviewBanner.tsx` surfaces the flag on **Compliance and Case File**, where people already look
+    at the classification — Review is a page nobody visits unless something sends them there, and a
+    flagged case that never gets reviewed is the failure this whole phase exists to prevent. It says
+    *why*, from the typed reasons, rather than a bare "needs review" that reads as boilerplate.
+  - `SharePanel.tsx` (owner only) spells out exactly what a reviewer can and cannot do, rather than
+    leaving the owner to guess what they just granted.
+  - **Signed out, the Review page still reviews the open project.** There is no queue without an
+    account (a queue spans projects; an anonymous session has one), but the backend treats an
+    anonymous case file as open to whoever holds its session id, verdicts included — so sending
+    someone here from the banner and then showing them a sign-in wall would be a dead end of our own
+    making. Sharing is hidden there, since there is no account to share as.
+- **Read-only projects** (`lib/access.ts`) — `canEditCaseFile` mirrors the backend's `Access.WRITE`
+  so the UI never offers an action the server will refuse. On a project shared with you for review,
+  the Overview composer is disabled and says why, and the Case File page's edit pencils are not
+  rendered at all. A mirror, not the enforcement — the server decides; this stops the UI inviting
+  someone into a 403.
 - **Case File history** (`pages/case-file/ActivityTimeline.tsx`) — the "History" card at the bottom
   of the Case File page: every field that changed, what it changed from and to, where the change
   came from (a direct edit, the conversation, a document, the system) and when. Fields set together
@@ -143,7 +169,7 @@ conversation rather than see the graceful fallback message on every turn, `GROQ_
 ```bash
 npm run build   # type-checks (tsc -b) then produces dist/
 npm run lint    # oxlint
-npm test        # vitest run - 106 tests
+npm test        # vitest run - 154 tests
 ```
 
 ### Tests
@@ -172,6 +198,12 @@ actually broken here before, rather than chasing coverage:
   titles fall back in the right order, grouping counts calendar days rather than elapsed hours,
   search reaches projects the rail isn't showing, a pinned chat is lifted out of the date groups,
   and two accounts sharing a browser don't see each other's pins.
+- `pages/review/*.test.tsx` + `lib/review.test.ts` + `lib/access.test.ts` — the review vocabulary
+  (notably that "approved" is **not** rendered as a compliance pass: this product does not certify
+  anything, and the footer on every page says so), the banner staying invisible unless the engine
+  actually flagged the case, sharing being hidden from anyone who cannot share, the verdict form
+  never offering the derived `needs_review`, and a reviewer being unable to edit a project they can
+  only read.
 - `lib/relativeTime.test.ts` — unit selection, and that an offset-less API timestamp is read as UTC
   rather than as local time (see the backend README's "UTC on every timestamp"): without that, a
   change made seconds ago showed as hours ago for anyone outside UTC.
@@ -212,4 +244,17 @@ browser check that a real API response still renders correctly end-to-end.
 - **Chat search matches the title only** - not the conversation's contents or the case file's
   fields, and it is a plain substring match with no ranking. Finding "that project where we
   discussed the atrium" still means opening chats.
+- **A reviewer needs an account** — sharing is account-to-account by email, so a consultant who has
+  never signed up cannot be invited (the API answers an honest 404 rather than pretending). A
+  signed, expiring link for an external reviewer is the obvious next step and is not built; nor is
+  any email notification, so the owner has to tell the reviewer out of band that something is
+  waiting.
+- **No reviewer assignment or due dates** — the queue shows everything you are responsible for,
+  oldest first, but nothing routes a case to a *particular* reviewer, sets a deadline, or escalates
+  one that has been sitting.
+- **The review queue does not span an organisation** — there are accounts, but no teams. A firm's
+  cases cannot be pooled into one queue several reviewers work from.
+- **"Approved" is one person's sign-off, not a compliance verdict** — deliberately. The product
+  does not certify anything (see the footer on every page), and per-requirement pass/fail
+  evaluation is still Phase 4's compliance engine, not this.
 - Multi-state NOC checklists, real DWG/BIM plan understanding (Phase 4/5) — see `../backend/README.md`.

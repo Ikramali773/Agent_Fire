@@ -4,7 +4,10 @@ import { Card } from "../../design-system/components/Card";
 import { DataRow } from "../../design-system/components/DataRow";
 import { EmptyState } from "../../design-system/components/EmptyState";
 import { StatusPill } from "../../design-system/components/StatusPill";
-import { fieldMeta, formatLabel, formatValue } from "../../lib/caseFileFields";
+import { fieldMeta, formatLabel, formatValue, normalizeClassification } from "../../lib/caseFileFields";
+import { ReviewBanner } from "../review/ReviewBanner";
+import { useAuth } from "../../auth/AuthContext";
+import { isReadOnlyCaseFile } from "../../lib/access";
 import type { CaseFile } from "../../types";
 import { ActivityTimeline } from "./ActivityTimeline";
 import { parseBoolean, parseNumberOrNull, parseStringList } from "./editableFields";
@@ -13,9 +16,11 @@ import "./CaseFilePage.css";
 interface Props {
   caseFile: CaseFile | null;
   onCaseFileChange: (caseFile: CaseFile) => void;
+  onGoToReview: () => void;
 }
 
-export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
+export function CaseFilePage({ caseFile, onCaseFileChange, onGoToReview }: Props) {
+  const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   // Bumped after every successful save so the history below picks up the
   // change that was just made, without refetching it on every render.
@@ -29,6 +34,12 @@ export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
     );
   }
 
+  // DataRow shows its edit affordance only when given an onSave, so
+  // withholding it on a project this user cannot write to removes the
+  // pencil entirely rather than offering an edit the server will refuse.
+  const readOnly = isReadOnlyCaseFile(caseFile, user);
+  const editable = <T,>(handler: T): T | undefined => (readOnly ? undefined : handler);
+
   const save = async (key: string, value: unknown) => {
     setError(null);
     try {
@@ -40,7 +51,7 @@ export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
     }
   };
 
-  const classification = caseFile.classification_result;
+  const classification = normalizeClassification(caseFile.classification_result);
 
   return (
     <div className="ds-case-file-page">
@@ -51,6 +62,8 @@ export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
           won't switch to "User" until a future update — treat it as informational until then.
         </p>
       </header>
+
+      <ReviewBanner result={classification} onGoToReview={onGoToReview} />
 
       {error && (
         <div className="ds-case-file-page__error" role="alert">
@@ -64,21 +77,21 @@ export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
             label="Project name"
             value={formatValue(caseFile.project_name)}
             editValue={caseFile.project_name}
-            onSave={(v) => save("project_name", v)}
+            onSave={editable((v) => save("project_name", v))}
             {...fieldMeta(caseFile, "project_name")}
           />
           <DataRow
             label="State"
             value={formatValue(caseFile.state)}
             editValue={caseFile.state}
-            onSave={(v) => save("state", v)}
+            onSave={editable((v) => save("state", v))}
             {...fieldMeta(caseFile, "state")}
           />
           <DataRow
             label="City"
             value={formatValue(caseFile.city)}
             editValue={caseFile.city}
-            onSave={(v) => save("city", v)}
+            onSave={editable((v) => save("city", v))}
             {...fieldMeta(caseFile, "city")}
           />
           <DataRow label="Project stage" value={formatLabel(caseFile.project_stage)} {...fieldMeta(caseFile, "project_stage")} />
@@ -131,49 +144,49 @@ export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
             label="Height (m)"
             value={formatValue(caseFile.height_m)}
             editValue={caseFile.height_m?.toString() ?? ""}
-            onSave={(v) => save("height_m", parseNumberOrNull(v))}
+            onSave={editable((v) => save("height_m", parseNumberOrNull(v)))}
             {...fieldMeta(caseFile, "height_m")}
           />
           <DataRow
             label="High rise"
             value={formatValue(caseFile.is_high_rise)}
             editValue={caseFile.is_high_rise ? "yes" : "no"}
-            onSave={(v) => save("is_high_rise", parseBoolean(v))}
+            onSave={editable((v) => save("is_high_rise", parseBoolean(v)))}
             {...fieldMeta(caseFile, "is_high_rise")}
           />
           <DataRow
             label="Floors above ground"
             value={formatValue(caseFile.floors_above_ground)}
             editValue={caseFile.floors_above_ground?.toString() ?? ""}
-            onSave={(v) => save("floors_above_ground", parseNumberOrNull(v))}
+            onSave={editable((v) => save("floors_above_ground", parseNumberOrNull(v)))}
             {...fieldMeta(caseFile, "floors_above_ground")}
           />
           <DataRow
             label="Floors below ground"
             value={formatValue(caseFile.floors_below_ground)}
             editValue={caseFile.floors_below_ground?.toString() ?? ""}
-            onSave={(v) => save("floors_below_ground", parseNumberOrNull(v))}
+            onSave={editable((v) => save("floors_below_ground", parseNumberOrNull(v)))}
             {...fieldMeta(caseFile, "floors_below_ground")}
           />
           <DataRow
             label="Built-up area (sqm)"
             value={formatValue(caseFile.built_up_area_sqm)}
             editValue={caseFile.built_up_area_sqm?.toString() ?? ""}
-            onSave={(v) => save("built_up_area_sqm", parseNumberOrNull(v))}
+            onSave={editable((v) => save("built_up_area_sqm", parseNumberOrNull(v)))}
             {...fieldMeta(caseFile, "built_up_area_sqm")}
           />
           <DataRow
             label="Kitchens"
             value={formatValue(caseFile.kitchen_count)}
             editValue={caseFile.kitchen_count?.toString() ?? ""}
-            onSave={(v) => save("kitchen_count", parseNumberOrNull(v))}
+            onSave={editable((v) => save("kitchen_count", parseNumberOrNull(v)))}
             {...fieldMeta(caseFile, "kitchen_count")}
           />
           <DataRow
             label="Doors"
             value={formatValue(caseFile.door_count)}
             editValue={caseFile.door_count?.toString() ?? ""}
-            onSave={(v) => save("door_count", parseNumberOrNull(v))}
+            onSave={editable((v) => save("door_count", parseNumberOrNull(v)))}
             {...fieldMeta(caseFile, "door_count")}
           />
         </Card>
@@ -204,14 +217,14 @@ export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
             label="Staircases"
             value={formatValue(caseFile.number_of_staircases)}
             editValue={caseFile.number_of_staircases?.toString() ?? ""}
-            onSave={(v) => save("number_of_staircases", parseNumberOrNull(v))}
+            onSave={editable((v) => save("number_of_staircases", parseNumberOrNull(v)))}
             {...fieldMeta(caseFile, "number_of_staircases")}
           />
           <DataRow
             label="Exits"
             value={formatValue(caseFile.number_of_exits)}
             editValue={caseFile.number_of_exits?.toString() ?? ""}
-            onSave={(v) => save("number_of_exits", parseNumberOrNull(v))}
+            onSave={editable((v) => save("number_of_exits", parseNumberOrNull(v)))}
             {...fieldMeta(caseFile, "number_of_exits")}
           />
         </Card>
@@ -221,7 +234,7 @@ export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
             label="Existing systems"
             value={formatValue(caseFile.existing_fire_systems)}
             editValue={caseFile.existing_fire_systems.join(", ")}
-            onSave={(v) => save("existing_fire_systems", parseStringList(v))}
+            onSave={editable((v) => save("existing_fire_systems", parseStringList(v)))}
             {...fieldMeta(caseFile, "existing_fire_systems")}
           />
         </Card>

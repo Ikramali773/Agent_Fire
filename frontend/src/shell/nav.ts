@@ -11,10 +11,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-// Every "page" the shell can route to. Phase 1 activates only overview,
-// case-file, documents, compliance and reports (see NAV_ITEMS' `phase`
-// field) - the rest are real, permanent nav entries, just not wired to
-// working screens yet. Never fake a future page as functional.
+// Every "page" the shell can route to. Phase 1 activated overview,
+// case-file, documents, compliance and reports; Phase 2 added history and
+// Phase 3 added review. What is left (see NAV_ITEMS' `comingInPhase`) are
+// real, permanent nav entries not yet wired to working screens. Never fake
+// a future page as functional.
 export type ViewKey =
   | "overview"
   | "case-file"
@@ -42,7 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "plans", label: "Plans", icon: Map, comingInPhase: 4 },
   { key: "findings", label: "Findings", icon: Search, comingInPhase: 4 },
   { key: "reports", label: "Reports", icon: ClipboardList },
-  { key: "review", label: "Review", icon: ClipboardCheck, comingInPhase: 3 },
+  { key: "review", label: "Review", icon: ClipboardCheck },
   { key: "history", label: "Project History", icon: History },
 ];
 

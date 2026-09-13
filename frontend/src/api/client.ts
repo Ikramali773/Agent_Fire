@@ -1,11 +1,15 @@
 import type {
   AuthResponse,
   CaseFile,
+  CaseFileGrant,
   ChatTitle,
   ChatTurnResponse,
   ConversationMessage,
   DocumentUploadResponse,
   FieldChange,
+  ReviewQueueItem,
+  ReviewState,
+  ReviewStatus,
   User,
 } from "../types";
 
@@ -50,6 +54,20 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+// Shared by every binary download. Prefers the backend's own sanitized,
+// project-name-derived filename (see exporters.py::safe_report_filename)
+// and falls back to a generic one if the header is missing or malformed.
+async function downloadFile(path: string, fallbackName: string): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers: authHeaders() });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
+  }
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]*)"/.exec(disposition)?.[1] ?? fallbackName;
+  return { blob: await response.blob(), filename };
+}
+
 export const api = {
   signup: (email: string, password: string) =>
     request<AuthResponse>("/auth/signup", { method: "POST", body: JSON.stringify({ email, password }) }),
@@ -65,6 +83,12 @@ export const api = {
   // sidebar tell projects apart before one has a name. A side-lookup, not
   // a Case File field: see the backend's ChatTitle.
   myChatTitles: () => request<ChatTitle[]>("/users/me/chat-titles"),
+
+  // Phase 3: every flagged case this account is responsible for - its own
+  // projects plus ones shared with it for review. Oldest-first: a
+  // compliance queue is FIFO, unlike the newest-first chat rail.
+  myReviewQueue: (includeSettled = false) =>
+    request<ReviewQueueItem[]>(`/users/me/review-queue${includeSettled ? "?include_settled=true" : ""}`),
 
   createCaseFile: () =>
     request<CaseFile>("/case-files", { method: "POST", body: "null" }),
@@ -117,6 +141,37 @@ export const api = {
       body: JSON.stringify({ message }),
     }),
 
+  getReview: (sessionId: string) => request<ReviewState>(`/case-files/${sessionId}/review`),
+
+  // Records a reviewer's verdict. Never rewrites the classification - see
+  // the backend's record_review.
+  recordReview: (sessionId: string, status: ReviewStatus, note: string) =>
+    request<ReviewState>(`/case-files/${sessionId}/review`, {
+      method: "POST",
+      body: JSON.stringify({ status, note }),
+    }),
+
+  listShares: (sessionId: string) => request<CaseFileGrant[]>(`/case-files/${sessionId}/shares`),
+
+  shareCaseFile: (sessionId: string, email: string) =>
+    request<CaseFileGrant>(`/case-files/${sessionId}/shares`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  revokeShare: async (sessionId: string, grantedToUserId: string): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}/shares/${grantedToUserId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
+    }
+  },
+
+  getHandoff: (sessionId: string) => request<{ markdown: string }>(`/case-files/${sessionId}/handoff`),
+
   getReport: (sessionId: string) =>
     request<{ markdown: string }>(`/case-files/${sessionId}/report`),
 
@@ -135,22 +190,11 @@ export const api = {
       body: JSON.stringify(updates),
     }),
 
-  downloadReport: async (sessionId: string, format: "pdf" | "docx"): Promise<{ blob: Blob; filename: string }> => {
-    const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}/report.${format}`, {
-      headers: authHeaders(),
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
-    }
-    // Prefer the backend's own sanitized, project-name-derived filename
-    // (see backend/app/reports/exporters.py::safe_report_filename); fall
-    // back to a generic one if the header is ever missing/malformed.
-    const disposition = response.headers.get("Content-Disposition") ?? "";
-    const filename = /filename="([^"]*)"/.exec(disposition)?.[1] ?? `report.${format}`;
-    const blob = await response.blob();
-    return { blob, filename };
-  },
+  downloadReport: async (sessionId: string, format: "pdf" | "docx"): Promise<{ blob: Blob; filename: string }> =>
+    downloadFile(`/case-files/${sessionId}/report.${format}`, `report.${format}`),
+
+  downloadHandoff: async (sessionId: string, format: "pdf" | "docx"): Promise<{ blob: Blob; filename: string }> =>
+    downloadFile(`/case-files/${sessionId}/handoff.${format}`, `reviewer-handoff.${format}`),
 
   uploadDocument: async (sessionId: string, file: File): Promise<DocumentUploadResponse> => {
     const formData = new FormData();

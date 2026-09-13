@@ -8,6 +8,7 @@ import { DocumentsPage } from "./pages/documents/DocumentsPage";
 import { ProjectHistoryPage } from "./pages/history/ProjectHistoryPage";
 import { OverviewPage } from "./pages/overview/OverviewPage";
 import { ReportsPage } from "./pages/reports/ReportsPage";
+import { ReviewPage } from "./pages/review/ReviewPage";
 import { useProjects } from "./projects/ProjectsContext";
 import { NAV_ITEMS, type ViewKey } from "./shell/nav";
 import { Shell } from "./shell/Shell";
@@ -164,10 +165,11 @@ function App() {
       {!restoring && activeView === "overview" && (
         <OverviewPage caseFile={caseFile} onCaseFileChange={setCaseFile} onBusyChange={setBusy} />
       )}
-      {!restoring && activeView === "case-file" && <CaseFilePage caseFile={caseFile} onCaseFileChange={setCaseFile} />}
+      {!restoring && activeView === "case-file" && <CaseFilePage caseFile={caseFile} onCaseFileChange={setCaseFile} onGoToReview={() => setActiveView("review")} />}
       {!restoring && activeView === "documents" && <DocumentsPage caseFile={caseFile} onCaseFileChange={setCaseFile} />}
-      {!restoring && activeView === "compliance" && <CompliancePage caseFile={caseFile} />}
+      {!restoring && activeView === "compliance" && <CompliancePage caseFile={caseFile} onGoToReview={() => setActiveView("review")} />}
       {!restoring && activeView === "reports" && <ReportsPage caseFile={caseFile} />}
+      {!restoring && activeView === "review" && <ReviewPage caseFile={caseFile} onCaseFileChange={setCaseFile} />}
       {!restoring && activeView === "history" && (
         <ProjectHistoryPage
           activeSessionId={caseFile?.session_id ?? null}
@@ -176,7 +178,7 @@ function App() {
           onProjectDeleted={handleProjectDeleted}
         />
       )}
-      {!restoring && (activeView === "plans" || activeView === "findings" || activeView === "review") &&
+      {!restoring && (activeView === "plans" || activeView === "findings") &&
         (() => {
           const item = NAV_ITEMS.find((nav) => nav.key === activeView)!;
           return (
@@ -198,8 +200,6 @@ function comingSoonDescription(view: ViewKey): string {
       return "Geometry-aware plan viewing arrives once the Building Digital Model is built.";
     case "findings":
       return "Compliance findings will be shown here alongside the plan they were derived from.";
-    case "review":
-      return "A structured review queue for handing off human-review cases to a licensed consultant.";
     default:
       return "This part of the workspace isn't active yet.";
   }

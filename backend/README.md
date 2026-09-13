@@ -1,4 +1,4 @@
-# Fire Safety AI Agent — Backend (Phase 1)
+# Fire Safety AI Agent — Backend (Phases 1–3)
 
 Implements the parts of the product scope's Phase 1 (`Fire_Safety_AI_Agent_Full_Scope_v3.md`,
 Part B):
@@ -188,6 +188,60 @@ Part B):
     Inside the Case File's JSON blob, every message would rewrite the entire history and then ship
     all of it on every case file response - quadratic in a long project. One indexed row per
     message keeps an append O(1) and lets a long conversation be paged instead of loaded whole.
+- **Human review** (`app/models/review.py`, `app/review_store.py`, `app/grant_store.py`, Phase 3) —
+  the classifier has always been able to say "a person has to look at this", in 15 different
+  situations, and that flag was a dead end. Phase 3 closes the loop.
+  - **Typed reasons** — `ReviewReasonCode` + `ClassificationResult.review_reasons`, so a queue can
+    say "3 cases blocked on a not-permitted combination" instead of making a reviewer read 15
+    paragraphs of notes. All 15 sites go through one `_flag_review()` helper that sets the flag,
+    records the typed reason and appends the prose *together*, so they cannot drift.
+    - **Two real bugs this surfaced.** Writing the invariant test for it (the flag is true exactly
+      when there is a reason) found two paths out of `_classify_single_occupancy` that returned
+      before the flag could be set. A small Institutional or Hazardous building — one below Part F's
+      applicability threshold — came back with **no review flag at all**, because the
+      mandatory-occupancy check sat after the "does not apply" early return; a hospital the engine
+      declined to classify looked like a clean automated answer. And an undecidable applicability
+      check appended its note and returned unflagged, while the identical failure one step later
+      (the Table 7 lookup) did flag — the same blocker reaching the user two different ways
+      depending on which line it hit. Both fixed, both covered by regression tests.
+  - **Verdicts** — `GET`/`POST /case-files/{id}/review`, backed by an append-only
+    `case_file_reviews` table. The current status is *derived* ("latest event, or `needs_review`"),
+    never stored, so a case that was approved, reopened when a fact changed, and approved again is
+    distinguishable from one approved once — and a newly flagged case needs no write at all to
+    appear in a queue. `needs_review` is rejected as a verdict (422): it is the derived start
+    state, and accepting it would let a review be silently rewound.
+    - **A verdict NEVER rewrites the classification.** This is the architecture of the feature, not
+      an implementation detail: Part G Principle 1 is "LLM reasons and explains; deterministic
+      engines decide", and letting a person hand-edit the engine's verdict breaks it exactly as
+      surely as letting the LLM do it. A reviewer who believes the output is wrong changes the
+      FACTS, and the engine reclassifies from those.
+  - **Sharing** (`POST`/`GET`/`DELETE /case-files/{id}/shares`) — `_check_access` grew capability
+    levels (`Access.READ` / `WRITE` / `OWN`), because with reviewers the question is no longer "do
+    you have access" but "access to do what". A reviewer reads, downloads and records verdicts; they
+    cannot edit a field, continue the conversation, reclassify, delete, or re-share onward. A
+    verdict on facts the reviewer could have edited is worth nothing. Sharing needs the recipient to
+    have an account already — inviting an unknown address would mean sending mail, which this
+    product does not do, and silently creating an account for someone is worse than an honest 404.
+    Anonymous Phase 1 case files are completely unchanged (no owner means open to whoever holds the
+    session id), and that is covered by its own tests.
+  - **Queue** (`GET /users/me/review-queue`) — every flagged case this account is responsible for,
+    its own plus ones shared with it, **oldest first**. Unlike every other list in this product: a
+    chat rail is newest-first because you are resuming what you were just doing; a compliance queue
+    is oldest-first because the case waiting longest is the one most at risk of being forgotten.
+    Approved and rejected cases drop out by default (`include_settled=true` to see them).
+- **Consultant handoff pack** (`app/reports/handoff.py`, `GET /case-files/{id}/handoff[.pdf|.docx]`,
+  Phase 3) — the report plus the three things only this system knows: **why** review is required
+  (the engine's typed reasons), **where every fact came from** (`field_sources`, which has been
+  recorded since Phase 1 and which no export had ever surfaced), and **what has changed and when**
+  (the Phase 2 change log). The report states conclusions; the question a professional putting their
+  name to a sign-off actually asks is "where did each of these numbers come from, and what changed
+  since?". Invents nothing — like `generator.py`, it only restates what is already recorded. The
+  DOCX walker learned real tables for it, and `render_pdf`/`render_docx` now take markdown so the
+  report and the pack share one renderer instead of growing two subtly different ones.
+  - **A third gap this exposed**: a field typed into the Case File page (`PUT /case-files/{id}`)
+    recorded **no provenance at all**. The dialogue path and the ingest path had always recorded it;
+    this one never did, so a user-confirmed fact reached the pack with no source. `PUT` now records
+    each edited field as user-confirmed, with the coerced value rather than the raw request body.
 - **`GET /users/me/chat-titles`** (Phase 2) — one title per chat, taken from its first *user*
   message (the agent's greeting is identical in every conversation and would title them all the
   same), collapsed to one line and trimmed at a word boundary. What lets the sidebar tell projects
@@ -230,7 +284,7 @@ Part B):
   harmless), and claiming someone else's is the same 403 as any other access, so this can never
   become a way to take over a project by guessing a session id.
 - **`DELETE /case-files/{id}`** (Phase 2) — deletes a project: the case file AND its whole
-  transcript AND its change log, in one step. All three, explicitly - a user deleting a project
+  transcript, its change log, its review history AND every share, in one step. All of it, explicitly - a user deleting a project
   expects their conversation and its history to go with it, not to be left behind in the database. Irreversible (no soft-delete, no undo), so
   the frontend confirms first. Ownership is enforced by the same `_check_access()` as every other
   endpoint, so one account can never delete another's project.

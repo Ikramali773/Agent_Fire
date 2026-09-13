@@ -2,6 +2,7 @@ import { Card } from "../../design-system/components/Card";
 import { EmptyState } from "../../design-system/components/EmptyState";
 import { StatusPill } from "../../design-system/components/StatusPill";
 import { normalizeClassification } from "../../lib/caseFileFields";
+import { ReviewBanner } from "../review/ReviewBanner";
 import type { CaseFile } from "../../types";
 import { clauseStatus, overallStatus } from "./complianceStatus";
 import { WhatIfPanel } from "./WhatIfPanel";
@@ -9,9 +10,10 @@ import "./CompliancePage.css";
 
 interface Props {
   caseFile: CaseFile | null;
+  onGoToReview: () => void;
 }
 
-export function CompliancePage({ caseFile }: Props) {
+export function CompliancePage({ caseFile, onGoToReview }: Props) {
   const result = caseFile ? normalizeClassification(caseFile.classification_result) : null;
 
   if (!caseFile || caseFile.conversation_stage !== "classified" || !result || !result.table_7_ref) {
@@ -27,6 +29,11 @@ export function CompliancePage({ caseFile }: Props) {
 
   return (
     <div className="ds-compliance-page">
+      {/* Surfaced here, not only on the Review page: this is where people
+          come to read the classification, and a flagged case that nobody
+          ever opens is the failure this phase exists to prevent. */}
+      <ReviewBanner result={result} onGoToReview={onGoToReview} />
+
       <header className="ds-compliance-page__header">
         <h1>Compliance</h1>
         <p>What NBCS Part F requires for this building, based on its classification. Per-requirement pass/fail evaluation arrives in a later phase.</p>

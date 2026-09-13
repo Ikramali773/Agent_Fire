@@ -54,3 +54,10 @@
   color: var(--text-disabled);
   cursor: not-allowed;
 }
+
+.ds-overview__empty {
+  margin: var(--space-4) 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  line-height: var(--leading-relaxed);
+}

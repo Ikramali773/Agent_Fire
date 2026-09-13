@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import type { CaseFile } from "../../types";
 import { Composer } from "./Composer";
+import { useAuth } from "../../auth/AuthContext";
+import { isReadOnlyCaseFile } from "../../lib/access";
 import { ConversationMessage } from "./ConversationMessage";
 import { nextEntryId, toConversationEntries, type ConversationEntry } from "./conversation";
 import { normalizeClassification } from "../../lib/caseFileFields";
@@ -30,6 +32,8 @@ interface Props {
 //      transcript is persisted server-side and reloaded on mount, so leaving
 //      this page (or reopening the project later) no longer loses the chat.
 export function OverviewPage({ caseFile, onCaseFileChange, onBusyChange }: Props) {
+  const { user } = useAuth();
+  const readOnly = isReadOnlyCaseFile(caseFile, user);
   const [entries, setEntries] = useState<ConversationEntry[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +167,17 @@ export function OverviewPage({ caseFile, onCaseFileChange, onBusyChange }: Props
         </div>
       )}
       <div className="ds-overview__conversation">
+        {/* A blank panel leaves the reader unable to tell "nothing was
+            said" from "this failed to load" - most visible to a reviewer
+            opening a project whose facts were entered directly rather
+            than through the conversation. */}
+        {entries.length === 0 && !busy && !error && (
+          <p className="ds-overview__empty">
+            {readOnly
+              ? "No conversation was recorded for this project — its facts were entered directly on the Case File page."
+              : "Nothing has been said yet."}
+          </p>
+        )}
         {entries.map((entry) => (
           <ConversationMessage key={entry.id} entry={entry} />
         ))}
@@ -176,13 +191,27 @@ export function OverviewPage({ caseFile, onCaseFileChange, onBusyChange }: Props
       {quickOptions && (
         <div className="ds-overview__quick-options" role="group" aria-label="Suggested answers">
           {quickOptions.map((option) => (
-            <button key={option} type="button" className="ds-overview__quick-option" onClick={() => handleSend(option)} disabled={busy}>
+            <button key={option} type="button" className="ds-overview__quick-option" onClick={() => handleSend(option)} disabled={busy || readOnly}>
               {option}
             </button>
           ))}
         </div>
       )}
-      <Composer onSend={handleSend} onUploadDocument={handleUploadDocument} disabled={busy} placeholder={busy ? "Waiting for a response…" : "Type your answer…"} />
+      {/* A reviewer can read someone else's project but not add to it -
+          the server refuses (Access.WRITE), so the UI must not invite them
+          into a 403 with a composer that looks live. */}
+      <Composer
+        onSend={handleSend}
+        onUploadDocument={handleUploadDocument}
+        disabled={busy || readOnly}
+        placeholder={
+          readOnly
+            ? "You're reviewing this project — only its owner can continue the conversation."
+            : busy
+              ? "Waiting for a response…"
+              : "Type your answer…"
+        }
+      />
     </div>
   );
 }

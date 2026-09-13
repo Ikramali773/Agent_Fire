@@ -1,0 +1,37 @@
+.ds-review-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.ds-review-page__header h1 {
+  margin: 0 0 4px;
+  font-size: var(--text-xl);
+}
+
+.ds-review-page__header p {
+  margin: 0 0 var(--space-5);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  max-width: 720px;
+}
+
+.ds-review-page__body {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* Below this the two columns stop being readable side by side, so the
+   queue sits above the detail rather than squeezing both. */
+@media (max-width: 900px) {
+  .ds-review-page__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ds-review-page__signin-prompt {
+  margin-bottom: var(--space-4);
+}

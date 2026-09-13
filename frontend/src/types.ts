@@ -21,6 +21,13 @@ export type AuthResponse = Required<components["schemas"]["AuthResponse"]>;
 export type ConversationMessage = Required<components["schemas"]["ConversationMessage"]>;
 export type FieldChange = Required<components["schemas"]["FieldChange"]>;
 export type ChatTitle = Required<components["schemas"]["ChatTitle"]>;
+export type ReviewReason = Required<components["schemas"]["ReviewReason"]>;
+export type ReviewReasonCode = components["schemas"]["ReviewReasonCode"];
+export type ReviewStatus = components["schemas"]["ReviewStatus"];
+export type ReviewEvent = Required<components["schemas"]["ReviewEvent"]>;
+export type ReviewState = Required<components["schemas"]["ReviewState"]>;
+export type ReviewQueueItem = Required<components["schemas"]["ReviewQueueItem"]>;
+export type CaseFileGrant = Required<components["schemas"]["CaseFileGrant"]>;
 export type ChangeSource = components["schemas"]["ChangeSource"];
 
 export interface ChatTurnResponse {
