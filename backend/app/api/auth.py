@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user_required
 from app.auth.tokens import create_token
+from app.auth.security import MAX_PASSWORD_BYTES, password_is_too_long
 from app.auth.user_store import create_user, get_user_by_email, verify_credentials
 from app.models.user import User
 
@@ -42,6 +43,14 @@ def _validate_credentials(body: Credentials) -> None:
         raise HTTPException(status_code=422, detail="Enter a valid email address.")
     if len(body.password) < _MIN_PASSWORD_LENGTH:
         raise HTTPException(status_code=422, detail=f"Password must be at least {_MIN_PASSWORD_LENGTH} characters.")
+    # bcrypt's own limit, and a byte one rather than a character one - an
+    # emoji is four bytes. Rejected here with a clear message instead of
+    # reaching bcrypt, which raises and turned signup into a 500.
+    if password_is_too_long(body.password):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Password must be at most {MAX_PASSWORD_BYTES} bytes long (about {MAX_PASSWORD_BYTES} characters).",
+        )
 
 
 @router.post("/signup", response_model=AuthResponse, status_code=201)

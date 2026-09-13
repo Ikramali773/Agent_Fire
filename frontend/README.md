@@ -103,6 +103,15 @@ what's actually implemented server-side.
     anonymous case file as open to whoever holds its session id, verdicts included — so sending
     someone here from the banner and then showing them a sign-in wall would be a dead end of our own
     making. Sharing is hidden there, since there is no account to share as.
+- **Edit conflicts are surfaced, never swallowed** — a case file carries a `version`, and every save
+  sends it back. If someone else changed the project in between, the server answers 409 and the page
+  says *"Someone else changed this project while you had it open. Reload…"* rather than silently
+  overwriting them. **Never retried automatically**: an automatic retry would reintroduce exactly
+  the overwrite the version check exists to prevent.
+- **The project list is paged** (`ProjectsContext`) — it used to fetch an account's entire history
+  (0.81 MB of JSON at 500 projects, unbounded) to render eight rail rows. Now a page at a time, with
+  `total` and `hasMore`, and a "Show more (50 of 60)" button on Project History so a paged list is
+  honest about the rest rather than implying it is everything.
 - **Read-only projects** (`lib/access.ts`) — `canEditCaseFile` mirrors the backend's `Access.WRITE`
   so the UI never offers an action the server will refuse. On a project shared with you for review,
   the Overview composer is disabled and says why, and the Case File page's edit pencils are not
@@ -169,7 +178,7 @@ conversation rather than see the graceful fallback message on every turn, `GROQ_
 ```bash
 npm run build   # type-checks (tsc -b) then produces dist/
 npm run lint    # oxlint
-npm test        # vitest run - 154 tests
+npm test        # vitest run - 157 tests
 ```
 
 ### Tests

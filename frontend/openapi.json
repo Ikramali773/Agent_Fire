@@ -1653,9 +1653,32 @@
           "users"
         ],
         "summary": "List My Case Files",
-        "description": "Phase 2's starting point for Project History (\u00a7 \"Project history\"):\nevery case file this account owns, newest-updated first.",
+        "description": "Phase 2's starting point for Project History (\u00a7 \"Project history\"):\nthe case files this account owns, newest-updated first.\n\nPaged. Unbounded, this response grew linearly with the account's whole\nhistory - measured at 0.81 MB of JSON for 500 projects, with no ceiling\n- even though the chat rail renders eight of them.",
         "operationId": "list_my_case_files_users_me_case_files_get",
         "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -1679,11 +1702,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CaseFile"
-                  },
-                  "title": "Response List My Case Files Users Me Case Files Get"
+                  "$ref": "#/components/schemas/CaseFilePage"
                 }
               }
             }
@@ -1710,6 +1729,29 @@
         "description": "A title for each of this account's chats, from its first user\nmessage - what lets the sidebar tell projects apart before one is\nnamed. Scoped to case files this account owns, so it can never expose\nanother account's conversation. Sessions with no user message yet are\nsimply absent.",
         "operationId": "list_my_chat_titles_users_me_chat_titles_get",
         "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -2115,6 +2157,12 @@
             "$ref": "#/components/schemas/ConversationStage",
             "default": "intake"
           },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "description": "Optimistic-locking token. Read it with the case file, send it back with an update, and the server refuses the write (409) if someone else changed the case file in between - rather than silently overwriting their edit. Always supplied by the server from its own column; a value inside a stored blob is ignored.",
+            "default": 1
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -2175,6 +2223,38 @@
           "created_at"
         ],
         "title": "CaseFileGrant"
+      },
+      "CaseFilePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseFile"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "CaseFilePage",
+        "description": "A page of projects, with the total so the UI can say what it is not\nshowing rather than silently implying this is everything."
       },
       "ChangeSource": {
         "type": "string",

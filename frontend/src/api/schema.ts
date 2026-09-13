@@ -546,7 +546,11 @@ export interface paths {
         /**
          * List My Case Files
          * @description Phase 2's starting point for Project History (§ "Project history"):
-         *     every case file this account owns, newest-updated first.
+         *     the case files this account owns, newest-updated first.
+         *
+         *     Paged. Unbounded, this response grew linearly with the account's whole
+         *     history - measured at 0.81 MB of JSON for 500 projects, with no ceiling
+         *     - even though the chat rail renders eight of them.
          */
         get: operations["list_my_case_files_users_me_case_files_get"];
         put?: never;
@@ -728,6 +732,12 @@ export interface components {
             /** @default intake */
             conversation_stage: components["schemas"]["ConversationStage"];
             /**
+             * Version
+             * @description Optimistic-locking token. Read it with the case file, send it back with an update, and the server refuses the write (409) if someone else changed the case file in between - rather than silently overwriting their edit. Always supplied by the server from its own column; a value inside a stored blob is ignored.
+             * @default 1
+             */
+            version: number;
+            /**
              * Created At
              * Format: date-time
              */
@@ -760,6 +770,21 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * CaseFilePage
+         * @description A page of projects, with the total so the UI can say what it is not
+         *     showing rather than silently implying this is everything.
+         */
+        CaseFilePage: {
+            /** Items */
+            items: components["schemas"]["CaseFile"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
         };
         /**
          * ChangeSource
@@ -2102,7 +2127,10 @@ export interface operations {
     };
     list_my_case_files_users_me_case_files_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -2117,7 +2145,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CaseFile"][];
+                    "application/json": components["schemas"]["CaseFilePage"];
                 };
             };
             /** @description Validation Error */
@@ -2133,7 +2161,10 @@ export interface operations {
     };
     list_my_chat_titles_users_me_chat_titles_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
             header?: {
                 authorization?: string | null;
             };

@@ -225,6 +225,16 @@ class CaseFile(BaseModel):
 
     conversation_stage: ConversationStage = ConversationStage.INTAKE
 
+    version: int = Field(
+        default=1,
+        description=(
+            "Optimistic-locking token. Read it with the case file, send it back with an update, "
+            "and the server refuses the write (409) if someone else changed the case file in "
+            "between - rather than silently overwriting their edit. Always supplied by the server "
+            "from its own column; a value inside a stored blob is ignored."
+        ),
+    )
+
     # Timezone-AWARE UTC, not datetime.utcnow(): a naive timestamp
     # serializes without an offset, and a browser parsing
     # "2026-09-13T07:13:16" treats it as LOCAL time - so a change made

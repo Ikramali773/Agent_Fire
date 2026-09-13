@@ -156,7 +156,8 @@ class TestMyCaseFiles:
 
         resp_a = client.get("/users/me/case-files", headers=_auth_header(token_a))
         assert resp_a.status_code == 200
-        assert len(resp_a.json()) == 2
+        assert len(resp_a.json()["items"]) == 2
+        assert resp_a.json()["total"] == 2
 
         resp_b = client.get("/users/me/case-files", headers=_auth_header(token_b))
-        assert len(resp_b.json()) == 1
+        assert len(resp_b.json()["items"]) == 1

@@ -43,10 +43,21 @@ export function CaseFilePage({ caseFile, onCaseFileChange, onGoToReview }: Props
   const save = async (key: string, value: unknown) => {
     setError(null);
     try {
-      const updated = await api.updateCaseFile(caseFile.session_id, { [key]: value });
+      // The version turns this into a compare-and-set: if someone else
+      // changed the project since this page loaded, the server refuses
+      // rather than quietly overwriting them.
+      const updated = await api.updateCaseFile(caseFile.session_id, { [key]: value }, caseFile.version);
       onCaseFileChange(updated);
       setHistoryKey((key) => key + 1);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Never retried automatically - that would reintroduce exactly the
+        // overwrite the version check exists to prevent.
+        setError(
+          "Someone else changed this project while you had it open. Reload the page to see their changes, then make yours again.",
+        );
+        return;
+      }
       setError(err instanceof ApiError ? `Could not save that change (${err.status}). ${err.message}` : "Could not save that change.");
     }
   };
@@ -58,8 +69,8 @@ export function CaseFilePage({ caseFile, onCaseFileChange, onGoToReview }: Props
       <header className="ds-case-file-page__header">
         <h1>{caseFile.project_name || "Untitled project"}</h1>
         <p className="ds-case-file-page__subhead">
-          Every field below shows where it came from and how confident the system is. Edits save immediately, but the source label
-          won't switch to "User" until a future update — treat it as informational until then.
+          Every field below shows where it came from and how confident the system is. An edit here saves immediately and is
+          recorded as user-confirmed, replacing whatever the value's earlier source was.
         </p>
       </header>
 

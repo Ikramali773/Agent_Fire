@@ -28,6 +28,12 @@ export type ReviewEvent = Required<components["schemas"]["ReviewEvent"]>;
 export type ReviewState = Required<components["schemas"]["ReviewState"]>;
 export type ReviewQueueItem = Required<components["schemas"]["ReviewQueueItem"]>;
 export type CaseFileGrant = Required<components["schemas"]["CaseFileGrant"]>;
+// Required<> is SHALLOW, so it would leave `items` as the raw, partly
+// optional CaseFile rather than the Required one exported above - the same
+// trap normalizeClassification exists for. Re-point `items` explicitly.
+export type CaseFilePage = Omit<Required<components["schemas"]["CaseFilePage"]>, "items"> & {
+  items: CaseFile[];
+};
 export type ChangeSource = components["schemas"]["ChangeSource"];
 
 export interface ChatTurnResponse {

@@ -16,6 +16,9 @@ let authLoading = false;
 
 vi.mock("../api/client", () => ({
   api: { myCaseFiles, myChatTitles, deleteCaseFile, updateCaseFile },
+  // The module under test imports this constant, so the mock has to
+  // provide it too - otherwise the page size is silently undefined.
+  PROJECT_PAGE_SIZE: 50,
   ApiError: class ApiError extends Error {
     status: number;
     constructor(message: string, status: number) {
@@ -32,9 +35,12 @@ vi.mock("../auth/AuthContext", () => ({
 const USER: User = { id: "user-1", email: "a@example.com", created_at: "2026-01-01T00:00:00Z" };
 
 function Probe() {
-  const { projects, titles, remove, upsert, rename } = useProjects();
+  const { projects, titles, total, hasMore, loadMore, remove, upsert, rename } = useProjects();
   return (
     <div>
+      <span data-testid="total">{total}</span>
+      <span data-testid="has-more">{String(hasMore)}</span>
+      <button onClick={() => void loadMore()}>load more</button>
       <span data-testid="titles">{JSON.stringify(titles)}</span>
       <button onClick={() => void rename("a", "Renamed").catch(() => undefined)}>rename a</button>
       <ul data-testid="rows">
@@ -70,10 +76,15 @@ const ids = () => screen.getAllByRole("listitem").map((node) => node.textContent
 beforeEach(() => {
   currentUser = USER;
   authLoading = false;
-  myCaseFiles.mockResolvedValue([
-    makeCaseFile({ session_id: "a", updated_at: "2026-01-01T00:00:00Z" }),
-    makeCaseFile({ session_id: "b", updated_at: "2026-02-01T00:00:00Z" }),
-  ]);
+  myCaseFiles.mockResolvedValue({
+    items: [
+      makeCaseFile({ session_id: "a", updated_at: "2026-01-01T00:00:00Z" }),
+      makeCaseFile({ session_id: "b", updated_at: "2026-02-01T00:00:00Z" }),
+    ],
+    total: 2,
+    limit: 50,
+    offset: 0,
+  });
   myChatTitles.mockResolvedValue([]);
   deleteCaseFile.mockResolvedValue(undefined);
   updateCaseFile.mockImplementation((sessionId: string, updates: Record<string, unknown>) =>
@@ -181,8 +192,55 @@ describe("ProjectsProvider", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "rename a" }));
 
-    await waitFor(() => expect(updateCaseFile).toHaveBeenCalledWith("a", { project_name: "Renamed" }));
+    await waitFor(() => expect(updateCaseFile).toHaveBeenCalledWith("a", { project_name: "Renamed" }, undefined));
     expect(ids()).toEqual(["b", "a"]);
+  });
+
+  it("reports the account's total, not just what it loaded", async () => {
+    // The list is paged now; saying "2 projects" when there are 200 would
+    // be a quieter lie than the unbounded response it replaced.
+    myCaseFiles.mockResolvedValue({
+      items: [makeCaseFile({ session_id: "a" })],
+      total: 200,
+      limit: 50,
+      offset: 0,
+    });
+    renderProbe();
+
+    await waitFor(() => expect(screen.getByTestId("total").textContent).toBe("200"));
+    expect(screen.getByTestId("has-more").textContent).toBe("true");
+  });
+
+  it("appends the next page instead of replacing what is on screen", async () => {
+    myCaseFiles
+      .mockResolvedValueOnce({
+        items: [makeCaseFile({ session_id: "a", updated_at: "2026-02-01T00:00:00Z" })],
+        total: 2,
+        limit: 1,
+        offset: 0,
+      })
+      .mockResolvedValueOnce({
+        items: [makeCaseFile({ session_id: "b", updated_at: "2026-01-01T00:00:00Z" })],
+        total: 2,
+        limit: 1,
+        offset: 1,
+      });
+    renderProbe();
+    await waitFor(() => expect(ids()).toEqual(["a"]));
+
+    await userEvent.click(screen.getByRole("button", { name: "load more" }));
+
+    await waitFor(() => expect(ids()).toEqual(["a", "b"]));
+    expect(screen.getByTestId("has-more").textContent).toBe("false");
+  });
+
+  it("asks for the next page from where the loaded one ended", async () => {
+    renderProbe();
+    await waitFor(() => expect(ids()).toEqual(["b", "a"]));
+
+    await userEvent.click(screen.getByRole("button", { name: "load more" }));
+
+    await waitFor(() => expect(myCaseFiles).toHaveBeenLastCalledWith(50, 2));
   });
 
   it("surfaces a load failure instead of pretending the account has no projects", async () => {

@@ -37,6 +37,7 @@ from app.models.user import User
 from app.reports.exporters import render_docx, render_pdf, safe_report_filename
 from app.reports.generator import generate_report_markdown
 from app.reports.handoff import generate_handoff_markdown
+from app.store import StaleCaseFileError
 from app.store import delete as store_delete
 from app.store import get as store_get
 from app.store import save as store_save
@@ -56,6 +57,7 @@ _PROVENANCE_EXEMPT_FIELDS = frozenset(
         "owner_user_id",
         "created_at",
         "updated_at",
+        "version",
         "field_sources",
         "classification_result",
         "conversation_stage",
@@ -126,6 +128,26 @@ def _check_access(
     raise HTTPException(status_code=403, detail="You do not have access to this case file")
 
 
+def _save_or_conflict(case_file: CaseFile, expected_version: int | None) -> CaseFile:
+    """store_save, turning a stale write into a 409 the caller can act on.
+
+    The alternative - which is what this code did until now - is that two
+    requests each read, each mutate, each save, both get a 200, and one
+    person's edit is gone with nothing anywhere saying so. On a compliance
+    case file that is how a wrong number reaches a filing.
+    """
+    try:
+        return store_save(case_file, expected_version=expected_version)
+    except StaleCaseFileError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This project was changed by someone else while you were editing it. "
+                "Reload to see their changes, then make yours again."
+            ),
+        ) from exc
+
+
 @router.post("", response_model=CaseFile, status_code=201)
 def create_case_file(
     case_file: CaseFile | None = None,
@@ -185,6 +207,11 @@ def update_case_file(
     # malicious client trying to transfer/plant a case file onto another
     # account.
     updates.pop("owner_user_id", None)
+    # The version the client last saw. Present -> this write is a
+    # compare-and-set and is refused if anyone else has written since;
+    # absent -> the previous last-write-wins behavior, which a script or an
+    # older client may legitimately want.
+    expected_version = updates.pop("version", None)
     # model_copy(update=...) would set raw dict values without re-validating/
     # coercing them (e.g. a plain "Storage" string would never become the
     # OccupancyType enum member) - round-trip through model_validate instead
@@ -206,7 +233,7 @@ def update_case_file(
             value=getattr(updated, field_name), source=FieldSourceKind.USER, confidence=1.0
         )
     updated.updated_at = datetime.now(timezone.utc)
-    saved = store_save(updated)
+    saved = _save_or_conflict(updated, expected_version)
     change_log.record(
         case_file, saved, ChangeSource.USER, actor_user_id=current_user.id if current_user else None
     )
@@ -445,7 +472,7 @@ def classify_case_file(
     case_file.classification_result = classify(case_file)
     case_file.conversation_stage = ConversationStage.CLASSIFIED
     case_file.updated_at = datetime.now(timezone.utc)
-    saved = store_save(case_file)
+    saved = _save_or_conflict(case_file, before.version)
     # Only the stage transition is logged, not the classification result
     # itself - that is already stored in full as a structured transcript
     # message (see app/models/change_log.py).
@@ -526,6 +553,7 @@ def _handoff_markdown(case_file: CaseFile, current_user: User | None) -> str:
         case_file,
         _build_review_state(case_file, current_user),
         change_log.list_for_session(case_file.session_id, limit=change_log.MAX_PAGE_SIZE),
+        total_changes=change_log.count_for_session(case_file.session_id),
     )
 
 
@@ -584,7 +612,7 @@ def start(session_id: str, current_user: User | None = Depends(get_current_user_
     _check_access(case_file, current_user, Access.WRITE)
     before = case_file.model_copy(deep=True)
     result = start_conversation(case_file)
-    store_save(result.case_file)
+    _save_or_conflict(result.case_file, before.version)
     change_log.record(
         before, result.case_file, ChangeSource.SYSTEM, actor_user_id=current_user.id if current_user else None
     )
@@ -654,7 +682,7 @@ def send_message(
     # and log nothing.
     before = case_file.model_copy(deep=True)
     result = handle_turn(case_file, user_message, llm)
-    store_save(result.case_file)
+    _save_or_conflict(result.case_file, before.version)
     change_log.record(
         before, result.case_file, ChangeSource.DIALOGUE, actor_user_id=current_user.id if current_user else None
     )
@@ -717,7 +745,7 @@ async def upload_document(
     updated_case_file, summary = ingest_document(
         case_file, file_bytes, file.content_type, filename, llm
     )
-    store_save(updated_case_file)
+    _save_or_conflict(updated_case_file, before.version)
     change_log.record(
         before, updated_case_file, ChangeSource.DOCUMENT, actor_user_id=current_user.id if current_user else None
     )

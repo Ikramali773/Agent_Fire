@@ -31,6 +31,7 @@ _UNTRACKED_FIELDS = frozenset(
         "owner_user_id",
         "created_at",
         "updated_at",
+        "version",
         "field_sources",
         "classification_result",
     }
@@ -131,6 +132,17 @@ def list_for_session(
             query = query.filter(CaseFileChangeRecord.id < before_id)
         records = query.order_by(CaseFileChangeRecord.id.desc()).limit(limit).all()
         return [_to_change(item) for item in records]
+
+
+def count_for_session(session_id: str) -> int:
+    """How many changes a case file has, so a capped export can say how
+    many it is not showing."""
+    with get_session() as session:
+        return (
+            session.query(CaseFileChangeRecord.id)
+            .filter(CaseFileChangeRecord.session_id == session_id)
+            .count()
+        )
 
 
 def delete_for_session(session_id: str) -> int:

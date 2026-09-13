@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -37,6 +37,18 @@ class CaseFileRecord(Base):
     # CaseFile.owner_user_id inside `data`. Nullable: an anonymous (Phase 1
     # style) case file has no owner.
     owner_user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # Optimistic-locking token, bumped on every save. Nullable only so the
+    # additive migration can add it to an existing database; a NULL is read
+    # as version 1 (see app/store.py). Without this, two requests that each
+    # read-modify-write the blob both returned 200 and one edit vanished
+    # with nothing anywhere saying so - demonstrated, not theoretical.
+    version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Denormalized out of the blob for the same reason owner_user_id is:
+    # "which of my cases need a person to look at them" is a query, and
+    # answering it by loading every case file and parsing its JSON does not
+    # survive a real number of projects. Kept in step by store.save(), which
+    # is the only writer.
+    requires_review: Mapped[bool | None] = mapped_column(Boolean, nullable=True, index=True)
 
 
 class ConversationMessageRecord(Base):

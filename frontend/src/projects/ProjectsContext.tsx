@@ -1,13 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, PROJECT_PAGE_SIZE } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { parseApiTimestamp } from "../lib/relativeTime";
 import type { CaseFile } from "../types";
 
 interface ProjectsContextValue {
-  /** null until the first load finishes (or while signed out). */
+  /** The loaded page of projects; null until it loads (or while signed out). */
   projects: CaseFile[] | null;
+  /** How many the account has in total, including any not loaded yet. */
+  total: number;
+  /** Whether there are older projects still to fetch. */
+  hasMore: boolean;
+  /** Fetches the next page and appends it. */
+  loadMore: () => Promise<void>;
   /** session_id -> title derived from that chat's first user message. */
   titles: Record<string, string>;
   loading: boolean;
@@ -18,7 +24,7 @@ interface ProjectsContextValue {
   /** Deletes server-side (case file + transcript + change log), then drops it locally. */
   remove: (sessionId: string) => Promise<void>;
   /** Renames a project - an ordinary Case File edit, logged like any other. */
-  rename: (sessionId: string, projectName: string) => Promise<CaseFile>;
+  rename: (sessionId: string, projectName: string, version?: number) => Promise<CaseFile>;
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | null>(null);
@@ -39,6 +45,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<CaseFile[] | null>(null);
   const [titles, setTitles] = useState<Record<string, string>>({});
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +53,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setProjects(null);
       setTitles({});
+      setTotal(0);
       return;
     }
     setLoading(true);
@@ -54,8 +62,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       // Fetched together: a project list without its titles renders a
       // column of "Untitled project" rows that then shift under the
       // reader a moment later.
-      const [list, chatTitles] = await Promise.all([api.myCaseFiles(), api.myChatTitles()]);
-      setProjects([...list].sort(byUpdatedAtDesc));
+      const [page, chatTitles] = await Promise.all([api.myCaseFiles(), api.myChatTitles()]);
+      setProjects([...page.items].sort(byUpdatedAtDesc));
+      setTotal(page.total);
       setTitles(Object.fromEntries(chatTitles.map((item) => [item.session_id, item.title])));
     } catch (err) {
       setError(err instanceof ApiError ? `Could not load your projects (${err.status}).` : "Could not load your projects.");
@@ -70,6 +79,31 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     if (authLoading) return;
     void refresh();
   }, [authLoading, refresh]);
+
+  // Appends the next page rather than replacing, so "load more" keeps
+  // what is already on screen.
+  const loadMore = useCallback(async () => {
+    if (!user) return;
+    const offset = projects?.length ?? 0;
+    setLoading(true);
+    setError(null);
+    try {
+      const [page, chatTitles] = await Promise.all([
+        api.myCaseFiles(PROJECT_PAGE_SIZE, offset),
+        api.myChatTitles(PROJECT_PAGE_SIZE, offset),
+      ]);
+      setProjects((current) => [...(current ?? []), ...page.items].sort(byUpdatedAtDesc));
+      setTotal(page.total);
+      setTitles((current) => ({
+        ...current,
+        ...Object.fromEntries(chatTitles.map((item) => [item.session_id, item.title])),
+      }));
+    } catch (err) {
+      setError(err instanceof ApiError ? `Could not load more projects (${err.status}).` : "Could not load more projects.");
+    } finally {
+      setLoading(false);
+    }
+  }, [projects, user]);
 
   const upsert = useCallback((caseFile: CaseFile) => {
     setProjects((current) => {
@@ -90,11 +124,11 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const rename = useCallback(async (sessionId: string, projectName: string) => {
+  const rename = useCallback(async (sessionId: string, projectName: string, version?: number) => {
     // The project name IS the Case File's own field, so renaming a chat
     // is an ordinary edit - it shows up in that project's change log like
     // any other, rather than being a separate piece of hidden UI state.
-    const updated = await api.updateCaseFile(sessionId, { project_name: projectName });
+    const updated = await api.updateCaseFile(sessionId, { project_name: projectName }, version);
     setProjects((current) =>
       current === null ? current : current.map((item) => (item.session_id === sessionId ? updated : item)),
     );
@@ -102,7 +136,21 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ProjectsContext.Provider value={{ projects, titles, loading, error, refresh, upsert, remove, rename }}>
+    <ProjectsContext.Provider
+      value={{
+        projects,
+        titles,
+        total,
+        hasMore: projects !== null && projects.length < total,
+        loadMore,
+        loading,
+        error,
+        refresh,
+        upsert,
+        remove,
+        rename,
+      }}
+    >
       {children}
     </ProjectsContext.Provider>
   );

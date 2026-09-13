@@ -57,11 +57,11 @@ def test_a_claimed_case_file_shows_up_in_project_history():
     session_id = _anonymous_case_file()
     account = _signup()
     headers = _auth_header(account["access_token"])
-    assert client.get("/users/me/case-files", headers=headers).json() == []
+    assert client.get("/users/me/case-files", headers=headers).json()["items"] == []
 
     client.post(f"/case-files/{session_id}/claim", headers=headers)
 
-    listed = client.get("/users/me/case-files", headers=headers).json()
+    listed = client.get("/users/me/case-files", headers=headers).json()["items"]
     assert [item["session_id"] for item in listed] == [session_id]
 
 

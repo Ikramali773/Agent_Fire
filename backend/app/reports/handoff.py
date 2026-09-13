@@ -130,12 +130,21 @@ def _provenance_lines(case_file: CaseFile) -> list[str]:
     return lines
 
 
-def _change_history_lines(changes: list[FieldChange]) -> list[str]:
+def _change_history_lines(changes: list[FieldChange], total: int | None = None) -> list[str]:
     lines = ["## Change history", ""]
     if not changes:
         lines.append("Nothing has been changed since this case file was created.")
         lines.append("")
         return lines
+    # A compliance document that quietly drops entries is worse than one
+    # that says how many it is showing. The reader can go to the app for
+    # the rest; they cannot know to do that if the pack never tells them.
+    if total is not None and total > len(changes):
+        lines.append(
+            f"**Showing the {len(changes)} most recent of {total} changes.** "
+            "The full history is on the project's Case File page."
+        )
+        lines.append("")
     lines.append("| When | Field | From | To | Source |")
     lines.append("| --- | --- | --- | --- | --- |")
     # Oldest first: in a document this reads as a narrative, where the live
@@ -155,7 +164,10 @@ def _change_history_lines(changes: list[FieldChange]) -> list[str]:
 
 
 def generate_handoff_markdown(
-    case_file: CaseFile, review: ReviewState, changes: list[FieldChange]
+    case_file: CaseFile,
+    review: ReviewState,
+    changes: list[FieldChange],
+    total_changes: int | None = None,
 ) -> str:
     """The full package: the report, then everything a reviewer needs to
     judge whether to trust it.
@@ -174,5 +186,5 @@ def generate_handoff_markdown(
     parts += _review_reason_lines(review)
     parts += _review_status_lines(review)
     parts += _provenance_lines(case_file)
-    parts += _change_history_lines(changes)
+    parts += _change_history_lines(changes, total_changes)
     return "\n".join(parts).rstrip() + "\n"

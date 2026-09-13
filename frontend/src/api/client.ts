@@ -2,6 +2,7 @@ import type {
   AuthResponse,
   CaseFile,
   CaseFileGrant,
+  CaseFilePage,
   ChatTitle,
   ChatTurnResponse,
   ConversationMessage,
@@ -17,6 +18,10 @@ import type {
 // the backend's local dev port (see backend/README.md - uvicorn defaults to
 // 8000). Override with VITE_API_BASE_URL for any other deployment.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+// How many projects to fetch at a time. The chat rail shows 8 and Project
+// History pages; nothing needs an account's whole history in one response.
+export const PROJECT_PAGE_SIZE = 50;
 
 class ApiError extends Error {
   status: number;
@@ -77,12 +82,16 @@ export const api = {
 
   me: () => request<User>("/auth/me"),
 
-  myCaseFiles: () => request<CaseFile[]>("/users/me/case-files"),
+  // Paged: the unbounded version grew linearly with an account's whole
+  // history (0.81 MB of JSON at 500 projects) to render eight rail rows.
+  myCaseFiles: (limit = PROJECT_PAGE_SIZE, offset = 0) =>
+    request<CaseFilePage>(`/users/me/case-files?limit=${limit}&offset=${offset}`),
 
   // A title per chat, derived from its first user message - what lets the
   // sidebar tell projects apart before one has a name. A side-lookup, not
   // a Case File field: see the backend's ChatTitle.
-  myChatTitles: () => request<ChatTitle[]>("/users/me/chat-titles"),
+  myChatTitles: (limit = PROJECT_PAGE_SIZE, offset = 0) =>
+    request<ChatTitle[]>(`/users/me/chat-titles?limit=${limit}&offset=${offset}`),
 
   // Phase 3: every flagged case this account is responsible for - its own
   // projects plus ones shared with it for review. Oldest-first: a
@@ -175,10 +184,15 @@ export const api = {
   getReport: (sessionId: string) =>
     request<{ markdown: string }>(`/case-files/${sessionId}/report`),
 
-  updateCaseFile: (sessionId: string, updates: Record<string, unknown>) =>
+  // Pass the `version` from the case file you are editing and the server
+  // refuses the write with a 409 if someone else changed it in between,
+  // instead of silently overwriting them. Callers surface that as "reload
+  // and try again" - never as an automatic retry, which would reintroduce
+  // exactly the overwrite this prevents.
+  updateCaseFile: (sessionId: string, updates: Record<string, unknown>, version?: number) =>
     request<CaseFile>(`/case-files/${sessionId}`, {
       method: "PUT",
-      body: JSON.stringify(updates),
+      body: JSON.stringify(version === undefined ? updates : { ...updates, version }),
     }),
 
   whatIf: (sessionId: string, updates: Record<string, unknown>) =>

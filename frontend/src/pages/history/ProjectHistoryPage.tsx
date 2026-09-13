@@ -31,7 +31,7 @@ interface Props {
 // chat rail, so deleting in one place updates the other immediately.
 export function ProjectHistoryPage({ activeSessionId, onOpenCaseFile, onStartNewProject, onProjectDeleted }: Props) {
   const { user } = useAuth();
-  const { projects, loading, error } = useProjects();
+  const { projects, total, hasMore, loadMore, loading, error } = useProjects();
   const [loginOpen, setLoginOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<CaseFile | null>(null);
 
@@ -129,6 +129,14 @@ export function ProjectHistoryPage({ activeSessionId, onOpenCaseFile, onStartNew
             })}
           </tbody>
         </table>
+      )}
+
+      {hasMore && (
+        <div className="ds-project-history__more">
+          <Button variant="secondary" size="sm" onClick={() => void loadMore()} disabled={loading}>
+            {loading ? "Loading…" : `Show more (${(projects?.length ?? 0)} of ${total})`}
+          </Button>
+        </div>
       )}
 
       {pendingDelete && (

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app import grant_store, message_store, review_store
@@ -16,18 +16,47 @@ from app.auth.dependencies import get_current_user_required
 from app.models.case_file import CaseFile
 from app.models.review import ReviewStatus
 from app.models.user import User
-from app.store import get as store_get
-from app.store import list_by_owner
+from app.store import count_by_owner, list_by_owner, list_flagged_for_review
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/me/case-files", response_model=list[CaseFile])
-def list_my_case_files(current_user: User = Depends(get_current_user_required)) -> list[CaseFile]:
+# Big enough that a normal account's whole project list arrives in one
+# request, small enough that a heavy user cannot be sent a megabyte of JSON
+# to render eight rows in the chat rail.
+DEFAULT_PAGE_SIZE = 50
+MAX_PAGE_SIZE = 200
+
+
+class CaseFilePage(BaseModel):
+    """A page of projects, with the total so the UI can say what it is not
+    showing rather than silently implying this is everything."""
+
+    items: list[CaseFile]
+    total: int
+    limit: int
+    offset: int
+
+
+@router.get("/me/case-files", response_model=CaseFilePage)
+def list_my_case_files(
+    limit: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user_required),
+) -> CaseFilePage:
     """Phase 2's starting point for Project History (§ "Project history"):
-    every case file this account owns, newest-updated first.
+    the case files this account owns, newest-updated first.
+
+    Paged. Unbounded, this response grew linearly with the account's whole
+    history - measured at 0.81 MB of JSON for 500 projects, with no ceiling
+    - even though the chat rail renders eight of them.
     """
-    return list_by_owner(current_user.id)
+    return CaseFilePage(
+        items=list_by_owner(current_user.id, limit=limit, offset=offset),
+        total=count_by_owner(current_user.id),
+        limit=limit,
+        offset=offset,
+    )
 
 
 class ChatTitle(BaseModel):
@@ -45,14 +74,24 @@ class ChatTitle(BaseModel):
 
 
 @router.get("/me/chat-titles", response_model=list[ChatTitle])
-def list_my_chat_titles(current_user: User = Depends(get_current_user_required)) -> list[ChatTitle]:
+def list_my_chat_titles(
+    limit: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user_required),
+) -> list[ChatTitle]:
     """A title for each of this account's chats, from its first user
     message - what lets the sidebar tell projects apart before one is
     named. Scoped to case files this account owns, so it can never expose
     another account's conversation. Sessions with no user message yet are
     simply absent.
     """
-    session_ids = [case_file.session_id for case_file in list_by_owner(current_user.id)]
+    # Scoped to the same page the project list returns, so this cannot
+    # quietly become the unbounded query the project list just stopped
+    # being.
+    session_ids = [
+        case_file.session_id
+        for case_file in list_by_owner(current_user.id, limit=limit, offset=offset)
+    ]
     titles = message_store.first_user_messages(session_ids)
     return [ChatTitle(session_id=session_id, title=title) for session_id, title in titles.items()]
 
@@ -96,25 +135,13 @@ def list_my_review_queue(
     their answer and should stop competing for attention. Pass
     include_settled=true to see the whole picture.
     """
-    owned = list_by_owner(current_user.id)
-    owned_ids = {case_file.session_id for case_file in owned}
-
-    shared: list[CaseFile] = []
-    for session_id in grant_store.list_session_ids_for_user(current_user.id):
-        if session_id in owned_ids:
-            continue
-        case_file = store_get(session_id)
-        # A grant whose case file is gone should not put a dead row in the
-        # queue. Deleting a project revokes its grants, so this is a
-        # belt-and-braces guard, not the main path.
-        if case_file is not None:
-            shared.append(case_file)
-
-    flagged = [
-        case_file
-        for case_file in [*owned, *shared]
-        if case_file.classification_result.require_human_review_flag
-    ]
+    # One indexed query over the denormalized requires_review column,
+    # covering owned and shared-with-me together. This used to load every
+    # owned case file plus one lookup per grant, then discard the ones that
+    # were not flagged - O(all your projects) to answer a question about a
+    # handful of them.
+    shared_ids = grant_store.list_session_ids_for_user(current_user.id)
+    flagged = list_flagged_for_review(current_user.id, shared_ids)
     statuses = review_store.current_statuses([case_file.session_id for case_file in flagged])
 
     items = []
@@ -134,5 +161,5 @@ def list_my_review_queue(
                 updated_at=case_file.updated_at,
             )
         )
-    items.sort(key=lambda item: item.updated_at)
+    # The query already returns oldest-first; nothing here reorders it.
     return items

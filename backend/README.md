@@ -188,6 +188,39 @@ Part B):
     Inside the Case File's JSON blob, every message would rewrite the entire history and then ship
     all of it on every case file response - quadratic in a long project. One indexed row per
     message keeps an append O(1) and lets a long conversation be paged instead of loaded whole.
+- **Optimistic locking on the Case File** (`app/store.py`, `CaseFileRecord.version`) — every write
+  path is a read-modify-write, and without this two requests each read, each mutated, each saved,
+  **both got a 200, and one person's edit vanished with nothing anywhere saying so**. Reproduced,
+  not theoretical: two browser tabs, or a document upload finishing while the user saves a field.
+  `store.save(case_file, expected_version=...)` is now a compare-and-set, and every endpoint that
+  reads then writes passes the version it read; the API answers **409** instead of swallowing the
+  loss.
+  - **The check is part of the UPDATE statement**, not a read followed by a write: two requests can
+    both pass a Python-side version check before either commits, and then both write. That is not
+    hypothetical either - the first version of this fix did exactly that, and the concurrency test
+    caught it. A conditional `UPDATE ... WHERE version = :expected` is atomic in every database;
+    whoever gets `rowcount == 1` won.
+  - Omitting the version keeps the old last-write-wins behavior, so a script or an older client is
+    not broken. A row written before the column existed reads as version 1.
+- **Paged project list** (`GET /users/me/case-files?limit=&offset=`) — this returned an account's
+  entire history in one response, **measured at 0.81 MB of JSON for 500 projects and unbounded**,
+  to render eight rows in the chat rail. Now a page (50 by default, 200 max) plus the `total`, so
+  the UI can say what it is not showing. `/users/me/chat-titles` takes the same window, so it cannot
+  quietly become the unbounded query the project list just stopped being.
+- **`CaseFileRecord.requires_review`** — denormalized out of the JSON blob for the same reason
+  `owner_user_id` is. The review queue used to load every owned case file **plus one lookup per
+  grant**, then discard the ones that were not flagged: O(all your projects) to answer a question
+  about a handful. Now one indexed query covering owned and shared-with-me together — measured at
+  500 projects, it loads **10 rows instead of 500**. `store.save()` is the only writer, so it cannot
+  drift from the blob, and `init_db._backfill_requires_review` fills it in for rows written before
+  it existed (a NULL here is a flagged case that has become invisible, which is exactly what the
+  review queue exists to prevent).
+- **Password length is validated** (`app/auth/security.py`) — bcrypt 5 *raises* on a password over
+  72 bytes rather than truncating it as older releases did, so an unvalidated passphrase from a
+  password manager **crashed signup with a 500** (reproduced). Now a clear 422. Deliberately not
+  truncated: hashing the first 72 bytes silently would make the rest of someone's passphrase
+  decorative, and two different long passwords would open the same account. It is a *byte* limit,
+  not a character one — an emoji is four bytes.
 - **Human review** (`app/models/review.py`, `app/review_store.py`, `app/grant_store.py`, Phase 3) —
   the classifier has always been able to say "a person has to look at this", in 15 different
   situations, and that flag was a dead end. Phase 3 closes the loop.
@@ -237,7 +270,9 @@ Part B):
   name to a sign-off actually asks is "where did each of these numbers come from, and what changed
   since?". Invents nothing — like `generator.py`, it only restates what is already recorded. The
   DOCX walker learned real tables for it, and `render_pdf`/`render_docx` now take markdown so the
-  report and the pack share one renderer instead of growing two subtly different ones.
+  report and the pack share one renderer instead of growing two subtly different ones. A change
+  history longer than the export cap **says how many entries it is showing** - a compliance document
+  that quietly drops history is worse than one that admits the limit.
   - **A third gap this exposed**: a field typed into the Case File page (`PUT /case-files/{id}`)
     recorded **no provenance at all**. The dialogue path and the ingest path had always recorded it;
     this one never did, so a user-confirmed fact reached the pack with no source. `PUT` now records

@@ -29,10 +29,16 @@ export function RenameProjectDialog({ project, chatTitle, onClose, onRenamed }: 
     setSaving(true);
     setError(null);
     try {
-      onRenamed(await rename(project.session_id, name.trim()));
+      onRenamed(await rename(project.session_id, name.trim(), project.version));
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? `Could not rename this project (${err.status}).` : "Could not rename this project.");
+      setError(
+        err instanceof ApiError && err.status === 409
+          ? "Someone else changed this project while this was open. Close and reopen it, then rename again."
+          : err instanceof ApiError
+            ? `Could not rename this project (${err.status}).`
+            : "Could not rename this project.",
+      );
       setSaving(false);
     }
   };
