@@ -143,6 +143,18 @@ class ClassificationResult(BaseModel):
             "the same prose as its matching entry in `notes`."
         ),
     )
+    required_installations: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Phase 4: the firefighting installations the matched Table 7 band marks 'R', as "
+            "their rule-data keys (e.g. 'automatic_wet_sprinkler_system'). The classifier "
+            "always computed this set and then flattened it into a sentence in "
+            "applicable_clauses; keeping it structured is what lets the compliance engine "
+            "(app/engine/requirements.py) evaluate the building against it per requirement "
+            "instead of every clause being an undifferentiated 'unknown'. For Mixed Use this "
+            "is the union across components - clause 3.1.11.2's most-restrictive rule."
+        ),
+    )
     protection_level: Optional[str] = Field(
         default=None, description="e.g. 'HL-3' or 'CL-4' from Table 7A-7J"
     )

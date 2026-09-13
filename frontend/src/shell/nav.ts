@@ -41,7 +41,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "documents", label: "Documents", icon: FolderOpen },
   { key: "compliance", label: "Compliance", icon: ShieldCheck },
   { key: "plans", label: "Plans", icon: Map, comingInPhase: 4 },
-  { key: "findings", label: "Findings", icon: Search, comingInPhase: 4 },
+  { key: "findings", label: "Findings", icon: Search },
   { key: "reports", label: "Reports", icon: ClipboardList },
   { key: "review", label: "Review", icon: ClipboardCheck },
   { key: "history", label: "Project History", icon: History },

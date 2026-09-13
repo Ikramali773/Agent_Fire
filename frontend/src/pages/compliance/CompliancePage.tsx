@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
+import { api } from "../../api/client";
+import { Button } from "../../design-system/components/Button";
 import { Card } from "../../design-system/components/Card";
 import { EmptyState } from "../../design-system/components/EmptyState";
 import { StatusPill } from "../../design-system/components/StatusPill";
 import { normalizeClassification } from "../../lib/caseFileFields";
 import { ReviewBanner } from "../review/ReviewBanner";
-import type { CaseFile } from "../../types";
+import { findingLabel, findingsSummaryTone, findingTone } from "../../lib/findings";
+import type { CaseFile, RequirementReport } from "../../types";
 import { clauseStatus, overallStatus } from "./complianceStatus";
 import { WhatIfPanel } from "./WhatIfPanel";
 import "./CompliancePage.css";
@@ -11,9 +15,35 @@ import "./CompliancePage.css";
 interface Props {
   caseFile: CaseFile | null;
   onGoToReview: () => void;
+  onGoToFindings: () => void;
 }
 
-export function CompliancePage({ caseFile, onGoToReview }: Props) {
+export function CompliancePage({ caseFile, onGoToReview, onGoToFindings }: Props) {
+  const [findings, setFindings] = useState<RequirementReport | null>(null);
+  const sessionId = caseFile?.session_id ?? null;
+  const fingerprint = caseFile?.updated_at ?? null;
+
+  useEffect(() => {
+    if (!sessionId) {
+      setFindings(null);
+      return;
+    }
+    let current = true;
+    api
+      .getFindings(sessionId)
+      .then((next) => {
+        if (current) setFindings(next);
+      })
+      // The rest of the page stands on its own without findings, so a
+      // failure here must not take the classification down with it.
+      .catch(() => {
+        if (current) setFindings(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [sessionId, fingerprint]);
+
   const result = caseFile ? normalizeClassification(caseFile.classification_result) : null;
 
   if (!caseFile || caseFile.conversation_stage !== "classified" || !result || !result.table_7_ref) {
@@ -55,6 +85,55 @@ export function CompliancePage({ caseFile, onGoToReview }: Props) {
           </p>
         )}
       </Card>
+
+      {/* Phase 4: the per-requirement verdicts. Before this every clause
+          below rendered the same undifferentiated "unknown", because
+          nothing evaluated whether the building met any of them. */}
+      {findings && findings.evaluated && (
+        <Card title="Requirement findings">
+          <div className="ds-compliance-page__findings-head">
+            <StatusPill
+              status={findingsSummaryTone(findings.not_met_count, findings.unknown_count)}
+              label={
+                findings.not_met_count > 0
+                  ? `${findings.not_met_count} not declared`
+                  : findings.unknown_count > 0
+                    ? `${findings.unknown_count} not known`
+                    : "All required systems declared"
+              }
+            />
+            <Button variant="secondary" size="sm" onClick={onGoToFindings}>
+              See all findings
+            </Button>
+          </div>
+          <table className="ds-compliance-page__table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Installation</th>
+                <th>Recorded as</th>
+              </tr>
+            </thead>
+            <tbody>
+              {findings.findings
+                .filter((finding) => finding.required)
+                .map((finding) => (
+                  <tr key={finding.code}>
+                    <td>
+                      <StatusPill status={findingTone(finding.status)} label={findingLabel(finding.status)} size="sm" />
+                    </td>
+                    <td>{finding.label}</td>
+                    <td>{finding.matched_declaration ?? "—"}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+          <p className="ds-compliance-page__checklist-note">
+            <strong>Declared, not verified.</strong> No installation has been inspected, and coverage, specification
+            and design have not been checked.
+          </p>
+        </Card>
+      )}
 
       <Card title="Applicable requirements">
         {result.applicable_clauses.length === 0 ? (

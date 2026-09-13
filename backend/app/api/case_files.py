@@ -26,11 +26,13 @@ from app.auth.dependencies import get_current_user_optional, get_current_user_re
 from app.auth.user_store import get_user_by_email
 from app.dialogue.manager import handle_turn, start_conversation
 from app.engine.classifier import classify
+from app.engine.requirements import evaluate_requirements
 from app.ingest.apply import ingest_document
 from app.llm.client import LLMClient
 from app.models.case_file import CaseFile, ConversationStage, FieldSource, FieldSourceKind
 from app.models.change_log import ChangeSource, FieldChange
 from app.models.grant import CaseFileGrant
+from app.models.requirements import RequirementReport
 from app.models.review import RECORDABLE_STATUSES, ReviewState, ReviewStatus
 from app.models.conversation import ConversationMessage, MessageKind, MessageRole
 from app.models.user import User
@@ -504,6 +506,24 @@ def what_if_case_file(
     hypothetical = CaseFile.model_validate(merged)
     hypothetical.classification_result = classify(hypothetical)
     return hypothetical
+
+
+@router.get("/{session_id}/findings", response_model=RequirementReport)
+def get_findings(
+    session_id: str, current_user: User | None = Depends(get_current_user_optional)
+) -> RequirementReport:
+    """Phase 4: per-requirement compliance findings.
+
+    Phase 1's classifier determines WHICH requirements apply; this says
+    whether the building has been recorded as meeting each one. Derived on
+    read rather than stored: it is a pure function of the case file, so
+    persisting it would only create something that can go stale.
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
+    return evaluate_requirements(case_file)
 
 
 @router.get("/{session_id}/report")

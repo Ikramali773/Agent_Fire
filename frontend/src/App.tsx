@@ -8,6 +8,7 @@ import { DocumentsPage } from "./pages/documents/DocumentsPage";
 import { ProjectHistoryPage } from "./pages/history/ProjectHistoryPage";
 import { OverviewPage } from "./pages/overview/OverviewPage";
 import { ReportsPage } from "./pages/reports/ReportsPage";
+import { FindingsPage } from "./pages/findings/FindingsPage";
 import { ReviewPage } from "./pages/review/ReviewPage";
 import { useProjects } from "./projects/ProjectsContext";
 import { NAV_ITEMS, type ViewKey } from "./shell/nav";
@@ -167,8 +168,9 @@ function App() {
       )}
       {!restoring && activeView === "case-file" && <CaseFilePage caseFile={caseFile} onCaseFileChange={setCaseFile} onGoToReview={() => setActiveView("review")} />}
       {!restoring && activeView === "documents" && <DocumentsPage caseFile={caseFile} onCaseFileChange={setCaseFile} />}
-      {!restoring && activeView === "compliance" && <CompliancePage caseFile={caseFile} onGoToReview={() => setActiveView("review")} />}
+      {!restoring && activeView === "compliance" && <CompliancePage caseFile={caseFile} onGoToReview={() => setActiveView("review")} onGoToFindings={() => setActiveView("findings")} />}
       {!restoring && activeView === "reports" && <ReportsPage caseFile={caseFile} />}
+      {!restoring && activeView === "findings" && <FindingsPage caseFile={caseFile} />}
       {!restoring && activeView === "review" && <ReviewPage caseFile={caseFile} onCaseFileChange={setCaseFile} />}
       {!restoring && activeView === "history" && (
         <ProjectHistoryPage
@@ -178,7 +180,7 @@ function App() {
           onProjectDeleted={handleProjectDeleted}
         />
       )}
-      {!restoring && (activeView === "plans" || activeView === "findings") &&
+      {!restoring && activeView === "plans" &&
         (() => {
           const item = NAV_ITEMS.find((nav) => nav.key === activeView)!;
           return (
@@ -197,9 +199,7 @@ function App() {
 function comingSoonDescription(view: ViewKey): string {
   switch (view) {
     case "plans":
-      return "Geometry-aware plan viewing arrives once the Building Digital Model is built.";
-    case "findings":
-      return "Compliance findings will be shown here alongside the plan they were derived from.";
+      return "Reading geometry out of a drawing - travel distances, exit widths, staircase positions - needs CAD/BIM parsing that isn't built. Uploaded drawings are read for their text and tables today; see Documents.";
     default:
       return "This part of the workspace isn't active yet.";
   }

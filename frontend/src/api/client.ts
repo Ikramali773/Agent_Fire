@@ -8,6 +8,7 @@ import type {
   ConversationMessage,
   DocumentUploadResponse,
   FieldChange,
+  RequirementReport,
   ReviewQueueItem,
   ReviewState,
   ReviewStatus,
@@ -149,6 +150,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
+
+  // Phase 4: per-requirement compliance findings. Derived on read from the
+  // case file, so it never needs invalidating after an edit.
+  getFindings: (sessionId: string) => request<RequirementReport>(`/case-files/${sessionId}/findings`),
 
   getReview: (sessionId: string) => request<ReviewState>(`/case-files/${sessionId}/review`),
 

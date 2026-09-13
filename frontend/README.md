@@ -82,6 +82,16 @@ what's actually implemented server-side.
   dialog (not `window.confirm`, which can't say what else goes with it, nor show a failed request).
   Deleting the *active* project clears the workspace back to a blank draft; deleting any other one
   leaves what you are working on alone.
+- **Findings** (`src/pages/findings/`, Phase 4) — the Findings nav item is live: each installation
+  the matched Table 7 band requires, with its verdict, the sentence explaining that verdict, and the
+  recorded text it was matched to (so a wrong match can be challenged rather than trusted).
+  - **A declared system is rendered `info`, never `pass`** (`lib/findings.ts`), and the page says
+    "Declared, not verified" outright. The product knows an installation was reported; it does not
+    know it exists, covers the right areas, or is correctly designed. A green pass would assert
+    compliance the footer on every page disclaims — asserted in a test so it cannot drift.
+  - "Not known" and "not declared" are visually and verbally distinct, because a question and a
+    defect must not look the same.
+  - The same verdicts replace the Compliance page's blanket per-clause "unknown".
 - **Review** (`src/pages/review/`, Phase 3) — the Review nav item is live. Master-detail rather than
   a table, because acting on a case needs the reasons, the handoff pack and the verdict form
   together; bouncing between a list page and a detail page per case is how a queue stops getting
@@ -178,7 +188,7 @@ conversation rather than see the graceful fallback message on every turn, `GROQ_
 ```bash
 npm run build   # type-checks (tsc -b) then produces dist/
 npm run lint    # oxlint
-npm test        # vitest run - 157 tests
+npm test        # vitest run - 177 tests
 ```
 
 ### Tests
@@ -266,4 +276,9 @@ browser check that a real API response still renders correctly end-to-end.
 - **"Approved" is one person's sign-off, not a compliance verdict** — deliberately. The product
   does not certify anything (see the footer on every page), and per-requirement pass/fail
   evaluation is still Phase 4's compliance engine, not this.
-- Multi-state NOC checklists, real DWG/BIM plan understanding (Phase 4/5) — see `../backend/README.md`.
+- **Plans is still a placeholder, and says why.** Geometry-aware plan viewing needs CAD/BIM parsing
+  that isn't built; uploaded drawings are read for their text and tables today, which is not the
+  same thing. The nav entry stays, honestly labelled, rather than being faked.
+- **Findings cover firefighting installations only** — travel distance and exit capacity need
+  measured inputs the Case File doesn't hold. See `../backend/README.md`.
+- Multi-state NOC checklists — see `../backend/README.md`.

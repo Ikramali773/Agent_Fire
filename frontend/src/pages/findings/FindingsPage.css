@@ -1,0 +1,107 @@
+.ds-findings-page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ds-findings-page__header h1 {
+  margin: 0 0 4px;
+  font-size: var(--text-xl);
+}
+
+.ds-findings-page__header p {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  max-width: 640px;
+}
+
+.ds-findings-page__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.ds-findings-page__counts {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.ds-findings-page__caveat {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--text-secondary);
+}
+
+.ds-findings-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ds-findings-page__row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ds-findings-page__row:last-child {
+  border-bottom: none;
+}
+
+.ds-findings-page__row--muted .ds-findings-page__name {
+  color: var(--text-secondary);
+}
+
+.ds-findings-page__row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ds-findings-page__name {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.ds-findings-page__detail {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--text-tertiary);
+}
+
+.ds-findings-page__evidence {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.ds-findings-page__plain-list {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.ds-findings-page__note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.ds-findings-page__note--error {
+  color: var(--status-fail-fg);
+}

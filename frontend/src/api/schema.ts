@@ -250,6 +250,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/case-files/{session_id}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Findings
+         * @description Phase 4: per-requirement compliance findings.
+         *
+         *     Phase 1's classifier determines WHICH requirements apply; this says
+         *     whether the building has been recorded as meeting each one. Derived on
+         *     read rather than stored: it is a pure function of the case file, so
+         *     persisting it would only create something that can go stale.
+         */
+        get: operations["get_findings_case_files__session_id__findings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/case-files/{session_id}/report": {
         parameters: {
             query?: never;
@@ -836,6 +861,11 @@ export interface components {
              */
             review_reasons?: components["schemas"]["ReviewReason"][];
             /**
+             * Required Installations
+             * @description Phase 4: the firefighting installations the matched Table 7 band marks 'R', as their rule-data keys (e.g. 'automatic_wet_sprinkler_system'). The classifier always computed this set and then flattened it into a sentence in applicable_clauses; keeping it structured is what lets the compliance engine (app/engine/requirements.py) evaluate the building against it per requirement instead of every clause being an undifferentiated 'unknown'. For Mixed Use this is the union across components - clause 3.1.11.2's most-restrictive rule.
+             */
+            required_installations?: string[];
+            /**
              * Protection Level
              * @description e.g. 'HL-3' or 'CL-4' from Table 7A-7J
              */
@@ -1020,6 +1050,80 @@ export interface components {
          * @enum {string}
          */
         ProjectStage: "concept" | "plan_submitted" | "under_construction" | "renewal";
+        /** RequirementFinding */
+        RequirementFinding: {
+            /**
+             * Code
+             * @description The rule-data key, e.g. 'automatic_wet_sprinkler_system'.
+             */
+            code: string;
+            /**
+             * Label
+             * @description The same requirement in words, for display.
+             */
+            label: string;
+            status: components["schemas"]["RequirementStatus"];
+            /** Required */
+            required: boolean;
+            /**
+             * Detail
+             * @description Why this finding says what it says, in one sentence.
+             */
+            detail: string;
+            /**
+             * Matched Declaration
+             * @description The entry in existing_fire_systems this was matched to, when it was met.
+             */
+            matched_declaration?: string | null;
+        };
+        /**
+         * RequirementReport
+         * @description Every finding for one case file, plus what could not be evaluated.
+         */
+        RequirementReport: {
+            /** Session Id */
+            session_id: string;
+            /**
+             * Evaluated
+             * @description False when the building has not been classified, so nothing applies yet.
+             */
+            evaluated: boolean;
+            /**
+             * Table 7 Ref
+             * @default
+             */
+            table_7_ref: string;
+            /** Protection Level */
+            protection_level?: string | null;
+            /** Findings */
+            findings?: components["schemas"]["RequirementFinding"][];
+            /**
+             * Unrecognized Declarations
+             * @description Entries in existing_fire_systems that could not be matched to a known installation. Surfaced rather than dropped: a system the engine did not understand is not the same as a system the building does not have, and silently ignoring it would make a requirement look unmet when it is not.
+             */
+            unrecognized_declarations?: string[];
+            /**
+             * Met Count
+             * @default 0
+             */
+            met_count: number;
+            /**
+             * Not Met Count
+             * @default 0
+             */
+            not_met_count: number;
+            /**
+             * Unknown Count
+             * @default 0
+             */
+            unknown_count: number;
+        };
+        /**
+         * RequirementStatus
+         * @description The outcome of comparing one requirement against the Case File.
+         * @enum {string}
+         */
+        RequirementStatus: "met" | "not_met" | "unknown" | "not_required";
         /** ReviewEvent */
         ReviewEvent: {
             /** Id */
@@ -1626,6 +1730,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseFile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_findings_case_files__session_id__findings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementReport"];
                 };
             };
             /** @description Validation Error */

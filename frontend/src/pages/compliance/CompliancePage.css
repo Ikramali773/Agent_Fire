@@ -77,3 +77,12 @@
   flex-direction: column;
   gap: 4px;
 }
+
+.ds-compliance-page__findings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}

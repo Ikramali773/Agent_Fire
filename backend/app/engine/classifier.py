@@ -388,6 +388,9 @@ def _classify_single_occupancy(case_file: CaseFile, occupancy_key: str) -> Class
         )
         if band.installations:
             required = [k for k, v in band.installations.items() if v == "R"]
+            # Kept structured as well as narrated: the sentence below is for
+            # a reader, the list is what the compliance engine evaluates.
+            result.required_installations = sorted(required)
             result.applicable_clauses.append(
                 f"Required installations: {', '.join(required)}"
             )
@@ -583,6 +586,7 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
             if band.installations:
                 union_required.update(k for k, v in band.installations.items() if v == "R")
         if union_required:
+            result.required_installations = sorted(union_required)
             result.applicable_clauses.append(
                 "Union of installations required across all occupancies present "
                 f"('most restrictive provisions', clause 3.1.11.2): {', '.join(sorted(union_required))}"

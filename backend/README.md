@@ -1,4 +1,4 @@
-# Fire Safety AI Agent — Backend (Phases 1–3)
+# Fire Safety AI Agent — Backend (Phases 1–4)
 
 Implements the parts of the product scope's Phase 1 (`Fire_Safety_AI_Agent_Full_Scope_v3.md`,
 Part B):
@@ -37,6 +37,29 @@ Part B):
     they turn out to be needed. The wiring is left in place (harmless when unused - it only adds a
     placeholder-tagged section to the report) so real content can drop in later without code changes,
     but it is not being actively developed right now.
+- **Compliance engine** (`app/engine/requirements.py`, `GET /case-files/{id}/findings`, Phase 4) —
+  Phase 1's classifier determines WHICH requirements apply to a building; nothing ever determined
+  whether the building MEETS them, which is why every clause on the Compliance page rendered an
+  undifferentiated "unknown" from the day it was built. This compares each installation the matched
+  Table 7 band marks `R` against the building's `existing_fire_systems`.
+  - The classifier always computed that required set and then **flattened it into a sentence**;
+    `ClassificationResult.required_installations` keeps it structured, which is the whole unlock.
+    For Mixed Use it is the union across components (clause 3.1.11.2's most-restrictive rule).
+  - **"Nothing declared" is UNKNOWN, never NOT MET.** Reporting a building as failing because
+    nobody told us what it has would be a false verdict on a compliance record: "you are missing a
+    wet riser" and "we do not know whether you have one" are a defect and a question, and the
+    product must not confuse them.
+  - `existing_fire_systems` is free text, so declarations are matched against a **deliberately
+    conservative** synonym list (longest match wins). Anything unmatched is reported as
+    unrecognized, never guessed at - a wrong match would mark a requirement met that is not, which
+    is the most damaging mistake this module could make. An unrecognized system is surfaced rather
+    than dropped, because it is not the same as a system the building does not have.
+  - **"Declared", never "verified".** The system knows an installation was reported; it does not
+    know that it exists, covers the right areas, or is correctly designed. Every finding's wording,
+    the report section and the UI all keep that distinction rather than letting "met" read as
+    "compliant".
+  - Derived on read, never stored: it is a pure function of the case file, so there is nothing to
+    invalidate when a fact changes.
 - **Report generator** (`app/reports/generator.py`, §B.9) — templated Markdown; no LLM call.
 - **Report exporters** (`app/reports/exporters.py`, Phase 2) — real PDF (`GET
   /case-files/{id}/report.pdf`) and DOCX (`GET /case-files/{id}/report.docx`) downloads, both
@@ -375,6 +398,20 @@ Part B):
     beyond that needs real migrations (Alembic).
 
 ## Not yet built
+
+- **Plan geometry / the Building Digital Model (the other half of Phase 4)** — reading travel
+  distances, exit widths, staircase positions and compartment boundaries out of a drawing needs
+  CAD/BIM parsing (DWG/IFC), which is not built and has no sample files here to build against.
+  Uploaded drawings are read for their *text and tables* today (see the ingest pipeline above);
+  that is not the same as understanding the geometry, and inventing geometry for a fire-safety
+  product would be actively harmful. This is what "Plans" in the nav is waiting for.
+- **Travel-distance and exit-capacity findings** — Table 4 (travel distance) needs the construction
+  type and a measured travel distance, and Table 3 (capacity factors) needs measured stair and exit
+  widths. None of those are Case File fields, so evaluating them would mean inventing the inputs.
+  Table 3's own digitized data also carries an `extraction_note` warning that several occupancy rows
+  were not cleanly separated in OCR and need verification against the source before being trusted.
+  Occupant load (Table 2) *is* computable from area and occupancy, but on its own it yields no
+  pass/fail without those widths.
 
 - Real state NOC checklist content for Gujarat/Maharashtra — the framework (data model, engine hook,
   report section) is fully wired per the "State NOC checklist framework" section above, but every

@@ -13,7 +13,9 @@ from __future__ import annotations
 from datetime import date
 
 from app.engine import state_checklists
+from app.engine.requirements import evaluate_requirements
 from app.models.case_file import CaseFile, FieldSourceKind
+from app.models.requirements import RequirementStatus
 
 _DISCLAIMER = (
     "This report is advisory only and does not constitute statutory approval. "
@@ -114,6 +116,62 @@ def _state_checklist_lines(case_file: CaseFile) -> list[str]:
     return lines
 
 
+
+_FINDING_LABEL = {
+    RequirementStatus.MET: "Declared",
+    RequirementStatus.NOT_MET: "NOT DECLARED",
+    RequirementStatus.UNKNOWN: "Unknown",
+    RequirementStatus.NOT_REQUIRED: "Not required",
+}
+
+
+def _findings_lines(case_file: CaseFile) -> list[str]:
+    """Phase 4: each required installation against what the building has
+    been recorded as having. Says "declared", never "verified" - the system
+    knows a system was reported, not that it exists or is adequate.
+    """
+    report = evaluate_requirements(case_file)
+    if not report.evaluated:
+        return [
+            "Not evaluated: this building has not been classified against a Table 7 band yet, "
+            "so no specific requirement applies."
+        ]
+
+    lines = [
+        f"Judged against Table {report.table_7_ref}"
+        + (f" band {report.protection_level}" if report.protection_level else "")
+        + ". Status reflects what has been **declared** for this building - no installation "
+        "has been inspected, and coverage, specification and design have not been checked.",
+        "",
+        "| Installation | Required | Status |",
+        "| --- | --- | --- |",
+    ]
+    for finding in report.findings:
+        lines.append(
+            f"| {finding.label} | {'Yes' if finding.required else 'No'} "
+            f"| {_FINDING_LABEL[finding.status]} |"
+        )
+    lines.append("")
+    if report.unknown_count:
+        lines.append(
+            f"{report.unknown_count} required installation(s) could not be assessed because no "
+            "existing fire systems have been recorded for this building."
+        )
+    if report.not_met_count:
+        lines.append(
+            f"**{report.not_met_count} required installation(s) were not among those recorded "
+            "for this building.**"
+        )
+    if report.unrecognized_declarations:
+        # Never silently dropped: a system the engine did not recognise is
+        # not the same as a system the building does not have.
+        lines.append(
+            "Recorded but not recognised as a Table 7 installation, and therefore not counted "
+            "either way: " + ", ".join(report.unrecognized_declarations) + "."
+        )
+    return lines
+
+
 def generate_report_markdown(case_file: CaseFile) -> str:
     result = case_file.classification_result
     today = date.today().isoformat()
@@ -150,11 +208,15 @@ def generate_report_markdown(case_file: CaseFile) -> str:
         lines.append("- No applicable clauses determined yet.")
     lines.append("")
 
-    lines.append("## 4. State NOC Checklist")
+    lines.append("## 4. Requirement-by-requirement findings")
+    lines.extend(_findings_lines(case_file))
+    lines.append("")
+
+    lines.append("## 5. State NOC Checklist")
     lines.extend(_state_checklist_lines(case_file))
     lines.append("")
 
-    lines.append("## 5. Gaps Identified / Notes")
+    lines.append("## 6. Gaps Identified / Notes")
     if result.notes:
         for note in result.notes:
             lines.append(f"- {note}")

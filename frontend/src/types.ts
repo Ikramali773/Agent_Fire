@@ -27,6 +27,14 @@ export type ReviewStatus = components["schemas"]["ReviewStatus"];
 export type ReviewEvent = Required<components["schemas"]["ReviewEvent"]>;
 export type ReviewState = Required<components["schemas"]["ReviewState"]>;
 export type ReviewQueueItem = Required<components["schemas"]["ReviewQueueItem"]>;
+export type RequirementStatus = components["schemas"]["RequirementStatus"];
+export type RequirementFinding = Required<components["schemas"]["RequirementFinding"]>;
+// Required<> is shallow, so `findings` would stay the raw partly-optional
+// shape - re-point it, same as CaseFilePage.
+export type RequirementReport = Omit<
+  Required<components["schemas"]["RequirementReport"]>,
+  "findings"
+> & { findings: RequirementFinding[] };
 export type CaseFileGrant = Required<components["schemas"]["CaseFileGrant"]>;
 // Required<> is SHALLOW, so it would leave `items` as the raw, partly
 // optional CaseFile rather than the Required one exported above - the same

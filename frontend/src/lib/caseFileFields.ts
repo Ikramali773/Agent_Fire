@@ -44,6 +44,7 @@ export function normalizeClassification(raw: CaseFile["classification_result"]):
     is_high_rise: raw.is_high_rise ?? null,
     require_human_review_flag: raw.require_human_review_flag,
     review_reasons: raw.review_reasons ?? [],
+    required_installations: raw.required_installations ?? [],
     protection_level: raw.protection_level ?? null,
     notes: raw.notes ?? [],
   };

@@ -42,6 +42,7 @@ export function makeCaseFile(overrides: Partial<CaseFile> = {}): CaseFile {
       is_high_rise: null,
       require_human_review_flag: false,
       review_reasons: [],
+      required_installations: [],
       protection_level: null,
       notes: [],
     },
