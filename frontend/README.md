@@ -122,7 +122,32 @@ conversation rather than see the graceful fallback message on every turn, `GROQ_
 ```bash
 npm run build   # type-checks (tsc -b) then produces dist/
 npm run lint    # oxlint
+npm test        # vitest run - 48 tests
 ```
+
+### Tests
+
+`npm test` (vitest + Testing Library, jsdom). The suite deliberately targets the logic that has
+actually broken here before, rather than chasing coverage:
+
+- `lib/caseFileFields.test.ts` — `normalizeClassification`'s defaults (`Required<>` is *shallow*,
+  which shipped a build failure once), and `formatValue` rendering a legitimate `false`/`0` instead
+  of treating it as missing.
+- `pages/overview/conversation.test.ts` — a restored transcript rebuilds document and classification
+  *cards* from the stored message kind, keyed by message id, rather than flattening to text.
+- `design-system/components/Markdown.test.tsx` — GFM tables render, `<br>` works inside a table
+  cell, and **raw HTML is escaped**. That last group is a load-bearing security property, not a
+  nicety: this content is LLM output shaped by user input and uploaded documents, so anything that
+  starts parsing raw HTML has to break those tests first.
+- `projects/ProjectsContext.test.tsx` — ordering, waiting for auth before fetching, and a failed
+  delete leaving the project listed instead of vanishing optimistically.
+- `projects/DeleteProjectDialog.test.tsx` — nothing is deleted until the destructive button is
+  pressed, a failure keeps the dialog open, and it can't be double-submitted.
+
+Test files live beside the code in `src/`, so `tsc -b` type-checks them along with everything else —
+vitest alone does not, and that difference caught four real type errors in the fixtures the runner
+had been happy with. No `globals: true`: `describe`/`it`/`expect` are imported explicitly, which
+keeps `tsconfig.app.json`'s `types` list untouched.
 
 ### Generated API types
 
