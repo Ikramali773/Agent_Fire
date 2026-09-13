@@ -188,6 +188,13 @@ Part B):
     Inside the Case File's JSON blob, every message would rewrite the entire history and then ship
     all of it on every case file response - quadratic in a long project. One indexed row per
     message keeps an append O(1) and lets a long conversation be paged instead of loaded whole.
+- **`POST /case-files/{id}/claim`** (Phase 2) — attaches an anonymous case file to the calling
+  account. The one operation that may set `owner_user_id` after creation, closing a real gap: a
+  project started before signing in used to stay anonymous forever, invisible in Project History
+  even to the person who had just created it. Only an UNOWNED case file can be claimed - claiming
+  one you already own is a no-op (idempotent, so a retry or a double-invoked frontend effect is
+  harmless), and claiming someone else's is the same 403 as any other access, so this can never
+  become a way to take over a project by guessing a session id.
 - **`DELETE /case-files/{id}`** (Phase 2) — deletes a project: the case file AND its whole
   transcript, in one step. Both, explicitly - a user deleting a project expects their conversation
   to go with it, not to be left behind in the database. Irreversible (no soft-delete, no undo), so

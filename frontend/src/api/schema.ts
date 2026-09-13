@@ -76,6 +76,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/case-files/{session_id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Case File
+         * @description Attaches an anonymous case file to the calling account.
+         *
+         *     Closes a real gap in Phase 2's account model: `owner_user_id` was only
+         *     ever set at creation time, so a project someone started before signing
+         *     in stayed anonymous forever - invisible in Project History and in the
+         *     chat rail, even to the person who had just created it in that same
+         *     browser. Claiming is the one operation that may set an owner after the
+         *     fact.
+         *
+         *     Only an UNOWNED case file can be claimed. Claiming one you already own
+         *     is a no-op (idempotent, so a retry or React's double-invoked effect is
+         *     harmless); claiming someone else's is a 403, exactly like every other
+         *     access to it - this must never become a way to take over a project by
+         *     guessing a session id.
+         */
+        post: operations["claim_case_file_case_files__session_id__claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/case-files/{session_id}/classify": {
         parameters: {
             query?: never;
@@ -839,6 +872,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_case_file_case_files__session_id__claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFile"];
+                };
             };
             /** @description Validation Error */
             422: {

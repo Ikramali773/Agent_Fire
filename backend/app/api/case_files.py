@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
 from app import message_store
-from app.auth.dependencies import get_current_user_optional
+from app.auth.dependencies import get_current_user_optional, get_current_user_required
 from app.dialogue.manager import handle_turn, start_conversation
 from app.engine.classifier import classify
 from app.ingest.apply import ingest_document
@@ -152,6 +152,37 @@ def delete_case_file(
     message_store.delete_for_session(session_id)
     store_delete(session_id)
     return Response(status_code=204)
+
+
+@router.post("/{session_id}/claim", response_model=CaseFile)
+def claim_case_file(
+    session_id: str, current_user: User = Depends(get_current_user_required)
+) -> CaseFile:
+    """Attaches an anonymous case file to the calling account.
+
+    Closes a real gap in Phase 2's account model: `owner_user_id` was only
+    ever set at creation time, so a project someone started before signing
+    in stayed anonymous forever - invisible in Project History and in the
+    chat rail, even to the person who had just created it in that same
+    browser. Claiming is the one operation that may set an owner after the
+    fact.
+
+    Only an UNOWNED case file can be claimed. Claiming one you already own
+    is a no-op (idempotent, so a retry or React's double-invoked effect is
+    harmless); claiming someone else's is a 403, exactly like every other
+    access to it - this must never become a way to take over a project by
+    guessing a session id.
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    if case_file.owner_user_id == current_user.id:
+        return case_file
+    if case_file.owner_user_id is not None:
+        raise HTTPException(status_code=403, detail="You do not have access to this case file")
+    case_file.owner_user_id = current_user.id
+    case_file.updated_at = datetime.now(timezone.utc)
+    return store_save(case_file)
 
 
 @router.post("/{session_id}/classify", response_model=CaseFile)

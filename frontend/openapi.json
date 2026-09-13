@@ -272,6 +272,65 @@
         }
       }
     },
+    "/case-files/{session_id}/claim": {
+      "post": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Claim Case File",
+        "description": "Attaches an anonymous case file to the calling account.\n\nCloses a real gap in Phase 2's account model: `owner_user_id` was only\never set at creation time, so a project someone started before signing\nin stayed anonymous forever - invisible in Project History and in the\nchat rail, even to the person who had just created it in that same\nbrowser. Claiming is the one operation that may set an owner after the\nfact.\n\nOnly an UNOWNED case file can be claimed. Claiming one you already own\nis a no-op (idempotent, so a retry or React's double-invoked effect is\nharmless); claiming someone else's is a 403, exactly like every other\naccess to it - this must never become a way to take over a project by\nguessing a session id.",
+        "operationId": "claim_case_file_case_files__session_id__claim_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/case-files/{session_id}/classify": {
       "post": {
         "tags": [

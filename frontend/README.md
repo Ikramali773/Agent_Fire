@@ -22,6 +22,12 @@ what's actually implemented server-side.
   inspector with click-to-edit, wired to `PUT /case-files/{id}`), `documents/` (drag-and-drop
   upload + history), `compliance/` (status rollup + requirements, plus Phase 2's What-If scenario
   panel), `reports/` (the Markdown report preview + real PDF/DOCX downloads).
+- **Claiming a project on sign-in** — a conversation started while signed out belongs to no one, so
+  signing in mid-conversation now attaches it to the new account (`POST /case-files/{id}/claim`,
+  fired from `App.tsx`). Without it a project started before logging in stayed anonymous forever -
+  invisible in Project History and the chat rail, even to the person who had just created it in
+  that same browser. Only an *unowned* case file can be claimed, so this is never a way to take
+  over someone else's project.
 - **Accounts** (`src/auth/`, Phase 2) — `AuthContext.tsx` holds the signed-in `User` (or `null` for
   an anonymous session) and persists the session token to `localStorage`; `LoginModal.tsx` is a
   combined sign-in/sign-up dialog. Entirely optional from the rest of the app's perspective:
@@ -151,7 +157,4 @@ browser check that a real API response still renders correctly end-to-end.
 - **No search or grouping in the chat rail** - it shows the 8 most recent projects and links to the
   full Project History table beyond that. No "Today/Yesterday/Last 7 days" date grouping, no
   filtering, no rename, no pinning.
-- **No way to claim an anonymous case file after signing in** - `owner_user_id` is only set at
-  creation time (`create_case_file`), so a project started before logging in stays anonymous
-  forever; Project History only shows case files created *while* signed in.
 - Multi-state NOC checklists, real DWG/BIM plan understanding (Phase 4/5) — see `../backend/README.md`.

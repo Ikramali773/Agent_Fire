@@ -86,6 +86,11 @@ export const api = {
   getMessages: (sessionId: string) =>
     request<ConversationMessage[]>(`/case-files/${sessionId}/messages`),
 
+  // Attaches a case file started while signed out to the account that is
+  // now signed in. Only works on an unowned one (see claim_case_file).
+  claimCaseFile: (sessionId: string) =>
+    request<CaseFile>(`/case-files/${sessionId}/claim`, { method: "POST" }),
+
   startConversation: (sessionId: string) =>
     request<ChatTurnResponse>(`/case-files/${sessionId}/start`, { method: "POST" }),
 

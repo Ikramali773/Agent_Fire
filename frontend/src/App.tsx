@@ -19,8 +19,8 @@ import type { CaseFile } from "./types";
 const ACTIVE_SESSION_KEY = "fire-agent-active-session";
 
 function App() {
-  const { loading: authLoading } = useAuth();
-  const { upsert: upsertProject } = useProjects();
+  const { user, loading: authLoading } = useAuth();
+  const { upsert: upsertProject, refresh: refreshProjects } = useProjects();
   const [activeView, setActiveView] = useState<ViewKey>("overview");
   const [caseFileState, setCaseFileState] = useState<CaseFile | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,6 +78,29 @@ function App() {
     },
     [],
   );
+
+  // Claim the open project when someone signs in mid-conversation.
+  // `owner_user_id` is otherwise only set at creation, so a project started
+  // while signed out stayed anonymous forever - invisible in Project
+  // History and the chat rail, even to the person who just created it.
+  // Claiming is idempotent server-side, so StrictMode's double-invoke and
+  // any retry are harmless.
+  useEffect(() => {
+    if (!user || !caseFileState || caseFileState.owner_user_id !== null) return;
+    const sessionId = caseFileState.session_id;
+    void api
+      .claimCaseFile(sessionId)
+      .then((claimed) => {
+        setCaseFileState((current) => (current?.session_id === sessionId ? claimed : current));
+        // The projects list was fetched at sign-in, before this case file
+        // had an owner, so it would not include it yet.
+        return refreshProjects();
+      })
+      .catch(() => {
+        // Already someone else's, or gone - either way there is nothing
+        // for the user to do about it, and the conversation still works.
+      });
+  }, [user, caseFileState, refreshProjects]);
 
   // Reopen the last project on reload, so a refresh doesn't strand the user
   // in a blank conversation with their history only reachable via Project
