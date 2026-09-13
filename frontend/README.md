@@ -68,6 +68,13 @@ what's actually implemented server-side.
   dialog (not `window.confirm`, which can't say what else goes with it, nor show a failed request).
   Deleting the *active* project clears the workspace back to a blank draft; deleting any other one
   leaves what you are working on alone.
+- **Case File history** (`pages/case-file/ActivityTimeline.tsx`) — the "History" card at the bottom
+  of the Case File page: every field that changed, what it changed from and to, where the change
+  came from (a direct edit, the conversation, a document, the system) and when. Fields set together
+  in one edit are folded into a single event rather than repeating the same timestamp down the
+  page, and it pages backwards with a cursor rather than loading a long project's whole history.
+  This is the per-field change log Project History never was - that page lists projects and shows
+  each one's *current* state.
 - **API client** (`src/api/client.ts`) — thin fetch wrapper (auto-attaches the auth token when
   signed in); `types.ts` derives `CaseFile`/`User`/etc. from a *generated* schema (`src/api/schema.ts`)
   instead of a hand-maintained duplicate — see "Generated API types" below.
@@ -122,7 +129,7 @@ conversation rather than see the graceful fallback message on every turn, `GROQ_
 ```bash
 npm run build   # type-checks (tsc -b) then produces dist/
 npm run lint    # oxlint
-npm test        # vitest run - 48 tests
+npm test        # vitest run - 74 tests
 ```
 
 ### Tests
@@ -143,6 +150,13 @@ actually broken here before, rather than chasing coverage:
   delete leaving the project listed instead of vanishing optimistically.
 - `projects/DeleteProjectDialog.test.tsx` — nothing is deleted until the destructive button is
   pressed, a failure keeps the dialog open, and it can't be double-submitted.
+- `lib/changeLog.test.ts` + `pages/case-file/ActivityTimeline.test.tsx` — history entries read as
+  prose (an absent value is "Not set", a list of structured rows is "3 entries" rather than raw
+  JSON), fields set together fold into one event, and paging asks for changes before the oldest one
+  already held.
+- `lib/relativeTime.test.ts` — unit selection, and that an offset-less API timestamp is read as UTC
+  rather than as local time (see the backend README's "UTC on every timestamp"): without that, a
+  change made seconds ago showed as hours ago for anyone outside UTC.
 
 Test files live beside the code in `src/`, so `tsc -b` type-checks them along with everything else —
 vitest alone does not, and that difference caught four real type errors in the fixtures the runner
@@ -170,11 +184,6 @@ browser check that a real API response still renders correctly end-to-end.
 
 ## Not yet built
 
-- **Project History is a project list, not a field-level change log** — `pages/history/ProjectHistoryPage.tsx`
-  lists every case file the signed-in account owns (via `GET /users/me/case-files`), lets you open
-  one back into its conversation (see "Conversation history" above) and delete it. It does NOT
-  track *what* changed and *when* within a single case file (no per-field diff/timeline) - that's a
-  real gap if "history" is taken to mean a change log rather than a project list.
 - **Chat titles are the project's name, not a summary of the conversation** - unlike Claude/ChatGPT,
   nothing generates a title from what was said; the rail shows whatever identifying facts the case
   file already holds. A chat started and abandoned before any of those are known still reads

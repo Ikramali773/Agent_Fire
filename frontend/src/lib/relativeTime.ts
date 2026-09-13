@@ -11,9 +11,20 @@ const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
 
 const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
+// An ISO string with no offset ("2026-09-13T07:13:16") is parsed by the
+// browser as LOCAL time. Every timestamp this API returns is UTC, so a row
+// written before the backend started emitting an offset would otherwise
+// read as hours out for anyone not in UTC - "just now" showing as "5 hours
+// ago". Labelling those as UTC is a correction, not a guess.
+const HAS_TIMEZONE = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+
+export function parseApiTimestamp(iso: string): Date {
+  return new Date(HAS_TIMEZONE.test(iso) ? iso : `${iso}Z`);
+}
+
 /** "2 hours ago", "yesterday", "just now" - for chat-history timestamps. */
 export function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
+  const then = parseApiTimestamp(iso).getTime();
   if (Number.isNaN(then)) return "";
   const elapsed = then - Date.now();
   const magnitude = Math.abs(elapsed);

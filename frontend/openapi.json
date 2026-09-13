@@ -786,6 +786,97 @@
         }
       }
     },
+    "/case-files/{session_id}/changes": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Get Changes",
+        "description": "The per-field change log for one case file, NEWEST first.\n\nThe answer to \"this building was 24 m yesterday and 68 m today - who\nchanged it, and off the back of what?\", which Project History (a\nproject list showing only current state) could never give. Returns the\nmost recent `limit` changes; page further back with `before_id`.",
+        "operationId": "get_changes_case_files__session_id__changes_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FieldChange"
+                  },
+                  "title": "Response Get Changes Case Files  Session Id  Changes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/case-files/{session_id}/message": {
       "post": {
         "tags": [
@@ -1427,6 +1518,17 @@
         ],
         "title": "CaseFile"
       },
+      "ChangeSource": {
+        "type": "string",
+        "enum": [
+          "user",
+          "dialogue",
+          "document",
+          "system"
+        ],
+        "title": "ChangeSource",
+        "description": "Where a change came from. Mirrors the provenance vocabulary the Case\nFile already uses for `field_sources`, plus the two ways a value can be\nset without a person typing it."
+      },
       "ClassificationResult": {
         "properties": {
           "applies": {
@@ -1587,6 +1689,71 @@
           "password"
         ],
         "title": "Credentials"
+      },
+      "FieldChange": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "old_value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Value",
+            "description": "The JSON value before the change. None for a field that had no value."
+          },
+          "new_value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value",
+            "description": "The JSON value after the change. None if the field was cleared."
+          },
+          "source": {
+            "$ref": "#/components/schemas/ChangeSource"
+          },
+          "actor_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor User Id",
+            "description": "The account that caused the change, when there was one. None for an anonymous session."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "field",
+          "source",
+          "created_at"
+        ],
+        "title": "FieldChange"
       },
       "FieldSource": {
         "properties": {

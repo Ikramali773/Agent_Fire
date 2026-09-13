@@ -20,13 +20,14 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
-from app import message_store
+from app import change_log, message_store
 from app.auth.dependencies import get_current_user_optional, get_current_user_required
 from app.dialogue.manager import handle_turn, start_conversation
 from app.engine.classifier import classify
 from app.ingest.apply import ingest_document
 from app.llm.client import LLMClient
 from app.models.case_file import CaseFile, ConversationStage
+from app.models.change_log import ChangeSource, FieldChange
 from app.models.conversation import ConversationMessage, MessageKind, MessageRole
 from app.models.user import User
 from app.reports.exporters import render_docx, render_pdf, safe_report_filename
@@ -132,24 +133,31 @@ def update_case_file(
     merged = {**case_file.model_dump(), **updates}
     updated = CaseFile.model_validate(merged)
     updated.updated_at = datetime.now(timezone.utc)
-    return store_save(updated)
+    saved = store_save(updated)
+    change_log.record(
+        case_file, saved, ChangeSource.USER, actor_user_id=current_user.id if current_user else None
+    )
+    return saved
 
 
 @router.delete("/{session_id}", status_code=204)
 def delete_case_file(
     session_id: str, current_user: User | None = Depends(get_current_user_optional)
 ) -> Response:
-    """Deletes a project: the case file AND its whole chat transcript.
+    """Deletes a project: the case file, its whole chat transcript AND its
+    change log.
 
-    Both, explicitly - a user deleting a project expects their conversation
-    to go with it, not to be left behind in the database. Irreversible;
-    there is no soft-delete/undo, so the UI confirms first.
+    All three, explicitly - a user deleting a project expects their
+    conversation and its history to go with it, not to be left behind in
+    the database. Irreversible; there is no soft-delete/undo, so the UI
+    confirms first.
     """
     case_file = store_get(session_id)
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
     _check_access(case_file, current_user)
     message_store.delete_for_session(session_id)
+    change_log.delete_for_session(session_id)
     store_delete(session_id)
     return Response(status_code=204)
 
@@ -193,10 +201,18 @@ def classify_case_file(
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
     _check_access(case_file, current_user)
+    before = case_file.model_copy(deep=True)
     case_file.classification_result = classify(case_file)
     case_file.conversation_stage = ConversationStage.CLASSIFIED
     case_file.updated_at = datetime.now(timezone.utc)
-    return store_save(case_file)
+    saved = store_save(case_file)
+    # Only the stage transition is logged, not the classification result
+    # itself - that is already stored in full as a structured transcript
+    # message (see app/models/change_log.py).
+    change_log.record(
+        before, saved, ChangeSource.SYSTEM, actor_user_id=current_user.id if current_user else None
+    )
+    return saved
 
 
 @router.post("/{session_id}/what-if", response_model=CaseFile)
@@ -275,8 +291,12 @@ def start(session_id: str, current_user: User | None = Depends(get_current_user_
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
     _check_access(case_file, current_user)
+    before = case_file.model_copy(deep=True)
     result = start_conversation(case_file)
     store_save(result.case_file)
+    change_log.record(
+        before, result.case_file, ChangeSource.SYSTEM, actor_user_id=current_user.id if current_user else None
+    )
     message_store.append(session_id, MessageRole.AGENT, result.agent_message)
     return {"agent_message": result.agent_message, "case_file": result.case_file}
 
@@ -301,6 +321,27 @@ def get_messages(
     return message_store.list_for_session(session_id, limit=limit, before_id=before_id)
 
 
+@router.get("/{session_id}/changes", response_model=list[FieldChange])
+def get_changes(
+    session_id: str,
+    limit: int = Query(default=change_log.DEFAULT_PAGE_SIZE, ge=1, le=change_log.MAX_PAGE_SIZE),
+    before_id: int | None = Query(default=None),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> list[FieldChange]:
+    """The per-field change log for one case file, NEWEST first.
+
+    The answer to "this building was 24 m yesterday and 68 m today - who
+    changed it, and off the back of what?", which Project History (a
+    project list showing only current state) could never give. Returns the
+    most recent `limit` changes; page further back with `before_id`.
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user)
+    return change_log.list_for_session(session_id, limit=limit, before_id=before_id)
+
+
 @router.post("/{session_id}/message")
 def send_message(
     session_id: str,
@@ -317,8 +358,15 @@ def send_message(
         raise HTTPException(status_code=422, detail="'message' is required")
 
     previous_stage = case_file.conversation_stage
+    # handle_turn mutates the case file in place, so this has to be a deep
+    # copy - keeping a reference would compare the result against itself
+    # and log nothing.
+    before = case_file.model_copy(deep=True)
     result = handle_turn(case_file, user_message, llm)
     store_save(result.case_file)
+    change_log.record(
+        before, result.case_file, ChangeSource.DIALOGUE, actor_user_id=current_user.id if current_user else None
+    )
 
     message_store.append(session_id, MessageRole.USER, user_message)
     message_store.append(session_id, MessageRole.AGENT, result.agent_message)
@@ -372,10 +420,16 @@ async def upload_document(
         raise HTTPException(status_code=413, detail="File too large (20 MB limit).")
 
     filename = file.filename or "upload"
+    # Same reason as /message: ingest_document merges into the case file
+    # it is given, so the "before" has to be a copy.
+    before = case_file.model_copy(deep=True)
     updated_case_file, summary = ingest_document(
         case_file, file_bytes, file.content_type, filename, llm
     )
     store_save(updated_case_file)
+    change_log.record(
+        before, updated_case_file, ChangeSource.DOCUMENT, actor_user_id=current_user.id if current_user else None
+    )
     # Recorded as a structured message (not prose) so a reloaded transcript
     # re-renders the same extraction-result card the user saw live.
     message_store.append(

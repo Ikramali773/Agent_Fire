@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 from app.db.models import ConversationMessageRecord
 from app.db.session import get_session
+from app.timestamps import as_utc
 from app.models.conversation import ConversationMessage, MessageKind, MessageRole
 
 # The default page size for a transcript read. Large enough that a normal
@@ -34,7 +35,7 @@ def _to_message(record: ConversationMessageRecord) -> ConversationMessage:
         kind=MessageKind(record.kind),
         text=record.text,
         payload=record.payload,
-        created_at=record.created_at,
+        created_at=as_utc(record.created_at),
     )
 
 

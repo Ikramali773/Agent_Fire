@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import type { ReactNode } from "react";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { parseApiTimestamp } from "../lib/relativeTime";
 import type { CaseFile } from "../types";
 
 interface ProjectsContextValue {
@@ -19,7 +20,7 @@ interface ProjectsContextValue {
 const ProjectsContext = createContext<ProjectsContextValue | null>(null);
 
 function byUpdatedAtDesc(a: CaseFile, b: CaseFile): number {
-  return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  return parseApiTimestamp(b.updated_at).getTime() - parseApiTimestamp(a.updated_at).getTime();
 }
 
 // One place that owns "the signed-in account's projects", so the chat

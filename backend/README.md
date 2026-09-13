@@ -188,6 +188,32 @@ Part B):
     Inside the Case File's JSON blob, every message would rewrite the entire history and then ship
     all of it on every case file response - quadratic in a long project. One indexed row per
     message keeps an append O(1) and lets a long conversation be paged instead of loaded whole.
+- **Case File change log** (`app/models/change_log.py`, `app/change_log.py`, Phase 2) — the per-field
+  audit trail, read back via `GET /case-files/{id}/changes` (newest-first, `limit` + `before_id`
+  cursor). Every endpoint that mutates a case file records what changed and where it came from:
+  `PUT` as `user`, a conversational turn as `dialogue`, a document upload as `document`, a stage
+  transition as `system`, each with the acting account when there is one. This is what Project
+  History (a project *list* showing current state only) could never answer: "this building was 24 m
+  yesterday and 68 m today - who changed it, and off the back of what?".
+  - **Scope, deliberately**: it logs Case File FACTS. The classification result is not duplicated
+    here - every classification is already stored in the transcript as a structured
+    `classification_result` message with its full payload, and a second copy would be one more
+    thing to keep in step. The `conversation_stage` transition to "classified" IS logged, so the
+    timeline still shows when it happened. `field_sources` is excluded too: it changes alongside
+    nearly every field, so logging it would double the timeline's length to repeat what each
+    entry's own `source` already says.
+  - **Why its own table**: the same reason the transcript has one - a change log is append-only and
+    unbounded, `record` is one INSERT per changed field, and old rows are never rewritten.
+  - A `what-if` never appears in it (it reclassifies a hypothetical copy and is never persisted),
+    and a no-op `PUT` writes nothing rather than padding the timeline.
+- **UTC on every timestamp** — `CaseFile.created_at`/`updated_at` used `datetime.utcnow()` (naive)
+  and SQLite's `DateTime(timezone=True)` drops `tzinfo` on read, so the API emitted
+  `"2026-09-13T07:13:16"` with no offset. A browser parses an ISO string with no offset as *local*
+  time, which meant a change made seconds ago read as hours ago for every user outside UTC. The
+  model default is now timezone-aware and `app/timestamps.py::as_utc` re-labels anything read back
+  from the database - including Case File rows written before the fix, whose blobs still hold a
+  naive timestamp. (The frontend also treats an offset-less timestamp as UTC, so an existing
+  database displays correctly without a migration.)
 - **`POST /case-files/{id}/claim`** (Phase 2) — attaches an anonymous case file to the calling
   account. The one operation that may set `owner_user_id` after creation, closing a real gap: a
   project started before signing in used to stay anonymous forever, invisible in Project History
@@ -196,8 +222,8 @@ Part B):
   harmless), and claiming someone else's is the same 403 as any other access, so this can never
   become a way to take over a project by guessing a session id.
 - **`DELETE /case-files/{id}`** (Phase 2) — deletes a project: the case file AND its whole
-  transcript, in one step. Both, explicitly - a user deleting a project expects their conversation
-  to go with it, not to be left behind in the database. Irreversible (no soft-delete, no undo), so
+  transcript AND its change log, in one step. All three, explicitly - a user deleting a project
+  expects their conversation and its history to go with it, not to be left behind in the database. Irreversible (no soft-delete, no undo), so
   the frontend confirms first. Ownership is enforced by the same `_check_access()` as every other
   endpoint, so one account can never delete another's project.
 - **`GET /case-files/opening-message`** (Phase 2) — the assistant's greeting for a case file that

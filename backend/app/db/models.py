@@ -62,6 +62,34 @@ class ConversationMessageRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class CaseFileChangeRecord(Base):
+    """One row per changed field - normalized for the same reason
+    ConversationMessageRecord is (see app/models/change_log.py): a change
+    log is append-only and unbounded, so it must not live inside the Case
+    File's JSON blob where every edit would rewrite the whole history.
+
+    The integer primary key gives a total ordering: one PUT can change
+    several fields at once and they all land in the same clock tick, so
+    created_at alone is not a reliable sort key.
+
+    old_value/new_value are JSON columns rather than strings because a
+    Case File field can be a scalar, a list (existing_fire_systems) or a
+    list of objects (occupancy_breakdown, floor_wise_area) - stringifying
+    them would make the log unable to show what actually changed.
+    """
+
+    __tablename__ = "case_file_changes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    field: Mapped[str] = mapped_column(String, nullable=False)
+    old_value: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    new_value: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    source: Mapped[str] = mapped_column(String, nullable=False)
+    actor_user_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class UserRecord(Base):
     """Phase 2 (accounts). hashed_password never leaves app/auth/user_store.py -
     every API-facing model is app/models/user.py's User, which has no

@@ -258,6 +258,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/case-files/{session_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Changes
+         * @description The per-field change log for one case file, NEWEST first.
+         *
+         *     The answer to "this building was 24 m yesterday and 68 m today - who
+         *     changed it, and off the back of what?", which Project History (a
+         *     project list showing only current state) could never give. Returns the
+         *     most recent `limit` changes; page further back with `before_id`.
+         */
+        get: operations["get_changes_case_files__session_id__changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/case-files/{session_id}/message": {
         parameters: {
             query?: never;
@@ -500,6 +525,14 @@ export interface components {
              */
             updated_at?: string;
         };
+        /**
+         * ChangeSource
+         * @description Where a change came from. Mirrors the provenance vocabulary the Case
+         *     File already uses for `field_sources`, plus the two ways a value can be
+         *     set without a person typing it.
+         * @enum {string}
+         */
+        ChangeSource: "user" | "dialogue" | "document" | "system";
         /** ClassificationResult */
         ClassificationResult: {
             /** Applies */
@@ -571,6 +604,36 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /** FieldChange */
+        FieldChange: {
+            /** Id */
+            id: number;
+            /** Session Id */
+            session_id: string;
+            /** Field */
+            field: string;
+            /**
+             * Old Value
+             * @description The JSON value before the change. None for a field that had no value.
+             */
+            old_value?: unknown | null;
+            /**
+             * New Value
+             * @description The JSON value after the change. None if the field was cleared.
+             */
+            new_value?: unknown | null;
+            source: components["schemas"]["ChangeSource"];
+            /**
+             * Actor User Id
+             * @description The account that caused the change, when there was one. None for an anonymous session.
+             */
+            actor_user_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** FieldSource */
         FieldSource: {
@@ -1148,6 +1211,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConversationMessage"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_changes_case_files__session_id__changes_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before_id?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldChange"][];
                 };
             };
             /** @description Validation Error */

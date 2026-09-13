@@ -4,6 +4,7 @@ import type {
   ChatTurnResponse,
   ConversationMessage,
   DocumentUploadResponse,
+  FieldChange,
   User,
 } from "../types";
 
@@ -85,6 +86,16 @@ export const api = {
 
   getMessages: (sessionId: string) =>
     request<ConversationMessage[]>(`/case-files/${sessionId}/messages`),
+
+  // The per-field change log, newest first. `beforeId` pages further back:
+  // pass the id of the oldest change already held.
+  getChanges: (sessionId: string, options: { limit?: number; beforeId?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (options.limit !== undefined) params.set("limit", String(options.limit));
+    if (options.beforeId !== undefined) params.set("before_id", String(options.beforeId));
+    const query = params.toString();
+    return request<FieldChange[]>(`/case-files/${sessionId}/changes${query ? `?${query}` : ""}`);
+  },
 
   // Attaches a case file started while signed out to the account that is
   // now signed in. Only works on an unowned one (see claim_case_file).

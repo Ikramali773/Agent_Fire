@@ -8,11 +8,13 @@ ever *extend* this contract per section A.4) can all agree on field names.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.timestamps import as_utc
 
 
 class OccupancyType(str, Enum):
@@ -212,5 +214,20 @@ class CaseFile(BaseModel):
 
     conversation_stage: ConversationStage = ConversationStage.INTAKE
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    # Timezone-AWARE UTC, not datetime.utcnow(): a naive timestamp
+    # serializes without an offset, and a browser parsing
+    # "2026-09-13T07:13:16" treats it as LOCAL time - so a change made
+    # seconds ago read as hours ago for every user outside UTC. (utcnow is
+    # also deprecated from Python 3.12.)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @field_validator("created_at", "updated_at")
+    @classmethod
+    def _label_naive_timestamps_as_utc(cls, value: datetime) -> datetime:
+        """Case files persisted before the fix above hold a naive
+        timestamp in their JSON blob. They were UTC all along, so say so
+        on the way out rather than leaving old projects showing the wrong
+        "last updated" time in every non-UTC browser.
+        """
+        return as_utc(value)

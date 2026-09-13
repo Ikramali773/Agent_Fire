@@ -19,6 +19,8 @@ export type CaseFile = Required<components["schemas"]["CaseFile"]>;
 export type User = Required<components["schemas"]["User"]>;
 export type AuthResponse = Required<components["schemas"]["AuthResponse"]>;
 export type ConversationMessage = Required<components["schemas"]["ConversationMessage"]>;
+export type FieldChange = Required<components["schemas"]["FieldChange"]>;
+export type ChangeSource = components["schemas"]["ChangeSource"];
 
 export interface ChatTurnResponse {
   agent_message: string;

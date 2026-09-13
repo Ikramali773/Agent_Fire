@@ -6,6 +6,7 @@ import { EmptyState } from "../../design-system/components/EmptyState";
 import { StatusPill } from "../../design-system/components/StatusPill";
 import { fieldMeta, formatLabel, formatValue } from "../../lib/caseFileFields";
 import type { CaseFile } from "../../types";
+import { ActivityTimeline } from "./ActivityTimeline";
 import { parseBoolean, parseNumberOrNull, parseStringList } from "./editableFields";
 import "./CaseFilePage.css";
 
@@ -16,6 +17,9 @@ interface Props {
 
 export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
   const [error, setError] = useState<string | null>(null);
+  // Bumped after every successful save so the history below picks up the
+  // change that was just made, without refetching it on every render.
+  const [historyKey, setHistoryKey] = useState(0);
 
   if (!caseFile) {
     return (
@@ -30,6 +34,7 @@ export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
     try {
       const updated = await api.updateCaseFile(caseFile.session_id, { [key]: value });
       onCaseFileChange(updated);
+      setHistoryKey((key) => key + 1);
     } catch (err) {
       setError(err instanceof ApiError ? `Could not save that change (${err.status}). ${err.message}` : "Could not save that change.");
     }
@@ -259,6 +264,12 @@ export function CaseFilePage({ caseFile, onCaseFileChange }: Props) {
             </table>
           </Card>
         )}
+        <Card title="History">
+          {/* The per-field audit trail. Project History is a project LIST
+              showing each case file's current state; this is the "what
+              changed, when, and off the back of what" for this one. */}
+          <ActivityTimeline sessionId={caseFile.session_id} refreshKey={historyKey} />
+        </Card>
       </div>
     </div>
   );

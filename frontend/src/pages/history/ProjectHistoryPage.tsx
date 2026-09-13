@@ -6,6 +6,7 @@ import { Button } from "../../design-system/components/Button";
 import { EmptyState } from "../../design-system/components/EmptyState";
 import { StatusPill } from "../../design-system/components/StatusPill";
 import { formatLabel, normalizeClassification } from "../../lib/caseFileFields";
+import { parseApiTimestamp } from "../../lib/relativeTime";
 import { DeleteProjectDialog } from "../../projects/DeleteProjectDialog";
 import { useProjects } from "../../projects/ProjectsContext";
 import { overallStatus } from "../compliance/complianceStatus";
@@ -103,7 +104,7 @@ export function ProjectHistoryPage({ activeSessionId, onOpenCaseFile, onStartNew
                   <td>{[caseFile.city, caseFile.state].filter(Boolean).join(", ") || "Not yet known"}</td>
                   <td>{formatLabel(caseFile.project_stage)}</td>
                   <td>{isClassified ? <StatusPill status={overallStatus(result)} size="sm" /> : <StatusPill status="unknown" label="Not classified" size="sm" />}</td>
-                  <td className="tabular-nums">{new Date(caseFile.updated_at).toLocaleString()}</td>
+                  <td className="tabular-nums">{parseApiTimestamp(caseFile.updated_at).toLocaleString()}</td>
                   <td>
                     <div className="ds-project-history__actions">
                       {/* Opens the conversation, not the field view - picking
