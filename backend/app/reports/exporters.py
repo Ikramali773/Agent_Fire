@@ -7,9 +7,11 @@ invents or reformats facts. Markdown -> HTML (via the `markdown` package)
 -> PDF (via PyMuPDF's Story/DocumentWriter, already a dependency for the
 OCR pipeline - no new heavy/system dependency needed) or -> DOCX (a small
 HTML walker over python-docx, since python-docx has no Markdown importer
-of its own). The report's markdown is a fixed, simple subset (headings,
-paragraphs, a flat bullet list, bold/italic) - see generator.py - so this
-walker deliberately doesn't need to handle tables, images, or nested lists.
+of its own). The markdown these render is a fixed, simple subset -
+headings, paragraphs, flat bullet lists, bold/italic, and (since the Phase 3
+handoff pack) flat tables. Still no images and no nested lists: the
+generators do not emit them, and a walker that pretends to support what it
+has never been given is how silent wrong output happens.
 """
 
 from __future__ import annotations
@@ -36,8 +38,14 @@ body, p, li { font-size: 10.5pt; line-height: 1.4; }
 """
 
 
-def render_pdf(case_file: CaseFile) -> bytes:
-    html_body = _markdown.markdown(generate_report_markdown(case_file), extensions=["extra"])
+def render_pdf(markdown_text: str) -> bytes:
+    """Renders ANY of this app's markdown documents to PDF.
+
+    Takes the markdown rather than a CaseFile so the report and the Phase 3
+    consultant handoff (app/reports/handoff.py) share one renderer instead
+    of growing a second, subtly different one.
+    """
+    html_body = _markdown.markdown(markdown_text, extensions=["extra"])
 
     def contentfn(positions):
         return html_body
@@ -65,8 +73,27 @@ class _DocxHtmlWalker(HTMLParser):
         self._bold = False
         self._italic = False
         self._code = False
+        # Table state. Cells are buffered as plain text and the whole table
+        # is emitted at </table>, because python-docx needs its dimensions
+        # up front - it cannot grow a table row by row as HTML arrives.
+        self._table_rows: list[list[str]] | None = None
+        self._row: list[str] | None = None
+        self._cell: list[str] | None = None
+        self._header_row_index: int | None = None
 
     def handle_starttag(self, tag: str, attrs) -> None:
+        if tag == "table":
+            self._table_rows = []
+            self._header_row_index = None
+            return
+        if self._table_rows is not None:
+            if tag == "tr":
+                self._row = []
+            elif tag in ("td", "th"):
+                self._cell = []
+                if tag == "th" and self._header_row_index is None:
+                    self._header_row_index = len(self._table_rows)
+            return
         if tag in ("h1", "h2", "h3"):
             self._paragraph = self._document.add_heading(level=int(tag[1]))
         elif tag == "p":
@@ -83,6 +110,16 @@ class _DocxHtmlWalker(HTMLParser):
             self._paragraph.add_run().add_break()
 
     def handle_endtag(self, tag: str) -> None:
+        if self._table_rows is not None:
+            if tag in ("td", "th") and self._row is not None and self._cell is not None:
+                self._row.append("".join(self._cell).strip())
+                self._cell = None
+            elif tag == "tr" and self._row is not None:
+                self._table_rows.append(self._row)
+                self._row = None
+            elif tag == "table":
+                self._emit_table()
+            return
         if tag in ("strong", "b"):
             self._bold = False
         elif tag in ("em", "i"):
@@ -92,7 +129,34 @@ class _DocxHtmlWalker(HTMLParser):
         elif tag in ("p", "li", "h1", "h2", "h3"):
             self._paragraph = None
 
+    def _emit_table(self) -> None:
+        rows = [row for row in (self._table_rows or []) if row]
+        header_index = self._header_row_index
+        self._table_rows = None
+        self._header_row_index = None
+        if not rows:
+            return
+        columns = max(len(row) for row in rows)
+        table = self._document.add_table(rows=len(rows), cols=columns)
+        table.style = "Table Grid"
+        for row_index, row in enumerate(rows):
+            for column_index in range(columns):
+                cell = table.cell(row_index, column_index)
+                text = row[column_index] if column_index < len(row) else ""
+                cell.text = text
+                if row_index == header_index and cell.paragraphs[0].runs:
+                    cell.paragraphs[0].runs[0].bold = True
+        # Anything after the table starts a fresh paragraph rather than
+        # appending into the last cell.
+        self._paragraph = None
+
     def handle_data(self, data: str) -> None:
+        if self._cell is not None:
+            self._cell.append(data)
+            return
+        if self._table_rows is not None:
+            # Whitespace between table tags - not content.
+            return
         if self._paragraph is None:
             if not data.strip():
                 return
@@ -104,8 +168,9 @@ class _DocxHtmlWalker(HTMLParser):
             run.font.name = "Courier New"
 
 
-def render_docx(case_file: CaseFile) -> bytes:
-    html_body = _markdown.markdown(generate_report_markdown(case_file), extensions=["extra"])
+def render_docx(markdown_text: str) -> bytes:
+    """DOCX counterpart of render_pdf - same reason for taking markdown."""
+    html_body = _markdown.markdown(markdown_text, extensions=["extra"])
     document = Document()
     _DocxHtmlWalker(document).feed(html_body)
     buffer = io.BytesIO()

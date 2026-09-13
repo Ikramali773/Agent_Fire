@@ -43,6 +43,7 @@ export function normalizeClassification(raw: CaseFile["classification_result"]):
     applicable_state_checklist_id: raw.applicable_state_checklist_id ?? null,
     is_high_rise: raw.is_high_rise ?? null,
     require_human_review_flag: raw.require_human_review_flag,
+    review_reasons: raw.review_reasons ?? [],
     protection_level: raw.protection_level ?? null,
     notes: raw.notes ?? [],
   };

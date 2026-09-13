@@ -14,6 +14,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.models.review import ReviewReason
 from app.timestamps import as_utc
 
 
@@ -132,6 +133,16 @@ class ClassificationResult(BaseModel):
     applicable_state_checklist_id: Optional[str] = None
     is_high_rise: Optional[bool] = None
     require_human_review_flag: bool = False
+    review_reasons: list[ReviewReason] = Field(
+        default_factory=list,
+        description=(
+            "Phase 3: WHY a person has to look at this, typed so the review queue can group "
+            "and filter by it. Always consistent with require_human_review_flag - the "
+            "classifier sets both through one helper (see engine/classifier.py::_flag_review), "
+            "so the flag is true exactly when this is non-empty. Each reason's `detail` is "
+            "the same prose as its matching entry in `notes`."
+        ),
+    )
     protection_level: Optional[str] = Field(
         default=None, description="e.g. 'HL-3' or 'CL-4' from Table 7A-7J"
     )

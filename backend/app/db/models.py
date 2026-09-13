@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -87,6 +87,56 @@ class CaseFileChangeRecord(Base):
     new_value: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     source: Mapped[str] = mapped_column(String, nullable=False)
     actor_user_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CaseFileGrantRecord(Base):
+    """Phase 3: one row per person a case file has been shared with.
+
+    Its own table rather than a list on the Case File, for the same reason
+    ownership is a column: "which case files can I see?" is a query, and
+    answering it by scanning every row's JSON blob in Python does not
+    survive a real number of projects.
+
+    (session_id, granted_to_user_id) is unique - sharing with the same
+    person twice is the same grant, not two.
+    """
+
+    __tablename__ = "case_file_grants"
+    __table_args__ = (
+        UniqueConstraint("session_id", "granted_to_user_id", name="uq_case_file_grant"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    granted_to_user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    granted_to_email: Mapped[str] = mapped_column(String, nullable=False)
+    granted_by_user_id: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CaseFileReviewRecord(Base):
+    """Phase 3: one row per review verdict - append-only, like the
+    transcript and the change log.
+
+    Never updated in place: a compliance sign-off's value is that the whole
+    sequence is visible, including a case that was approved, reopened after
+    a fact changed, and approved again. The CURRENT status is simply the
+    latest row (see app/review_store.py::current_status).
+
+    The integer primary key is the ordering, not created_at: two verdicts
+    recorded in the same second must still have an unambiguous order.
+    """
+
+    __tablename__ = "case_file_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    actor_user_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    actor_email: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 

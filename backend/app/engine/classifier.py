@@ -20,12 +20,27 @@ from app.models.case_file import (
     IndustrialHazardBand,
     OccupancyType,
 )
+from app.models.review import ReviewReason, ReviewReasonCode
 
 # Occupancies that carry a mandatory human/expert review flag regardless of
 # how confident the deterministic lookup is (product scope B.6.3 / B.12).
 _MANDATORY_REVIEW_OCCUPANCIES = {OccupancyType.INSTITUTIONAL, OccupancyType.HAZARDOUS}
 
 _COMPARATOR_SUFFIXES = ("_gte", "_gt", "_lte", "_lt")
+
+
+def _flag_review(result: ClassificationResult, code: ReviewReasonCode, detail: str) -> None:
+    """The ONE way this engine says "a person has to look at this".
+
+    Sets the flag, records the typed reason and appends the same prose to
+    `notes` together, so the three can never drift apart. Before Phase 3
+    each of the call sites below set the flag and appended a note by hand -
+    exactly the shape of code where one branch eventually flags without
+    explaining, or explains without flagging.
+    """
+    result.require_human_review_flag = True
+    result.review_reasons.append(ReviewReason(code=code, detail=detail))
+    result.notes.append(detail)
 
 
 @dataclass
@@ -291,6 +306,22 @@ def classify(case_file: CaseFile) -> ClassificationResult:
 def _classify_single_occupancy(case_file: CaseFile, occupancy_key: str) -> ClassificationResult:
     result = ClassificationResult()
 
+    # FIRST, before anything that can return early. This flag is "regardless
+    # of how confident the deterministic lookup is" (B.6.3/B.12), and that
+    # includes the case where Part F turns out not to apply at all: an
+    # Institutional or Hazardous building below the applicability threshold
+    # is exactly the kind of call nobody should be taking from an automated
+    # answer. It previously sat after the "does not apply" early return, so
+    # those cases came back unflagged.
+    if case_file.occupancy_type in _MANDATORY_REVIEW_OCCUPANCIES:
+        _flag_review(
+            result,
+            ReviewReasonCode.MANDATORY_OCCUPANCY,
+            f"{case_file.occupancy_type.value} occupancy carries a mandatory "
+            "human/expert review flag - never present this classification as "
+            "fully automated or final without specialist consultation.",
+        )
+
     try:
         applies, note = check_applicability(
             occupancy_key,
@@ -299,7 +330,12 @@ def _classify_single_occupancy(case_file: CaseFile, occupancy_key: str) -> Class
             case_file.built_up_area_sqm,
         )
     except ClassificationError as exc:
-        result.notes.append(str(exc))
+        # Being unable to decide applicability IS the definition of needing
+        # a person. This used to append the note and return unflagged,
+        # while the identical failure one step later (the Table 7 lookup)
+        # did flag - the same blocker reaching the user two different ways
+        # depending on which line it happened on.
+        _flag_review(result, ReviewReasonCode.CLASSIFICATION_ERROR, str(exc))
         return result
 
     result.applies = applies
@@ -323,8 +359,7 @@ def _classify_single_occupancy(case_file: CaseFile, occupancy_key: str) -> Class
             case_file.occupancy_subdivision,
         )
     except ClassificationError as exc:
-        result.notes.append(str(exc))
-        result.require_human_review_flag = True
+        _flag_review(result, ReviewReasonCode.CLASSIFICATION_ERROR, str(exc))
         return result
     result.table_7_ref = lookup.table_ref
 
@@ -337,13 +372,14 @@ def _classify_single_occupancy(case_file: CaseFile, occupancy_key: str) -> Class
         )
 
     if not lookup.matched_bands:
-        result.notes.append(
+        _flag_review(
+            result,
+            ReviewReasonCode.NO_BAND_MATCHED,
             f"No Table {lookup.table_ref} band matched this building's height/area "
             "- likely means the source table only gives a hydraulic-calculation "
             "note for this range (see the table's 'SEE_NOTE' bands) or the case "
-            "needs additional facts. Route to human review."
+            "needs additional facts. Route to human review.",
         )
-        result.require_human_review_flag = True
     else:
         band = lookup.matched_bands[0]
         result.protection_level = band.band_id
@@ -364,26 +400,19 @@ def _classify_single_occupancy(case_file: CaseFile, occupancy_key: str) -> Class
                 "as final."
             )
         if lookup.ambiguous:
-            result.notes.append(
+            _flag_review(
+                result,
+                ReviewReasonCode.AMBIGUOUS_BAND,
                 f"More than one Table {lookup.table_ref} band matched this "
                 "building's height/area - the most specific/first match was used. "
-                "Review the other candidate bands before finalizing."
+                "Review the other candidate bands before finalizing.",
             )
-            result.require_human_review_flag = True
 
     if result.is_high_rise:
         annex_d = rules_loader.get_annex_d_high_rise()
         result.applicable_clauses.append(
             f"High Rise (height >= 24 m, clause 2.39): {annex_d['title']} (Annex D) "
             "applies in addition to the Table 7 requirements above."
-        )
-
-    if case_file.occupancy_type in _MANDATORY_REVIEW_OCCUPANCIES:
-        result.require_human_review_flag = True
-        result.notes.append(
-            f"{case_file.occupancy_type.value} occupancy carries a mandatory "
-            "human/expert review flag - never present this classification as "
-            "fully automated or final without specialist consultation."
         )
 
     return result
@@ -434,11 +463,12 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
 
     breakdown = case_file.occupancy_breakdown
     if len(breakdown) < 2:
-        result.notes.append(
+        _flag_review(
+            result,
+            ReviewReasonCode.INCOMPLETE_MIXED_BREAKDOWN,
             "Mixed Use classification needs at least two occupancy_breakdown "
-            f"components (case_file.occupancy_breakdown) - only {len(breakdown)} given."
+            f"components (case_file.occupancy_breakdown) - only {len(breakdown)} given.",
         )
-        result.require_human_review_flag = True
         return result
 
     component_keys: list[str] = []
@@ -450,11 +480,12 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
         occupancy_key = item.type.value
 
         if occupancy_key == "Mixed Use":
-            result.notes.append(
+            _flag_review(
+                result,
+                ReviewReasonCode.INVALID_MIXED_COMPONENT,
                 "A Mixed Use component cannot itself be 'Mixed Use' - skipped; "
-                "list its actual occupancies instead."
+                "list its actual occupancies instead.",
             )
-            result.require_human_review_flag = True
             continue
 
         if item.type in _MANDATORY_REVIEW_OCCUPANCIES:
@@ -465,16 +496,16 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
         try:
             component_keys.append(_separation_matrix_key(occupancy_key, hazard_band))
         except ClassificationError as exc:
-            result.notes.append(str(exc))
-            result.require_human_review_flag = True
+            _flag_review(result, ReviewReasonCode.CLASSIFICATION_ERROR, str(exc))
             continue
 
         if item.floor_area_sqm is None:
-            result.notes.append(
+            _flag_review(
+                result,
+                ReviewReasonCode.MISSING_COMPONENT_AREA,
                 f"{occupancy_key} component ({item.floor_range}) has no floor_area_sqm - "
-                "cannot classify this component; route to human review."
+                "cannot classify this component; route to human review.",
             )
-            result.require_human_review_flag = True
             continue
 
         try:
@@ -482,8 +513,11 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
                 occupancy_key, hazard_band, case_file.height_m, item.floor_area_sqm
             )
         except ClassificationError as exc:
-            result.notes.append(f"{occupancy_key} component ({item.floor_range}): {exc}")
-            result.require_human_review_flag = True
+            _flag_review(
+                result,
+                ReviewReasonCode.CLASSIFICATION_ERROR,
+                f"{occupancy_key} component ({item.floor_range}): {exc}",
+            )
             continue
         if applies:
             any_applies = True
@@ -498,16 +532,20 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
                 item.subdivision,
             )
         except ClassificationError as exc:
-            result.notes.append(f"{occupancy_key} component ({item.floor_range}): {exc}")
-            result.require_human_review_flag = True
+            _flag_review(
+                result,
+                ReviewReasonCode.CLASSIFICATION_ERROR,
+                f"{occupancy_key} component ({item.floor_range}): {exc}",
+            )
             continue
 
         if not lookup.matched_bands:
-            result.notes.append(
+            _flag_review(
+                result,
+                ReviewReasonCode.NO_BAND_MATCHED,
                 f"No Table {lookup.table_ref} band matched the {occupancy_key} component "
-                f"({item.floor_range}) - route to human review."
+                f"({item.floor_range}) - route to human review.",
             )
-            result.require_human_review_flag = True
             continue
 
         band = lookup.matched_bands[0]
@@ -523,12 +561,13 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
                 "against the source document before treating this as final."
             )
         if lookup.ambiguous:
-            result.notes.append(
+            _flag_review(
+                result,
+                ReviewReasonCode.AMBIGUOUS_BAND,
                 f"More than one Table {lookup.table_ref} band matched the "
                 f"{occupancy_key} component ({item.floor_range}) - the most specific/"
-                "first match was used. Review the other candidate bands."
+                "first match was used. Review the other candidate bands.",
             )
-            result.require_human_review_flag = True
 
     result.applies = any_applies if component_keys else None
 
@@ -562,11 +601,12 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
             if rating is None:
                 rating = separation_matrix.get(key_b, {}).get(key_a)
             if rating is None:
-                result.notes.append(
+                _flag_review(
+                    result,
+                    ReviewReasonCode.MISSING_SEPARATION_RATING,
                     f"No separation rating found between {key_a} and {key_b} in the "
-                    "Group K separation matrix - route to human review."
+                    "Group K separation matrix - route to human review.",
                 )
-                result.require_human_review_flag = True
             elif rating == "NP":
                 not_permitted_pairs.append((key_a, key_b))
             else:
@@ -576,13 +616,13 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
                 )
 
     for key_a, key_b in not_permitted_pairs:
-        result.notes.append(
+        _flag_review(
+            result,
+            ReviewReasonCode.NOT_PERMITTED_COMBINATION,
             f"⚠ {key_a} and {key_b} is a NOT PERMITTED occupancy combination "
             "per the Group K separation table (clause 3.1.11) - this combination "
-            "requires either a design change or specialist/authority approval."
+            "requires either a design change or specialist/authority approval.",
         )
-    if not_permitted_pairs:
-        result.require_human_review_flag = True
 
     if case_file.number_of_staircases == 1:
         result.notes.append(SINGLE_STAIRCASE_SURVIVOR_NOTE)
@@ -596,12 +636,13 @@ def classify_mixed_use(case_file: CaseFile) -> ClassificationResult:
         )
 
     if mandatory_review_component:
-        result.require_human_review_flag = True
-        result.notes.append(
+        _flag_review(
+            result,
+            ReviewReasonCode.MANDATORY_OCCUPANCY,
             "This Mixed Use building includes an Institutional and/or Hazardous "
             "component, which carries a mandatory human/expert review flag - never "
             "present this classification as fully automated or final without "
-            "specialist consultation."
+            "specialist consultation.",
         )
 
     return result

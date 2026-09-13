@@ -226,7 +226,7 @@
           "case-files"
         ],
         "summary": "Delete Case File",
-        "description": "Deletes a project: the case file, its whole chat transcript AND its\nchange log.\n\nAll three, explicitly - a user deleting a project expects their\nconversation and its history to go with it, not to be left behind in\nthe database. Irreversible; there is no soft-delete/undo, so the UI\nconfirms first.",
+        "description": "Deletes a project and everything attached to it: the case file, its\nchat transcript, its change log, its review history and every share.\n\nAll of it, explicitly - a user deleting a project expects their\nconversation and its history to go with it, not to be left behind in\nthe database, and a share left behind would put a dead row in a\nreviewer's queue. Irreversible; there is no soft-delete/undo, so the UI\nconfirms first.",
         "operationId": "delete_case_file_case_files__session_id__delete",
         "parameters": [
           {
@@ -317,6 +317,327 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/review": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Get Review",
+        "description": "The review state of one case: why it was flagged, where it stands,\nand everything anyone has recorded about it.",
+        "operationId": "get_review_case_files__session_id__review_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Record Review",
+        "description": "Records a reviewer's verdict.\n\nREAD access, deliberately: recording a verdict is precisely what a\nshared-with reviewer is here to do, and it changes nothing about the\ncase file itself.\n\nIt NEVER rewrites the classification. That is the whole architecture of\nthis feature, not an implementation detail - product scope Part G\nPrinciple 1 is \"LLM reasons and explains; deterministic engines\ndecide\", and letting a person hand-edit the engine's verdict breaks it\nexactly as surely as letting the LLM do it. A reviewer who believes the\noutput is wrong changes the FACTS (PUT /case-files/{id}, which they can\nonly do if they own it) and the engine reclassifies from those. Their\nopinion is recorded alongside the classification, never on top of it.",
+        "operationId": "record_review_case_files__session_id__review_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/shares": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "List Shares",
+        "description": "Who this project is shared with. READ, so a reviewer can see who\nelse is looking at the same case - useful, and not sensitive to anyone\nwho can already read the project.",
+        "operationId": "list_shares_case_files__session_id__shares_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CaseFileGrant"
+                  },
+                  "title": "Response List Shares Case Files  Session Id  Shares Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Create Share",
+        "description": "Shares a project with a reviewer, by the email of their account.\n\nOWN, not WRITE: a reviewer must never be able to pass someone else's\nproject onward. Requires the recipient to already have an account -\ninviting an address that has never signed up would mean sending mail,\nwhich this product does not do, and silently creating an account for\nsomeone is worse than an honest 404.",
+        "operationId": "create_share_case_files__session_id__shares_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFileGrant"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/shares/{granted_to_user_id}": {
+      "delete": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Revoke Share",
+        "description": "Revokes a share. Immediate - the reviewer's next request is a 403.\n\nTheir already-recorded verdicts stay: a review that happened, happened,\nand deleting the record of it because access was withdrawn would make\nthe history lie.",
+        "operationId": "revoke_share_case_files__session_id__shares__granted_to_user_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "granted_to_user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Granted To User Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -585,6 +906,181 @@
         "summary": "Get Report Docx",
         "description": "Phase 2: a real DOCX counterpart to /report.pdf above.",
         "operationId": "get_report_docx_case_files__session_id__report_docx_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/handoff": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Get Handoff",
+        "description": "Phase 3: the consultant handoff pack as markdown - the report, plus\nwhy review is required, where every fact came from, and what has\nchanged. See app/reports/handoff.py for why those three.",
+        "operationId": "get_handoff_case_files__session_id__handoff_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Handoff Case Files  Session Id  Handoff Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/handoff.pdf": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Get Handoff Pdf",
+        "description": "The handoff pack as a PDF, through the same renderer as the report.",
+        "operationId": "get_handoff_pdf_case_files__session_id__handoff_pdf_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/handoff.docx": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Get Handoff Docx",
+        "description": "The handoff pack as a DOCX, so a consultant can annotate it.",
+        "operationId": "get_handoff_docx_case_files__session_id__handoff_docx_get",
         "parameters": [
           {
             "name": "session_id",
@@ -1259,6 +1755,70 @@
         }
       }
     },
+    "/users/me/review-queue": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "List My Review Queue",
+        "description": "Phase 3: every flagged case this account is responsible for - its\nown projects, plus projects shared with it for review.\n\nOLDEST FIRST, unlike every other list in this product. A chat rail is\nnewest-first because you are resuming what you were just doing; a\ncompliance queue is oldest-first because the case that has been waiting\nlongest is the one most at risk of being forgotten.\n\nApproved and rejected cases are excluded by default: they have had\ntheir answer and should stop competing for attention. Pass\ninclude_settled=true to see the whole picture.",
+        "operationId": "list_my_review_queue_users_me_review_queue_get",
+        "parameters": [
+          {
+            "name": "include_settled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Settled"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewQueueItem"
+                  },
+                  "title": "Response List My Review Queue Users Me Review Queue Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -1572,6 +2132,50 @@
         ],
         "title": "CaseFile"
       },
+      "CaseFileGrant": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "granted_to_user_id": {
+            "type": "string",
+            "title": "Granted To User Id"
+          },
+          "granted_to_email": {
+            "type": "string",
+            "title": "Granted To Email",
+            "description": "The reviewer's email as it was when the grant was made."
+          },
+          "granted_by_user_id": {
+            "type": "string",
+            "title": "Granted By User Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/GrantRole",
+            "default": "reviewer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "granted_to_user_id",
+          "granted_to_email",
+          "granted_by_user_id",
+          "created_at"
+        ],
+        "title": "CaseFileGrant"
+      },
       "ChangeSource": {
         "type": "string",
         "enum": [
@@ -1653,6 +2257,14 @@
             "type": "boolean",
             "title": "Require Human Review Flag",
             "default": false
+          },
+          "review_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewReason"
+            },
+            "type": "array",
+            "title": "Review Reasons",
+            "description": "Phase 3: WHY a person has to look at this, typed so the review queue can group and filter by it. Always consistent with require_human_review_flag - the classifier sets both through one helper (see engine/classifier.py::_flag_review), so the flag is true exactly when this is non-empty. Each reason's `detail` is the same prose as its matching entry in `notes`."
           },
           "protection_level": {
             "anyOf": [
@@ -1887,6 +2499,13 @@
         ],
         "title": "Goal"
       },
+      "GrantRole": {
+        "type": "string",
+        "enum": [
+          "reviewer"
+        ],
+        "title": "GrantRole"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1994,6 +2613,219 @@
           "renewal"
         ],
         "title": "ProjectStage"
+      },
+      "ReviewEvent": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "description": "The reviewer's own words. Free text, never parsed.",
+            "default": ""
+          },
+          "actor_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor User Id"
+          },
+          "actor_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Email",
+            "description": "The reviewer's email as it was at the time, stored alongside the id. A sign-off has to stay attributable years later even if the account is renamed or removed."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "status",
+          "created_at"
+        ],
+        "title": "ReviewEvent"
+      },
+      "ReviewQueueItem": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name",
+            "default": ""
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reason Codes",
+            "description": "ReviewReasonCode values, for grouping the queue."
+          },
+          "reason_count": {
+            "type": "integer",
+            "title": "Reason Count",
+            "default": 0
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "is_owner": {
+            "type": "boolean",
+            "title": "Is Owner",
+            "description": "Whether this account owns the project or is reviewing it for someone else."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "status",
+          "is_owner",
+          "updated_at"
+        ],
+        "title": "ReviewQueueItem",
+        "description": "One row of the review queue."
+      },
+      "ReviewReason": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ReviewReasonCode"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "The human-readable explanation, identical to the matching entry in notes."
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "ReviewReason"
+      },
+      "ReviewReasonCode": {
+        "type": "string",
+        "enum": [
+          "mandatory_occupancy",
+          "no_band_matched",
+          "classification_error",
+          "not_permitted_combination",
+          "missing_separation_rating",
+          "incomplete_mixed_breakdown",
+          "invalid_mixed_component",
+          "ambiguous_band",
+          "missing_component_area"
+        ],
+        "title": "ReviewReasonCode",
+        "description": "Why the engine could not finish on its own.\n\nTyped rather than left as prose so the review queue can group and\nfilter by it - \"3 cases blocked on a not-permitted combination\" is\nactionable in a way that three paragraphs of notes are not. The prose\nis still carried in `ReviewReason.detail`."
+      },
+      "ReviewState": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name",
+            "default": ""
+          },
+          "requires_review": {
+            "type": "boolean",
+            "title": "Requires Review",
+            "description": "The engine's flag - whether a person is required to look at this at all."
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewReason"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "flagged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flagged At",
+            "description": "When the case file was last updated - what the queue orders by."
+          },
+          "can_record_verdict": {
+            "type": "boolean",
+            "title": "Can Record Verdict",
+            "description": "Whether the calling user may record a verdict (owner or granted reviewer).",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "requires_review",
+          "status"
+        ],
+        "title": "ReviewState",
+        "description": "Everything the Review page needs for one case, in one response."
+      },
+      "ReviewStatus": {
+        "type": "string",
+        "enum": [
+          "needs_review",
+          "in_review",
+          "approved",
+          "changes_requested",
+          "rejected"
+        ],
+        "title": "ReviewStatus",
+        "description": "Where a flagged case is in its review.\n\n`NEEDS_REVIEW` is the implicit starting state of any flagged case - it\nis never written as an event, it is simply what a case with no review\nevents yet is. Everything else is a person's recorded decision."
       },
       "SourceDocument": {
         "properties": {

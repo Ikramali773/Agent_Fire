@@ -14,6 +14,7 @@ from docx import Document
 
 from app.models.case_file import CaseFile
 from app.reports.exporters import render_docx, render_pdf, safe_report_filename
+from app.reports.generator import generate_report_markdown
 
 
 def _case_file(project_name: str = "Test Warehouse") -> CaseFile:
@@ -23,7 +24,7 @@ def _case_file(project_name: str = "Test Warehouse") -> CaseFile:
 
 
 def test_render_pdf_produces_a_valid_pdf_with_report_facts():
-    pdf_bytes = render_pdf(_case_file())
+    pdf_bytes = render_pdf(generate_report_markdown(_case_file()))
 
     assert pdf_bytes.startswith(b"%PDF")
     doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
@@ -34,7 +35,7 @@ def test_render_pdf_produces_a_valid_pdf_with_report_facts():
 
 
 def test_render_docx_produces_a_valid_docx_with_report_facts():
-    docx_bytes = render_docx(_case_file())
+    docx_bytes = render_docx(generate_report_markdown(_case_file()))
 
     assert docx_bytes.startswith(b"PK")
     doc = Document(io.BytesIO(docx_bytes))

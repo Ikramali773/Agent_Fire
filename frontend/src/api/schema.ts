@@ -64,12 +64,13 @@ export interface paths {
         post?: never;
         /**
          * Delete Case File
-         * @description Deletes a project: the case file, its whole chat transcript AND its
-         *     change log.
+         * @description Deletes a project and everything attached to it: the case file, its
+         *     chat transcript, its change log, its review history and every share.
          *
-         *     All three, explicitly - a user deleting a project expects their
+         *     All of it, explicitly - a user deleting a project expects their
          *     conversation and its history to go with it, not to be left behind in
-         *     the database. Irreversible; there is no soft-delete/undo, so the UI
+         *     the database, and a share left behind would put a dead row in a
+         *     reviewer's queue. Irreversible; there is no soft-delete/undo, so the UI
          *     confirms first.
          */
         delete: operations["delete_case_file_case_files__session_id__delete"];
@@ -106,6 +107,100 @@ export interface paths {
          */
         post: operations["claim_case_file_case_files__session_id__claim_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Review
+         * @description The review state of one case: why it was flagged, where it stands,
+         *     and everything anyone has recorded about it.
+         */
+        get: operations["get_review_case_files__session_id__review_get"];
+        put?: never;
+        /**
+         * Record Review
+         * @description Records a reviewer's verdict.
+         *
+         *     READ access, deliberately: recording a verdict is precisely what a
+         *     shared-with reviewer is here to do, and it changes nothing about the
+         *     case file itself.
+         *
+         *     It NEVER rewrites the classification. That is the whole architecture of
+         *     this feature, not an implementation detail - product scope Part G
+         *     Principle 1 is "LLM reasons and explains; deterministic engines
+         *     decide", and letting a person hand-edit the engine's verdict breaks it
+         *     exactly as surely as letting the LLM do it. A reviewer who believes the
+         *     output is wrong changes the FACTS (PUT /case-files/{id}, which they can
+         *     only do if they own it) and the engine reclassifies from those. Their
+         *     opinion is recorded alongside the classification, never on top of it.
+         */
+        post: operations["record_review_case_files__session_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Shares
+         * @description Who this project is shared with. READ, so a reviewer can see who
+         *     else is looking at the same case - useful, and not sensitive to anyone
+         *     who can already read the project.
+         */
+        get: operations["list_shares_case_files__session_id__shares_get"];
+        put?: never;
+        /**
+         * Create Share
+         * @description Shares a project with a reviewer, by the email of their account.
+         *
+         *     OWN, not WRITE: a reviewer must never be able to pass someone else's
+         *     project onward. Requires the recipient to already have an account -
+         *     inviting an address that has never signed up would mean sending mail,
+         *     which this product does not do, and silently creating an account for
+         *     someone is worse than an honest 404.
+         */
+        post: operations["create_share_case_files__session_id__shares_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/shares/{granted_to_user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Share
+         * @description Revokes a share. Immediate - the reviewer's next request is a 403.
+         *
+         *     Their already-recorded verdicts stay: a review that happened, happened,
+         *     and deleting the record of it because access was withdrawn would make
+         *     the history lie.
+         */
+        delete: operations["revoke_share_case_files__session_id__shares__granted_to_user_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -206,6 +301,68 @@ export interface paths {
          * @description Phase 2: a real DOCX counterpart to /report.pdf above.
          */
         get: operations["get_report_docx_case_files__session_id__report_docx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Handoff
+         * @description Phase 3: the consultant handoff pack as markdown - the report, plus
+         *     why review is required, where every fact came from, and what has
+         *     changed. See app/reports/handoff.py for why those three.
+         */
+        get: operations["get_handoff_case_files__session_id__handoff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/handoff.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Handoff Pdf
+         * @description The handoff pack as a PDF, through the same renderer as the report.
+         */
+        get: operations["get_handoff_pdf_case_files__session_id__handoff_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/handoff.docx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Handoff Docx
+         * @description The handoff pack as a DOCX, so a consultant can annotate it.
+         */
+        get: operations["get_handoff_docx_case_files__session_id__handoff_docx_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -424,6 +581,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/me/review-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Review Queue
+         * @description Phase 3: every flagged case this account is responsible for - its
+         *     own projects, plus projects shared with it for review.
+         *
+         *     OLDEST FIRST, unlike every other list in this product. A chat rail is
+         *     newest-first because you are resuming what you were just doing; a
+         *     compliance queue is oldest-first because the case that has been waiting
+         *     longest is the one most at risk of being forgotten.
+         *
+         *     Approved and rejected cases are excluded by default: they have had
+         *     their answer and should stop competing for attention. Pass
+         *     include_settled=true to see the whole picture.
+         */
+        get: operations["list_my_review_queue_users_me_review_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -551,6 +738,29 @@ export interface components {
              */
             updated_at?: string;
         };
+        /** CaseFileGrant */
+        CaseFileGrant: {
+            /** Id */
+            id: number;
+            /** Session Id */
+            session_id: string;
+            /** Granted To User Id */
+            granted_to_user_id: string;
+            /**
+             * Granted To Email
+             * @description The reviewer's email as it was when the grant was made.
+             */
+            granted_to_email: string;
+            /** Granted By User Id */
+            granted_by_user_id: string;
+            /** @default reviewer */
+            role: components["schemas"]["GrantRole"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * ChangeSource
          * @description Where a change came from. Mirrors the provenance vocabulary the Case
@@ -595,6 +805,11 @@ export interface components {
              * @default false
              */
             require_human_review_flag: boolean;
+            /**
+             * Review Reasons
+             * @description Phase 3: WHY a person has to look at this, typed so the review queue can group and filter by it. Always consistent with require_human_review_flag - the classifier sets both through one helper (see engine/classifier.py::_flag_review), so the flag is true exactly when this is non-empty. Each reason's `detail` is the same prose as its matching entry in `notes`.
+             */
+            review_reasons?: components["schemas"]["ReviewReason"][];
             /**
              * Protection Level
              * @description e.g. 'HL-3' or 'CL-4' from Table 7A-7J
@@ -717,6 +932,11 @@ export interface components {
          * @enum {string}
          */
         Goal: "understand_requirements" | "prep_noc" | "renew_noc" | "general_qa";
+        /**
+         * GrantRole
+         * @enum {string}
+         */
+        GrantRole: "reviewer";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -775,6 +995,130 @@ export interface components {
          * @enum {string}
          */
         ProjectStage: "concept" | "plan_submitted" | "under_construction" | "renewal";
+        /** ReviewEvent */
+        ReviewEvent: {
+            /** Id */
+            id: number;
+            /** Session Id */
+            session_id: string;
+            status: components["schemas"]["ReviewStatus"];
+            /**
+             * Note
+             * @description The reviewer's own words. Free text, never parsed.
+             * @default
+             */
+            note: string;
+            /** Actor User Id */
+            actor_user_id?: string | null;
+            /**
+             * Actor Email
+             * @description The reviewer's email as it was at the time, stored alongside the id. A sign-off has to stay attributable years later even if the account is renamed or removed.
+             */
+            actor_email?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ReviewQueueItem
+         * @description One row of the review queue.
+         */
+        ReviewQueueItem: {
+            /** Session Id */
+            session_id: string;
+            /**
+             * Project Name
+             * @default
+             */
+            project_name: string;
+            /**
+             * Reason Codes
+             * @description ReviewReasonCode values, for grouping the queue.
+             */
+            reason_codes?: string[];
+            /**
+             * Reason Count
+             * @default 0
+             */
+            reason_count: number;
+            status: components["schemas"]["ReviewStatus"];
+            /**
+             * Is Owner
+             * @description Whether this account owns the project or is reviewing it for someone else.
+             */
+            is_owner: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ReviewReason */
+        ReviewReason: {
+            code: components["schemas"]["ReviewReasonCode"];
+            /**
+             * Detail
+             * @description The human-readable explanation, identical to the matching entry in notes.
+             */
+            detail: string;
+        };
+        /**
+         * ReviewReasonCode
+         * @description Why the engine could not finish on its own.
+         *
+         *     Typed rather than left as prose so the review queue can group and
+         *     filter by it - "3 cases blocked on a not-permitted combination" is
+         *     actionable in a way that three paragraphs of notes are not. The prose
+         *     is still carried in `ReviewReason.detail`.
+         * @enum {string}
+         */
+        ReviewReasonCode: "mandatory_occupancy" | "no_band_matched" | "classification_error" | "not_permitted_combination" | "missing_separation_rating" | "incomplete_mixed_breakdown" | "invalid_mixed_component" | "ambiguous_band" | "missing_component_area";
+        /**
+         * ReviewState
+         * @description Everything the Review page needs for one case, in one response.
+         */
+        ReviewState: {
+            /** Session Id */
+            session_id: string;
+            /**
+             * Project Name
+             * @default
+             */
+            project_name: string;
+            /**
+             * Requires Review
+             * @description The engine's flag - whether a person is required to look at this at all.
+             */
+            requires_review: boolean;
+            /** Reasons */
+            reasons?: components["schemas"]["ReviewReason"][];
+            status: components["schemas"]["ReviewStatus"];
+            /** Events */
+            events?: components["schemas"]["ReviewEvent"][];
+            /**
+             * Flagged At
+             * @description When the case file was last updated - what the queue orders by.
+             */
+            flagged_at?: string | null;
+            /**
+             * Can Record Verdict
+             * @description Whether the calling user may record a verdict (owner or granted reviewer).
+             * @default false
+             */
+            can_record_verdict: boolean;
+        };
+        /**
+         * ReviewStatus
+         * @description Where a flagged case is in its review.
+         *
+         *     `NEEDS_REVIEW` is the implicit starting state of any flagged case - it
+         *     is never written as an event, it is simply what a case with no review
+         *     events yet is. Everything else is a person's recorded decision.
+         * @enum {string}
+         */
+        ReviewStatus: "needs_review" | "in_review" | "approved" | "changes_requested" | "rejected";
         /** SourceDocument */
         SourceDocument: {
             /** Filename */
@@ -1022,6 +1366,182 @@ export interface operations {
             };
         };
     };
+    get_review_case_files__session_id__review_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_review_case_files__session_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_shares_case_files__session_id__shares_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFileGrant"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_share_case_files__session_id__shares_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFileGrant"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_share_case_files__session_id__shares__granted_to_user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+                granted_to_user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     classify_case_file_case_files__session_id__classify_post: {
         parameters: {
             query?: never;
@@ -1163,6 +1683,107 @@ export interface operations {
         };
     };
     get_report_docx_case_files__session_id__report_docx_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_handoff_case_files__session_id__handoff_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_handoff_pdf_case_files__session_id__handoff_pdf_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_handoff_docx_case_files__session_id__handoff_docx_get: {
         parameters: {
             query?: never;
             header?: {
@@ -1528,6 +2149,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatTitle"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_review_queue_users_me_review_queue_get: {
+        parameters: {
+            query?: {
+                include_settled?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewQueueItem"][];
                 };
             };
             /** @description Validation Error */
