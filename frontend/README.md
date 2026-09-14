@@ -349,16 +349,19 @@ browser check that a real API response still renders correctly end-to-end.
 - **Chat search matches the title only** - not the conversation's contents or the case file's
   fields, and it is a plain substring match with no ranking. Finding "that project where we
   discussed the atrium" still means opening chats.
-- **A reviewer needs an account** — sharing is account-to-account by email, so a consultant who has
-  never signed up cannot be invited (the API answers an honest 404 rather than pretending). A
-  signed, expiring link for an external reviewer is the obvious next step and is not built; nor is
-  any email notification, so the owner has to tell the reviewer out of band that something is
-  waiting.
-- **No reviewer assignment or due dates** — the queue shows everything you are responsible for,
-  oldest first, but nothing routes a case to a *particular* reviewer, sets a deadline, or escalates
-  one that has been sitting.
-- **The review queue does not span an organisation** — there are accounts, but no teams. A firm's
-  cases cannot be pooled into one queue several reviewers work from.
+- **Nothing is emailed, ever** — there is no mail transport in this product. An invite link and a
+  password-reset link both have to reach their recipient some other way (the owner copies the invite
+  link; a reset link goes to the server log until a real backend is configured), and nobody is told
+  when a case is assigned to them or falls overdue. They have to come and look. This is now the
+  single biggest gap: several shipped features work but depend on someone being told out of band.
+- **Nothing escalates** — a case can be assigned with a due date and the queue marks it overdue, but
+  no reminder goes anywhere and no case moves on its own. Deliberate for now (see the Assignment
+  section: the product does not pretend to enforce a deadline it cannot act on), but a firm running
+  a real queue will want escalation.
+- **A team's projects are listed by id, not by name** — the Team page can say how many projects a
+  team holds and let the owner add or remove the open one, but it cannot list them, because the
+  endpoint returns session ids only. Naming them needs a projects-for-this-team query that respects
+  each caller's access.
 - **"Approved" is one person's sign-off, not a compliance verdict** — deliberately. The product
   does not certify anything (see the footer on every page). Phase 4's compliance engine now gives
   per-requirement verdicts (see Findings above), and those are separate from a reviewer's approval:
