@@ -60,6 +60,28 @@ class RequirementFinding(BaseModel):
     )
 
 
+class OccupantLoadEstimate(BaseModel):
+    """Table 2's occupant load, when it can be derived.
+
+    Informational, never a verdict: an occupant load on its own says
+    nothing about compliance - turning it into a required exit width needs
+    the stair and exit measurements in Table 3, which the Case File does
+    not hold. Carried alongside the findings rather than as one of them,
+    so it cannot be mistaken for a pass or a fail.
+    """
+
+    resolved: bool = Field(
+        description="False when several Table 2 factors could apply and the sub-use is unknown."
+    )
+    people: int | None = Field(
+        default=None, description="The occupant load, rounded up. None when unresolved."
+    )
+    low: int | None = None
+    high: int | None = None
+    explanation: str = ""
+    caveats: list[str] = Field(default_factory=list)
+
+
 class RequirementReport(BaseModel):
     """Every finding for one case file, plus what could not be evaluated."""
 
@@ -77,6 +99,13 @@ class RequirementReport(BaseModel):
             "installation. Surfaced rather than dropped: a system the engine did not "
             "understand is not the same as a system the building does not have, and "
             "silently ignoring it would make a requirement look unmet when it is not."
+        ),
+    )
+    occupant_load: OccupantLoadEstimate | None = Field(
+        default=None,
+        description=(
+            "Table 2's occupant load. Null when the occupancy or the area is missing. "
+            "Never a pass or a fail - see OccupantLoadEstimate."
         ),
     )
     met_count: int = 0

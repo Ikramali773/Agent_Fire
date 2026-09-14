@@ -11,6 +11,7 @@ from app.api.invites import router as invites_router
 from app.api.organisations import assignment_router, router as organisations_router
 from app.api.users import router as users_router
 from app.auth.tokens import using_default_secret
+from app.mail import LoggingMailer, get_mailer
 from app.db.init_db import create_all_tables
 
 
@@ -41,6 +42,23 @@ def _check_auth_secret() -> None:
     logging.getLogger("uvicorn.error").warning("SECURITY: %s", message)
 
 
+def _check_mail() -> None:
+    """Says once, at boot, whether this deployment can actually send mail.
+
+    Not an error: a deployment with no SMTP still works, and failing to
+    start would break password reset, invites and assignment for anyone
+    who has not configured a server. But a silent no-op is how people come
+    to believe mail is working when it is not, so it is stated plainly.
+    """
+    if isinstance(get_mailer(), LoggingMailer):
+        logging.getLogger("uvicorn.error").warning(
+            "No SMTP configured (FIRE_AGENT_SMTP_HOST is unset), so NOTHING IS EMAILED. "
+            "Password-reset links, reviewer invitations and assignment notices are written "
+            "to this log instead. Password reset therefore only works for someone who can "
+            "read it."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Runs Alembic migrations (see app/db/init_db.py), which is what keeps
@@ -50,6 +68,7 @@ async def lifespan(app: FastAPI):
     # which is what a multi-worker deployment wants.
     create_all_tables()
     _check_auth_secret()
+    _check_mail()
     yield
 
 

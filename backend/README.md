@@ -427,6 +427,62 @@ Part B):
     chat rail is newest-first because you are resuming what you were just doing; a compliance queue
     is oldest-first because the case waiting longest is the one most at risk of being forgotten.
     Approved and rejected cases drop out by default (`include_settled=true` to see them).
+- **Mail** (`app/mail/`, Phase 4) — nothing was ever emailed. That was survivable while the only
+  thing with a link was password reset, but three features shipped since all depended on somebody
+  being told something out of band: a reset link that only reached the server log, an invite the
+  owner had to copy and pass on by hand, and an assignment that told the assignee nothing at all.
+  - One `Mailer` protocol with two backends. `SmtpMailer` uses `smtplib` from the standard library,
+    so a deployment that does not want it pays no dependency; STARTTLS by default, because a
+    password-reset link in cleartext on the wire defeats the point of the link being secret.
+  - **A deployment with no SMTP still sends nothing, and says so at boot.** Failing to start would
+    break reset, invites and assignment for anyone who has not configured a server, which is worse
+    than a warning; but a silent no-op is how people come to believe mail works when it does not.
+  - **Sending never fails a request**, and that is enforced at `sender.send()` rather than trusted
+    to each backend. It was inside `SmtpMailer` first, which meant the guarantee only held for the
+    one backend that remembered — a test standing in a deliberately broken mailer (the shape a real
+    provider SDK failure takes) turned a mail outage into an application outage.
+  - The **wording** is the security property in these three messages, and is tested as such: a
+    reset mail says "someone asked" and never "your account", because the request endpoint answers
+    identically whether or not the address has one; an invite names the project and who sent it and
+    nothing about the building; an assignment describes its due date as a date somebody chose, not
+    a deadline the system enforces, because it does not enforce one.
+  - An invite link is still **returned to the owner as well**, which is what keeps invites working
+    on a deployment with no mail server at all.
+- **Rate limits on the endpoints that actually cost** (`app/api/case_files.py::_throttle`) — the
+  credential limiter existed for brute force and left the expensive endpoints untouched. A chat turn
+  calls an LLM and an upload runs the OCR pipeline, and both were unlimited, so one script could
+  spend an account's LLM budget or pin every worker on OCR. 20 chat turns and 10 uploads a minute:
+  a ceiling on runaway use, not a throttle a person doing the work would ever feel. Keyed on the
+  ACCOUNT where there is one, falling back to the client address for the anonymous Phase 1 flow —
+  keying on address alone would throttle a whole office behind one NAT together. The upload check
+  runs *before* the body is read, since streaming 20 MB to memory first would already have paid
+  most of what the limit protects.
+- **Search over conversations** (`app/message_store.py::search`, `GET /users/me/search`) — search
+  matched the title only, and a title is the first message verbatim, so "that project where we
+  discussed the atrium" still meant opening chats one at a time. Now it looks inside the
+  transcript. The reachable set (owned + shared + team) is computed in the endpoint and handed to
+  the store as a list of ids, so the query itself never has to know about access — one function
+  that "sometimes" filters is how a leak gets written.
+  - **Honest limitation**: a substring match, case-insensitive, no ranking and no stemming —
+    "sprinkler" does not find "sprinklers". Real full-text search means SQLite FTS5 or Postgres
+    tsvector, both dialect-specific, and everything here is written against portable SQLAlchemy so
+    the same code path runs on both.
+- **Occupant load** (`app/engine/occupant_load.py`, Table 2) — the one compliance number derivable
+  from what a Case File already holds. **Informational, never a verdict**, and carried alongside
+  the findings rather than as one of them: a finding has a status and an occupant load has none.
+  Turning it into a required exit width needs the stair and exit measurements in Table 3, which the
+  Case File does not hold, and every result says so.
+  - Two things the table makes harder than it looks, neither papered over. **Most groups have
+    several rows** — Institutional alone has four, from 7 to 12 m²/person — so a group whose
+    sub-use is unknown produces a RANGE and says it is unresolved, rather than quietly picking one.
+    **Some factors are not numbers**: fixed seating carries `see_note_fixed_seating` because it is
+    counted by seats, and computing with that string would be nonsense.
+  - A row coded with the bare group letter is the general case; a hyphenated one (E-II datacentre,
+    G-1 low hazard) is a subdivision that applies only when known. Without that rule an ordinary
+    office was dragged into a 50-141 range by the datacentre rows when plain Business answers
+    exactly. Industrial resolves from the hazard band the classifier already determines.
+  - Reported even when the building has not been classified, since it needs only an occupancy and
+    an area - withholding it until then would hide a figure that is already known.
 - **Organisations** (`app/models/organisation.py`, `app/organisation_store.py`,
   `app/assignment_store.py`, `app/api/organisations.py`, Phase 4) — sharing was one project to one
   person at a time. Six colleagues and forty projects is two hundred and forty shares; the day
@@ -644,9 +700,10 @@ Part B):
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
 alembic upgrade head         # optional: the app does this itself on startup (see migrations/README)
-python -m pytest -q          # 578 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 631 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
+export FIRE_AGENT_SMTP_HOST=smtp.example.com   # optional - without it NOTHING is emailed
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and
                               # document field extraction (OCR text extraction itself needs no LLM key)
 python -m uvicorn app.main:app --reload   # http://127.0.0.1:8000/docs

@@ -13,6 +13,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from app.db.models import (
@@ -222,29 +223,49 @@ def remove_member(organisation_id: str, user_id: str) -> bool:
 
 
 def list_for_user(user_id: str) -> list[OrganisationSummary]:
+    """Every team this account is in, with its size.
+
+    Three queries regardless of how many teams, not two per team: the
+    first version looked up the organisation and counted its members
+    inside the loop, which is fine at three teams and not at thirty - and
+    this runs on every load of the Team page and behind the assignment
+    picker.
+    """
     with get_session() as session:
         memberships = (
             session.query(OrganisationMemberRecord)
             .filter(OrganisationMemberRecord.user_id == user_id)
             .all()
         )
-        summaries: list[OrganisationSummary] = []
-        for membership in memberships:
-            org = session.get(OrganisationRecord, membership.organisation_id)
-            if org is None:
-                continue
-            count = (
-                session.query(OrganisationMemberRecord)
-                .filter(OrganisationMemberRecord.organisation_id == org.id)
-                .count()
+        if not memberships:
+            return []
+
+        organisation_ids = [membership.organisation_id for membership in memberships]
+        organisations = {
+            record.id: record
+            for record in session.query(OrganisationRecord)
+            .filter(OrganisationRecord.id.in_(organisation_ids))
+            .all()
+        }
+        counts = dict(
+            session.query(
+                OrganisationMemberRecord.organisation_id,
+                func.count(OrganisationMemberRecord.id),
             )
-            summaries.append(
-                OrganisationSummary(
-                    organisation=_to_org(org),
-                    role=MemberRole(membership.role),
-                    member_count=count,
-                )
+            .filter(OrganisationMemberRecord.organisation_id.in_(organisation_ids))
+            .group_by(OrganisationMemberRecord.organisation_id)
+            .all()
+        )
+
+        summaries = [
+            OrganisationSummary(
+                organisation=_to_org(organisations[membership.organisation_id]),
+                role=MemberRole(membership.role),
+                member_count=counts.get(membership.organisation_id, 0),
             )
+            for membership in memberships
+            if membership.organisation_id in organisations
+        ]
         summaries.sort(key=lambda item: item.organisation.name.lower())
         return summaries
 

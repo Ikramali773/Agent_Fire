@@ -53,6 +53,7 @@ function makeReport(overrides: Partial<RequirementReport> = {}): RequirementRepo
     met_count: 1,
     not_met_count: 1,
     unknown_count: 0,
+    occupant_load: null,
     ...overrides,
   };
 }

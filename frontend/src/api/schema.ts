@@ -815,6 +815,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/me/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search My Projects
+         * @description Finds a project by its name OR by something said in its conversation.
+         *
+         *     Search used to match the title only - and a title is the first message
+         *     verbatim - so "that project where we discussed the atrium" still meant
+         *     opening chats one by one.
+         *
+         *     Scoped to everything this account can read: its own projects, ones
+         *     shared with it, and ones reachable through a team. The scope is
+         *     computed HERE and handed to the store as a list of ids, so the search
+         *     query itself never has to know about access.
+         *
+         *     **A substring match with no ranking** - see app/message_store.py's
+         *     `search` for why, and what real full-text search would cost.
+         */
+        get: operations["search_my_projects_users_me_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/me/preferences": {
         parameters: {
             query?: never;
@@ -1027,7 +1059,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Organisation Case Files */
+        /**
+         * List Organisation Case Files
+         * @description The team's projects, by name.
+         *
+         *     This returned bare session ids, which meant the Team page could say how
+         *     many projects a team held but not which - a list of uuids being no use
+         *     to anyone. Names come from one query over the ids rather than a fetch
+         *     per row.
+         *
+         *     Every member can already read each of these, so naming them exposes
+         *     nothing new; the membership check above is what guards it.
+         */
         get: operations["list_organisation_case_files_organisations__organisation_id__case_files_get"];
         put?: never;
         /**
@@ -1656,6 +1699,39 @@ export interface components {
          * @enum {string}
          */
         OccupancyType: "Residential" | "Educational" | "Institutional" | "Assembly" | "Business" | "Mercantile" | "Industrial" | "Storage" | "Hazardous" | "Mixed Use";
+        /**
+         * OccupantLoadEstimate
+         * @description Table 2's occupant load, when it can be derived.
+         *
+         *     Informational, never a verdict: an occupant load on its own says
+         *     nothing about compliance - turning it into a required exit width needs
+         *     the stair and exit measurements in Table 3, which the Case File does
+         *     not hold. Carried alongside the findings rather than as one of them,
+         *     so it cannot be mistaken for a pass or a fail.
+         */
+        OccupantLoadEstimate: {
+            /**
+             * Resolved
+             * @description False when several Table 2 factors could apply and the sub-use is unknown.
+             */
+            resolved: boolean;
+            /**
+             * People
+             * @description The occupant load, rounded up. None when unresolved.
+             */
+            people?: number | null;
+            /** Low */
+            low?: number | null;
+            /** High */
+            high?: number | null;
+            /**
+             * Explanation
+             * @default
+             */
+            explanation: string;
+            /** Caveats */
+            caveats?: string[];
+        };
         /** Organisation */
         Organisation: {
             /** Id */
@@ -1669,6 +1745,32 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * OrganisationCaseFile
+         * @description A team's project, as its members see it in a list.
+         *
+         *     Deliberately thin: enough to recognise and open a project, and nothing
+         *     about the building. A member can read the whole case file anyway - this
+         *     is a list, and a list that carried every field would send a megabyte to
+         *     render twenty rows.
+         */
+        OrganisationCaseFile: {
+            /** Session Id */
+            session_id: string;
+            /** Project Name */
+            project_name: string;
+            /**
+             * Requires Review
+             * @description Whether the engine flagged it - what makes a row worth looking at first.
+             * @default false
+             */
+            requires_review: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** OrganisationCreate */
         OrganisationCreate: {
@@ -1720,6 +1822,32 @@ export interface components {
         PasswordResetRequest: {
             /** Email */
             email: string;
+        };
+        /**
+         * ProjectSearchHit
+         * @description One search result.
+         */
+        ProjectSearchHit: {
+            /** Session Id */
+            session_id: string;
+            /** Project Name */
+            project_name: string;
+            /**
+             * Matched In
+             * @description 'name' or 'conversation' - so the UI can say why a row is here.
+             */
+            matched_in: string;
+            /**
+             * Snippet
+             * @description The matching phrase in context. Empty for a name match.
+             * @default
+             */
+            snippet: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * ProjectStage
@@ -1778,6 +1906,8 @@ export interface components {
              * @description Entries in existing_fire_systems that could not be matched to a known installation. Surfaced rather than dropped: a system the engine did not understand is not the same as a system the building does not have, and silently ignoring it would make a requirement look unmet when it is not.
              */
             unrecognized_declarations?: string[];
+            /** @description Table 2's occupant load. Null when the occupancy or the area is missing. Never a pass or a fail - see OccupantLoadEstimate. */
+            occupant_load?: components["schemas"]["OccupantLoadEstimate"] | null;
             /**
              * Met Count
              * @default 0
@@ -3301,6 +3431,40 @@ export interface operations {
             };
         };
     };
+    search_my_projects_users_me_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectSearchHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_my_preferences_users_me_preferences_get: {
         parameters: {
             query?: never;
@@ -3724,7 +3888,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": string[];
+                    "application/json": components["schemas"]["OrganisationCaseFile"][];
                 };
             };
             /** @description Validation Error */

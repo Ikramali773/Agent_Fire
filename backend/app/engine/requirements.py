@@ -17,8 +17,14 @@ from __future__ import annotations
 
 import re
 
+from app.engine import occupant_load
 from app.models.case_file import CaseFile
-from app.models.requirements import RequirementFinding, RequirementReport, RequirementStatus
+from app.models.requirements import (
+    OccupantLoadEstimate,
+    RequirementFinding,
+    RequirementReport,
+    RequirementStatus,
+)
 
 # The eight installations Table 7 scores every band against, in the order a
 # report reads best: detection first, then the manual/first-response kit,
@@ -266,6 +272,33 @@ def normalize_declared_systems(
     return present, absent, unrecognized
 
 
+def _occupant_load(case_file: CaseFile, result) -> OccupantLoadEstimate | None:
+    """Table 2's occupant load, alongside the findings but never one of them.
+
+    Deliberately NOT a RequirementFinding: a finding carries a status, and
+    an occupant load has none - it is a head count, not a verdict. Turning
+    it into one needs the stair and exit widths in Table 3, which this
+    Case File does not hold, and listing it among verdicts would invite it
+    being read as one.
+    """
+    band = case_file.industrial_hazard_band
+    estimate = occupant_load.compute(
+        case_file.occupancy_type.value if case_file.occupancy_type else None,
+        case_file.built_up_area_sqm,
+        band.value if band else None,
+    )
+    if estimate is None:
+        return None
+    return OccupantLoadEstimate(
+        resolved=estimate.resolved,
+        people=estimate.people,
+        low=estimate.low,
+        high=estimate.high,
+        explanation=estimate.explanation,
+        caveats=estimate.caveats,
+    )
+
+
 def evaluate_requirements(case_file: CaseFile) -> RequirementReport:
     """Compares every Table 7 installation against what the building has
     declared.
@@ -284,6 +317,11 @@ def evaluate_requirements(case_file: CaseFile) -> RequirementReport:
             evaluated=False,
             table_7_ref=result.table_7_ref,
             protection_level=result.protection_level,
+            # Reported even here: an occupant load needs only an occupancy
+            # and an area, not a Table 7 band, so "how many people" is
+            # answerable before the building has been classified. Withholding
+            # it until then would hide a figure that is already known.
+            occupant_load=_occupant_load(case_file, result),
         )
 
     declared, declared_absent, unrecognized = normalize_declared_systems(
@@ -384,6 +422,7 @@ def evaluate_requirements(case_file: CaseFile) -> RequirementReport:
         protection_level=result.protection_level,
         findings=findings,
         unrecognized_declarations=unrecognized,
+        occupant_load=_occupant_load(case_file, result),
         met_count=sum(1 for f in findings if f.status is RequirementStatus.MET),
         not_met_count=sum(1 for f in findings if f.status is RequirementStatus.NOT_MET),
         unknown_count=sum(1 for f in findings if f.status is RequirementStatus.UNKNOWN),

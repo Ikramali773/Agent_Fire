@@ -105,3 +105,10 @@
 .ds-findings-page__note--error {
   color: var(--status-fail-fg);
 }
+
+.ds-findings-page__occupants {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+}

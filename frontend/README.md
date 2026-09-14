@@ -346,22 +346,17 @@ browser check that a real API response still renders correctly end-to-end.
 - **A chat's title is its first message, not a summary of the conversation** - unlike Claude/ChatGPT,
   no model writes a title from what was discussed; the rail shows the opening message verbatim,
   trimmed. A chat abandoned before anything was typed still reads "Untitled project".
-- **Chat search matches the title only** - not the conversation's contents or the case file's
-  fields, and it is a plain substring match with no ranking. Finding "that project where we
-  discussed the atrium" still means opening chats.
-- **Nothing is emailed, ever** — there is no mail transport in this product. An invite link and a
-  password-reset link both have to reach their recipient some other way (the owner copies the invite
-  link; a reset link goes to the server log until a real backend is configured), and nobody is told
-  when a case is assigned to them or falls overdue. They have to come and look. This is now the
-  single biggest gap: several shipped features work but depend on someone being told out of band.
+- **Mail depends on the deployment** — a reset link, a reviewer invitation and an assignment notice
+  are all sent now, but only where SMTP is configured. Without it they are written to the server log
+  and the backend says so loudly at boot. See `../backend/README.md`.
 - **Nothing escalates** — a case can be assigned with a due date and the queue marks it overdue, but
   no reminder goes anywhere and no case moves on its own. Deliberate for now (see the Assignment
   section: the product does not pretend to enforce a deadline it cannot act on), but a firm running
   a real queue will want escalation.
-- **A team's projects are listed by id, not by name** — the Team page can say how many projects a
-  team holds and let the owner add or remove the open one, but it cannot list them, because the
-  endpoint returns session ids only. Naming them needs a projects-for-this-team query that respects
-  each caller's access.
+- **Chat search has no ranking and no stemming** — it now reaches what was *said* in a conversation,
+  not just the title, but it is a substring match: "sprinkler" does not find "sprinklers", and
+  results come back in no particular order. See `../backend/README.md` for what real full-text
+  search would cost.
 - **"Approved" is one person's sign-off, not a compliance verdict** — deliberately. The product
   does not certify anything (see the footer on every page). Phase 4's compliance engine now gives
   per-requirement verdicts (see Findings above), and those are separate from a reviewer's approval:
@@ -371,5 +366,7 @@ browser check that a real API response still renders correctly end-to-end.
   that isn't built; uploaded drawings are read for their text and tables today, which is not the
   same thing. The nav entry stays, honestly labelled, rather than being faked.
 - **Findings cover firefighting installations only** — travel distance and exit capacity need
-  measured inputs the Case File doesn't hold. See `../backend/README.md`.
+  measured inputs the Case File doesn't hold. Occupant load (Table 2) *is* shown, clearly marked as
+  informational rather than a verdict, because it is derivable from an occupancy and an area alone.
+  See `../backend/README.md`.
 - Multi-state NOC checklists — see `../backend/README.md`.

@@ -16,7 +16,9 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user_required
-from app.auth import delivery, password_resets, rate_limit, revoked_tokens
+from app import mail
+from app.auth import password_resets, rate_limit, revoked_tokens
+from app.mail import messages
 from app.auth.tokens import create_token, decode_token
 from app.auth.security import MAX_PASSWORD_BYTES, password_is_too_long
 from app.auth.user_store import (
@@ -182,7 +184,7 @@ def request_password_reset(body: PasswordResetRequest, request: Request) -> Resp
     user = get_user_by_email(email)
     if user is not None:
         token = password_resets.create(user.id)
-        delivery.get_delivery().send_password_reset(user.email, _reset_url(token))
+        mail.sender.send(messages.password_reset(_reset_url(token)), user.email)
     return Response(status_code=204)
 
 

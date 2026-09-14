@@ -64,6 +64,24 @@ class OrganisationSummary(BaseModel):
     member_count: int
 
 
+class OrganisationCaseFile(BaseModel):
+    """A team's project, as its members see it in a list.
+
+    Deliberately thin: enough to recognise and open a project, and nothing
+    about the building. A member can read the whole case file anyway - this
+    is a list, and a list that carried every field would send a megabyte to
+    render twenty rows.
+    """
+
+    session_id: str
+    project_name: str
+    requires_review: bool = Field(
+        default=False,
+        description="Whether the engine flagged it - what makes a row worth looking at first.",
+    )
+    updated_at: datetime
+
+
 class Assignment(BaseModel):
     """Who is expected to review a flagged case, and by when.
 

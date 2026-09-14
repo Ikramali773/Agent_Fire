@@ -4,7 +4,7 @@ import { Card } from "../../design-system/components/Card";
 import { EmptyState } from "../../design-system/components/EmptyState";
 import { StatusPill } from "../../design-system/components/StatusPill";
 import { findingLabel, findingsSummaryTone, findingTone } from "../../lib/findings";
-import type { CaseFile, RequirementReport } from "../../types";
+import type { CaseFile, OccupantLoadEstimate, RequirementReport } from "../../types";
 import "./FindingsPage.css";
 
 interface Props {
@@ -79,6 +79,12 @@ export function FindingsPage({ caseFile }: Props) {
           title="Nothing to evaluate yet"
           description="This building hasn't been classified against a Table 7 band, so no specific requirement applies to it. Finish the conversation on the Overview page first."
         />
+        {/* An occupant load needs only an occupancy and an area, not a
+            Table 7 band - so it is answerable here, and this is precisely
+            the state where it is the only thing that can be said. The
+            backend computes it on this path for that reason; discarding it
+            would hide a figure that is already known. */}
+        <OccupantLoadCard load={report.occupant_load} />
       </div>
     );
   }
@@ -120,6 +126,8 @@ export function FindingsPage({ caseFile }: Props) {
           the plans, and a licensed fire consultant.
         </p>
       </Card>
+
+      <OccupantLoadCard load={report.occupant_load} />
 
       <Card title="Required for this building" padded={false}>
         <ul className="ds-findings-page__list">
@@ -172,5 +180,29 @@ export function FindingsPage({ caseFile }: Props) {
         </Card>
       )}
     </div>
+  );
+}
+
+// Kept out of the findings list on purpose: a finding carries a status,
+// and an occupant load has none - it is a head count, not a verdict, and
+// listing it among verdicts would invite it being read as one.
+function OccupantLoadCard({ load }: { load: OccupantLoadEstimate | null }) {
+  if (!load) return null;
+  return (
+    <Card title="Occupant load">
+      <p className="ds-findings-page__occupants">
+        {load.resolved
+          ? `${load.people} people`
+          : load.low !== null
+            ? `Between ${load.low} and ${load.high} people`
+            : "Not derivable from floor area"}
+      </p>
+      <p className="ds-findings-page__caveat">{load.explanation}</p>
+      {load.caveats.map((caveat) => (
+        <p className="ds-findings-page__caveat" key={caveat}>
+          {caveat}
+        </p>
+      ))}
+    </Card>
   );
 }

@@ -138,6 +138,71 @@ def first_user_messages(session_ids: list[str]) -> dict[str, str]:
         return {session_id: _to_title(text) for session_id, text in rows if text.strip()}
 
 
+# How much of the matching message to show. Enough to recognise why a
+# project matched, short enough that twenty results stay a list.
+SNIPPET_RADIUS = 60
+
+
+def search(session_ids: list[str], query: str, limit: int = 20) -> dict[str, str]:
+    """Sessions whose transcript contains `query`, with the bit that matched.
+
+    Chat search used to match the TITLE only - and a title is the first
+    message verbatim - so "that project where we discussed the atrium"
+    still meant opening chats one by one. This looks inside the
+    conversation.
+
+    Scoped by `session_ids`, which the caller has already reduced to what
+    this account may read. Nothing here checks access, deliberately: the
+    query would be the wrong place to decide it, and one function that
+    "sometimes" filters is how a leak gets written.
+
+    **A substring match, case-insensitive, with no ranking and no
+    stemming** - "sprinkler" does not find "sprinklers". Real full-text
+    search means SQLite FTS5 or Postgres tsvector, which are dialect-
+    specific, and everything here is written against portable SQLAlchemy so
+    the same code path runs on both (see app/db/session.py). Worth
+    revisiting if search becomes central rather than a way to find a chat.
+    """
+    needle = query.strip()
+    if not needle or not session_ids:
+        return {}
+    with get_session() as session:
+        rows = (
+            session.query(ConversationMessageRecord.session_id, ConversationMessageRecord.text)
+            .filter(
+                ConversationMessageRecord.session_id.in_(session_ids),
+                ConversationMessageRecord.text.ilike(f"%{needle}%"),
+            )
+            .order_by(ConversationMessageRecord.id.asc())
+            .all()
+        )
+    found: dict[str, str] = {}
+    for session_id, text in rows:
+        # First match per session only: a rail row shows one snippet, and
+        # a project that mentions the word forty times is not forty hits.
+        if session_id in found:
+            continue
+        found[session_id] = _snippet(text or "", needle)
+        if len(found) >= limit:
+            break
+    return found
+
+
+def _snippet(text: str, needle: str) -> str:
+    """The matching phrase with a little either side, ellipsed if clipped."""
+    collapsed = " ".join(text.split())
+    at = collapsed.lower().find(needle.lower())
+    if at < 0:
+        return _to_title(collapsed)
+    start = max(0, at - SNIPPET_RADIUS)
+    end = min(len(collapsed), at + len(needle) + SNIPPET_RADIUS)
+    return (
+        ("…" if start > 0 else "")
+        + collapsed[start:end].strip()
+        + ("…" if end < len(collapsed) else "")
+    )
+
+
 def delete_for_session(session_id: str) -> int:
     """Removes a session's whole transcript. Returns how many messages went.
 

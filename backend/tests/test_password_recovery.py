@@ -14,7 +14,8 @@ is no use to someone whose password was stolen.
 import pytest
 from fastapi.testclient import TestClient
 
-from app.auth import delivery, password_resets, rate_limit, revoked_tokens
+from app import mail
+from app.auth import password_resets, rate_limit, revoked_tokens
 from app.auth.user_store import delete_all as delete_all_users
 from app.main import app
 from app.store import delete_all as delete_all_case_files
@@ -22,26 +23,26 @@ from app.store import delete_all as delete_all_case_files
 client = TestClient(app)
 
 
-class _CapturingDelivery:
+class _CapturingMailer:
     """Stands in for a mail provider, and lets a test read the link."""
 
     def __init__(self) -> None:
-        self.sent: list[tuple[str, str]] = []
+        self.sent: list[mail.Message] = []
 
-    def send_password_reset(self, email: str, reset_url: str) -> None:
-        self.sent.append((email, reset_url))
+    def send(self, message: mail.Message) -> None:
+        self.sent.append(message)
 
     @property
     def last_token(self) -> str:
-        return self.sent[-1][1].split("reset=")[1]
+        return self.sent[-1].body.split("reset=")[1].split()[0]
 
 
 @pytest.fixture
 def mailbox():
-    captured = _CapturingDelivery()
-    delivery.set_delivery(captured)
+    captured = _CapturingMailer()
+    mail.set_mailer(captured)
     yield captured
-    delivery.set_delivery(delivery.LoggingDelivery())
+    mail.set_mailer(mail.LoggingMailer())
 
 
 @pytest.fixture(autouse=True)
@@ -214,7 +215,7 @@ class TestRequestingAReset:
 
         assert resp.status_code == 204
         assert resp.content in (b"", b"null")
-        assert mailbox.sent, "the link should have gone to the delivery backend"
+        assert mailbox.sent, "the link should have been mailed"
 
     def test_an_unknown_address_is_answered_identically(self, mailbox):
         # Otherwise this endpoint answers "does this person use the
@@ -235,7 +236,7 @@ class TestRequestingAReset:
 
         client.post("/auth/password-reset/request", json={"email": "owner@example.com"})
 
-        assert mailbox.sent[0][0] == "owner@example.com"
+        assert mailbox.sent[0].to == "owner@example.com"
 
     def test_requests_are_rate_limited(self, mailbox):
         _signup()

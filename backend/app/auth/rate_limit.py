@@ -45,9 +45,23 @@ _LOG = logging.getLogger("uvicorn.error")
 MAX_ATTEMPTS = 5
 WINDOW_SECONDS = 60
 
+# The credential endpoints are not the expensive ones. A chat turn calls an
+# LLM and a document upload runs the OCR pipeline; both cost real money and
+# real CPU per request, and both were completely unlimited - so one script,
+# or one runaway client, could spend an account's LLM budget or pin every
+# worker on OCR. These are deliberately generous: they are a ceiling on
+# runaway use, not a throttle a person doing the work would ever feel.
+#
+# A conversation is a person typing. Twenty turns a minute is faster than
+# anyone reads a reply.
+CHAT_MAX_ATTEMPTS = 20
+# OCR is the most expensive thing this product does per request, and
+# uploading ten documents a minute is already a bulk operation.
+UPLOAD_MAX_ATTEMPTS = 10
+
 
 class RateLimitBackend(Protocol):
-    def check(self, key: str) -> int | None:
+    def check(self, key: str, max_attempts: int = MAX_ATTEMPTS) -> int | None:
         """Records an attempt against `key`.
 
         Returns None when it is allowed, or the number of seconds to wait
@@ -71,13 +85,13 @@ class InMemoryBackend:
         self._lock = threading.Lock()
         self._attempts: dict[str, list[float]] = defaultdict(list)
 
-    def check(self, key: str) -> int | None:
+    def check(self, key: str, max_attempts: int = MAX_ATTEMPTS) -> int | None:
         now = time.time()
         with self._lock:
             recent = [stamp for stamp in self._attempts[key] if now - stamp < WINDOW_SECONDS]
             recent.append(now)
             self._attempts[key] = recent
-            if len(recent) <= MAX_ATTEMPTS:
+            if len(recent) <= max_attempts:
                 return None
             return max(1, int(WINDOW_SECONDS - (now - recent[0])))
 
@@ -105,7 +119,7 @@ class DatabaseBackend:
     turn a limiter problem into an outage without protecting anything.
     """
 
-    def check(self, key: str) -> int | None:
+    def check(self, key: str, max_attempts: int = MAX_ATTEMPTS) -> int | None:
         now = datetime.now(timezone.utc)
         cutoff = now - timedelta(seconds=WINDOW_SECONDS)
         try:
@@ -130,7 +144,7 @@ class DatabaseBackend:
             _LOG.exception("Rate limiter unavailable - allowing the attempt through.")
             return None
 
-        if len(stamps) <= MAX_ATTEMPTS:
+        if len(stamps) <= max_attempts:
             return None
         oldest = _as_utc(stamps[0])
         return max(1, int(WINDOW_SECONDS - (now - oldest).total_seconds()))
@@ -165,8 +179,8 @@ def set_backend(backend: RateLimitBackend) -> None:
     _backend = backend
 
 
-def check(key: str) -> int | None:
-    return _backend.check(key)
+def check(key: str, max_attempts: int = MAX_ATTEMPTS) -> int | None:
+    return _backend.check(key, max_attempts)
 
 
 def reset(key: str | None = None) -> None:

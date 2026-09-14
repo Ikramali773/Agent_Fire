@@ -188,6 +188,26 @@ def count_by_owner(owner_user_id: str) -> int:
         )
 
 
+def list_by_session_ids(session_ids: list[str]) -> list[CaseFile]:
+    """Several case files by id, in one query, newest-updated first.
+
+    Exists so a list of ids can be turned into a list of NAMES without a
+    fetch per row - the shape a team's project list needs. Says nothing
+    about access: every caller checks that first, because this will
+    happily return any id it is given.
+    """
+    if not session_ids:
+        return []
+    with get_session() as session:
+        records = (
+            session.query(CaseFileRecord)
+            .filter(CaseFileRecord.session_id.in_(session_ids))
+            .order_by(CaseFileRecord.updated_at.desc())
+            .all()
+        )
+        return [_to_case_file(record) for record in records]
+
+
 def list_flagged_for_review(owner_user_id: str, extra_session_ids: list[str]) -> list[CaseFile]:
     """Every case file needing human review that this account is
     responsible for: its own, plus the given (shared-with-it) ones.

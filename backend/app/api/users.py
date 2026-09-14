@@ -25,7 +25,12 @@ from app.models.organisation import Assignment
 from app.models.preferences import UserPreferences
 from app.models.review import ReviewStatus
 from app.models.user import User
-from app.store import count_by_owner, list_by_owner, list_flagged_for_review
+from app.store import (
+    count_by_owner,
+    list_by_owner,
+    list_by_session_ids,
+    list_flagged_for_review,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -212,6 +217,90 @@ def list_my_review_queue(
         )
     # The query already returns oldest-first; nothing here reorders it.
     return items
+
+
+class ProjectSearchHit(BaseModel):
+    """One search result."""
+
+    session_id: str
+    project_name: str
+    matched_in: str = Field(
+        description="'name' or 'conversation' - so the UI can say why a row is here."
+    )
+    snippet: str = Field(
+        default="", description="The matching phrase in context. Empty for a name match."
+    )
+    updated_at: datetime
+
+
+@router.get("/me/search", response_model=list[ProjectSearchHit])
+def search_my_projects(
+    q: str = Query(min_length=2, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+    current_user: User = Depends(get_current_user_required),
+) -> list[ProjectSearchHit]:
+    """Finds a project by its name OR by something said in its conversation.
+
+    Search used to match the title only - and a title is the first message
+    verbatim - so "that project where we discussed the atrium" still meant
+    opening chats one by one.
+
+    Scoped to everything this account can read: its own projects, ones
+    shared with it, and ones reachable through a team. The scope is
+    computed HERE and handed to the store as a list of ids, so the search
+    query itself never has to know about access.
+
+    **A substring match with no ranking** - see app/message_store.py's
+    `search` for why, and what real full-text search would cost.
+    """
+    reachable = set(grant_store.list_session_ids_for_user(current_user.id))
+    reachable.update(organisation_store.session_ids_for_user(current_user.id))
+    owned = list_by_owner(current_user.id)
+    reachable.update(case_file.session_id for case_file in owned)
+
+    by_id = {case_file.session_id: case_file for case_file in owned}
+    # A shared or team project is not in `owned`, so fetch the rest by id
+    # rather than leaving them nameless.
+    missing = [session_id for session_id in reachable if session_id not in by_id]
+    for case_file in list_by_session_ids(missing):
+        by_id[case_file.session_id] = case_file
+
+    needle = q.strip().lower()
+    hits: list[ProjectSearchHit] = []
+    matched: set[str] = set()
+
+    # Name matches first: if you typed the project's name, that is what you
+    # meant, and burying it under a conversation match would be perverse.
+    for case_file in sorted(by_id.values(), key=lambda item: item.updated_at, reverse=True):
+        if needle in (case_file.project_name or "").lower():
+            matched.add(case_file.session_id)
+            hits.append(
+                ProjectSearchHit(
+                    session_id=case_file.session_id,
+                    project_name=case_file.project_name or "Untitled project",
+                    matched_in="name",
+                    updated_at=case_file.updated_at,
+                )
+            )
+
+    remaining = limit - len(hits)
+    if remaining > 0:
+        snippets = message_store.search(
+            [session_id for session_id in by_id if session_id not in matched], q, limit=remaining
+        )
+        for session_id, snippet in snippets.items():
+            case_file = by_id[session_id]
+            hits.append(
+                ProjectSearchHit(
+                    session_id=session_id,
+                    project_name=case_file.project_name or "Untitled project",
+                    matched_in="conversation",
+                    snippet=snippet,
+                    updated_at=case_file.updated_at,
+                )
+            )
+
+    return hits[:limit]
 
 
 @router.get("/me/preferences", response_model=UserPreferences)

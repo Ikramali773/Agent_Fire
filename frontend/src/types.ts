@@ -39,8 +39,8 @@ export type RequirementFinding = Required<components["schemas"]["RequirementFind
 // shape - re-point it, same as CaseFilePage.
 export type RequirementReport = Omit<
   Required<components["schemas"]["RequirementReport"]>,
-  "findings"
-> & { findings: RequirementFinding[] };
+  "findings" | "occupant_load"
+> & { findings: RequirementFinding[]; occupant_load: OccupantLoadEstimate | null };
 export type CaseFileGrant = Required<components["schemas"]["CaseFileGrant"]>;
 // `invite_url` is genuinely nullable on the wire - the backend fills it in
 // only on the response that creates an invite, because the token is stored
@@ -51,6 +51,15 @@ export type CaseFileInvite = Omit<
   "invite_url"
 > & { invite_url: string | null };
 export type InvitePreview = Required<components["schemas"]["InvitePreview"]>;
+export type OrganisationCaseFile = Required<components["schemas"]["OrganisationCaseFile"]>;
+export type ProjectSearchHit = Required<components["schemas"]["ProjectSearchHit"]>;
+// `people`, `low` and `high` are genuinely null when Table 2 gives several
+// possible factors and the sub-use is unknown - the case the whole model
+// exists to represent honestly.
+export type OccupantLoadEstimate = Omit<
+  Required<components["schemas"]["OccupantLoadEstimate"]>,
+  "people" | "low" | "high"
+> & { people: number | null; low: number | null; high: number | null };
 export type MemberRole = components["schemas"]["MemberRole"];
 export type Organisation = Required<components["schemas"]["Organisation"]>;
 export type OrganisationMember = Required<components["schemas"]["OrganisationMember"]>;

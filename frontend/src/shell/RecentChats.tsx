@@ -1,11 +1,13 @@
 import { MessageSquare, Pin, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { LoginModal } from "../auth/LoginModal";
 import { DeleteProjectDialog } from "../projects/DeleteProjectDialog";
 import { RenameProjectDialog } from "../projects/RenameProjectDialog";
 import { useProjects } from "../projects/ProjectsContext";
 import { usePinnedChats } from "../projects/usePinnedChats";
+import { useConversationSearch } from "./useConversationSearch";
 import { projectLabel } from "../lib/caseFileFields";
 import { relativeTime } from "../lib/relativeTime";
 import { ChatRowMenu } from "./ChatRowMenu";
@@ -80,6 +82,16 @@ export function RecentChats({ activeSessionId, onOpenChat, onNewChat, onViewAll,
     };
   }, [projects, trimmedQuery, isPinned, labelFor]);
 
+  // Search used to match the TITLE only - and a title is the first message
+  // verbatim - so "that project where we discussed the atrium" still meant
+  // opening chats one at a time. These come from the server and arrive a
+  // moment after the local matches above, which is why they are a separate
+  // section rather than merged into one list that waits on the network.
+  const conversationHits = useConversationSearch(
+    trimmedQuery,
+    useMemo(() => new Set(recent.map((project) => project.session_id)), [recent]),
+  );
+
   // Anonymous case files have no owner, so there is nothing to list - be
   // honest about why rather than showing a permanently empty section.
   if (!user) {
@@ -142,7 +154,12 @@ export function RecentChats({ activeSessionId, onOpenChat, onNewChat, onViewAll,
         <span>New chat</span>
       </button>
 
-      {total > VISIBLE_COUNT && (
+      {/* Shown from two projects up, not from nine. The threshold was
+          VISIBLE_COUNT back when search matched titles only - below that
+          every title was already on screen, so searching them was
+          pointless. Now it reaches what was SAID in a conversation, which
+          you cannot read off the rail at any number of projects. */}
+      {total > 1 && (
         <div className="ds-recent-chats__search">
           <Search className="ds-recent-chats__search-icon" aria-hidden="true" />
           <input
@@ -191,6 +208,35 @@ export function RecentChats({ activeSessionId, onOpenChat, onNewChat, onViewAll,
 
       {searchOverflow > 0 && (
         <p className="ds-recent-chats__note">{searchOverflow} more match. Narrow the search to see them.</p>
+      )}
+
+      {trimmedQuery && conversationHits.length > 0 && (
+        <>
+          <div className="ds-recent-chats__group-label">Mentioned in conversation</div>
+          <ul className="ds-recent-chats__search-hits">
+            {conversationHits.map((hit) => (
+              <li key={hit.session_id}>
+                <button
+                  type="button"
+                  className="ds-recent-chats__search-hit"
+                  onClick={() => {
+                    const project = (projects ?? []).find(
+                      (item) => item.session_id === hit.session_id,
+                    );
+                    // A team or shared project can match without being in
+                    // this account's own rail list, so fetch it rather
+                    // than silently doing nothing.
+                    if (project) onOpenChat(project);
+                    else void api.getCaseFile(hit.session_id).then(onOpenChat).catch(() => undefined);
+                  }}
+                >
+                  <span className="ds-recent-chats__search-hit-name">{hit.project_name}</span>
+                  <span className="ds-recent-chats__search-hit-snippet">{hit.snippet}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       {!trimmedQuery && hiddenCount > 0 && (

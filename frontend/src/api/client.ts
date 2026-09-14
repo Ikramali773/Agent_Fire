@@ -13,8 +13,10 @@ import type {
   InvitePreview,
   MemberRole,
   Organisation,
+  OrganisationCaseFile,
   OrganisationMember,
   OrganisationSummary,
+  ProjectSearchHit,
   RequirementReport,
   ReviewQueueItem,
   ReviewState,
@@ -259,8 +261,10 @@ export const api = {
   removeMember: (organisationId: string, userId: string) =>
     requestNoContent(`/organisations/${organisationId}/members/${userId}`, { method: "DELETE" }),
 
+  // Named, not bare ids: a list of uuids told the Team page how many
+  // projects a team held but not which.
   listOrganisationCaseFiles: (organisationId: string) =>
-    request<string[]>(`/organisations/${organisationId}/case-files`),
+    request<OrganisationCaseFile[]>(`/organisations/${organisationId}/case-files`),
 
   // Only the project's OWNER may do this - administering a team must
   // never become a way to pull in a colleague's other work.
@@ -295,6 +299,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ assigned_to_user_id: assignedToUserId, due_at: dueAt, note }),
     }),
+
+  // Phase 4: finds a project by its name OR by something said in its
+  // conversation. Search used to match the title only - and a title is
+  // the first message verbatim.
+  searchProjects: (query: string, limit = 20) =>
+    request<ProjectSearchHit[]>(
+      `/users/me/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    ),
 
   listShares: (sessionId: string) => request<CaseFileGrant[]>(`/case-files/${sessionId}/shares`),
 

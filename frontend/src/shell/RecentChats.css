@@ -214,3 +214,38 @@
 .ds-recent-chats__view-all:hover {
   text-decoration: underline;
 }
+
+.ds-recent-chats__search-hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ds-recent-chats__search-hit {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ds-recent-chats__search-hit:hover {
+  background: var(--surface-sunken);
+}
+
+.ds-recent-chats__search-hit-name {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.ds-recent-chats__search-hit-snippet {
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--text-tertiary);
+}

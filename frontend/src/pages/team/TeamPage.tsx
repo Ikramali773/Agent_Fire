@@ -5,8 +5,15 @@ import { useAuth } from "../../auth/AuthContext";
 import { LoginModal } from "../../auth/LoginModal";
 import { Button } from "../../design-system/components/Button";
 import { Card } from "../../design-system/components/Card";
+import { relativeTime } from "../../lib/relativeTime";
 import { EmptyState } from "../../design-system/components/EmptyState";
-import type { CaseFile, MemberRole, OrganisationMember, OrganisationSummary } from "../../types";
+import type {
+  CaseFile,
+  MemberRole,
+  OrganisationCaseFile,
+  OrganisationMember,
+  OrganisationSummary,
+} from "../../types";
 import "./TeamPage.css";
 
 interface Props {
@@ -29,7 +36,7 @@ export function TeamPage({ caseFile }: Props) {
   const [organisations, setOrganisations] = useState<OrganisationSummary[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [members, setMembers] = useState<OrganisationMember[]>([]);
-  const [projectIds, setProjectIds] = useState<string[]>([]);
+  const [projects, setProjects] = useState<OrganisationCaseFile[]>([]);
   const [newName, setNewName] = useState("");
   const [memberEmail, setMemberEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -54,11 +61,11 @@ export function TeamPage({ caseFile }: Props) {
   const loadDetail = useCallback(() => {
     if (!selectedId) {
       setMembers([]);
-      setProjectIds([]);
+      setProjects([]);
       return;
     }
     api.listMembers(selectedId).then(setMembers).catch(() => setMembers([]));
-    api.listOrganisationCaseFiles(selectedId).then(setProjectIds).catch(() => setProjectIds([]));
+    api.listOrganisationCaseFiles(selectedId).then(setProjects).catch(() => setProjects([]));
   }, [selectedId]);
 
   useEffect(loadDetail, [loadDetail]);
@@ -83,7 +90,8 @@ export function TeamPage({ caseFile }: Props) {
   const selected = organisations?.find((item) => item.organisation.id === selectedId) ?? null;
   const isAdmin = selected?.role === "admin";
   const isCreator = selected?.organisation.created_by_user_id === user.id;
-  const activeShared = caseFile !== null && projectIds.includes(caseFile.session_id);
+  const activeShared =
+    caseFile !== null && projects.some((item) => item.session_id === caseFile.session_id);
   const ownsActive = caseFile !== null && caseFile.owner_user_id === user.id;
 
   const run = async (action: () => Promise<unknown>, fallback: string) => {
@@ -281,11 +289,26 @@ export function TeamPage({ caseFile }: Props) {
 
       {selected && (
         <Card title={`${selected.organisation.name} · projects`}>
-          <p className="ds-team-page__lead">
-            {projectIds.length === 0
-              ? "No project is shared with this team yet."
-              : `${projectIds.length} project${projectIds.length === 1 ? "" : "s"} shared with this team.`}
-          </p>
+          {projects.length === 0 ? (
+            <p className="ds-team-page__lead">No project is shared with this team yet.</p>
+          ) : (
+            <ul className="ds-team-page__list">
+              {projects.map((item) => (
+                <li key={item.session_id} className="ds-team-page__member">
+                  <span className="ds-team-page__name">{item.project_name}</span>
+                  {/* What makes a row worth looking at first. Not a
+                      compliance status - the engine flagged it, which is a
+                      different statement from "this building fails". */}
+                  {item.requires_review && (
+                    <span className="ds-team-page__meta">needs review</span>
+                  )}
+                  <span className="ds-team-page__meta">
+                    updated {relativeTime(item.updated_at)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {caseFile && ownsActive && (
             <Button

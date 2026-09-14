@@ -353,6 +353,60 @@ class TestTeamProjects:
 
         assert client.delete(f"/organisations/{org_id}", headers=member["headers"]).status_code == 403
 
+    def test_a_team_s_projects_are_listed_by_name(self):
+        # This returned bare session ids, so the Team page could say how
+        # many projects a team held but not which - a list of uuids being
+        # no use to anyone.
+        owner, _, org_id, session_id = self._team_with_a_project()
+        client.put(
+            f"/case-files/{session_id}",
+            json={"project_name": "Civic Hospital Wing"},
+            headers=owner["headers"],
+        )
+
+        rows = client.get(f"/organisations/{org_id}/case-files", headers=owner["headers"]).json()
+
+        assert [row["project_name"] for row in rows] == ["Civic Hospital Wing"]
+        assert rows[0]["session_id"] == session_id
+
+    def test_an_unnamed_project_still_reads_as_something(self):
+        owner, _, org_id, _ = self._team_with_a_project()
+
+        rows = client.get(f"/organisations/{org_id}/case-files", headers=owner["headers"]).json()
+
+        assert rows[0]["project_name"] == "Untitled project"
+
+    def test_the_list_says_which_projects_are_flagged(self):
+        # What makes a row worth looking at first.
+        owner, _, org_id, _ = self._team_with_a_project()
+        flagged_id = make_project(owner, flagged=True)
+        client.post(
+            f"/organisations/{org_id}/case-files",
+            json={"session_id": flagged_id},
+            headers=owner["headers"],
+        )
+
+        rows = client.get(f"/organisations/{org_id}/case-files", headers=owner["headers"]).json()
+
+        by_id = {row["session_id"]: row["requires_review"] for row in rows}
+        assert by_id[flagged_id] is True
+
+    def test_a_member_sees_the_same_list_as_the_owner(self):
+        owner, member, org_id, _ = self._team_with_a_project()
+
+        theirs = client.get(f"/organisations/{org_id}/case-files", headers=member["headers"]).json()
+        ours = client.get(f"/organisations/{org_id}/case-files", headers=owner["headers"]).json()
+
+        assert theirs == ours
+
+    def test_a_stranger_cannot_list_a_team_s_projects(self):
+        _, _, org_id, _ = self._team_with_a_project()
+        stranger = account("stranger@example.com")
+
+        assert client.get(
+            f"/organisations/{org_id}/case-files", headers=stranger["headers"]
+        ).status_code == 404
+
     def test_deleting_a_project_unlinks_it_from_its_team(self):
         owner, _, org_id, session_id = self._team_with_a_project()
 

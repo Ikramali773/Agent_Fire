@@ -84,3 +84,9 @@ def get_table7(group_letter: str) -> dict:
 
 def group_letter_for_occupancy(occupancy_type: str) -> str:
     return OCCUPANCY_TO_GROUP_LETTER[occupancy_type]
+
+
+@lru_cache(maxsize=1)
+def get_table2_occupant_load() -> dict:
+    """Table 2 - occupant load factors, in square metres per person."""
+    return json.loads((RULES_DIR / "table2_occupant_load.json").read_text(encoding="utf-8"))

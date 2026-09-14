@@ -2280,6 +2280,83 @@
         }
       }
     },
+    "/users/me/search": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Search My Projects",
+        "description": "Finds a project by its name OR by something said in its conversation.\n\nSearch used to match the title only - and a title is the first message\nverbatim - so \"that project where we discussed the atrium\" still meant\nopening chats one by one.\n\nScoped to everything this account can read: its own projects, ones\nshared with it, and ones reachable through a team. The scope is\ncomputed HERE and handed to the store as a list of ids, so the search\nquery itself never has to know about access.\n\n**A substring match with no ranking** - see app/message_store.py's\n`search` for why, and what real full-text search would cost.",
+        "operationId": "search_my_projects_users_me_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 200,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectSearchHit"
+                  },
+                  "title": "Response Search My Projects Users Me Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/me/preferences": {
       "get": {
         "tags": [
@@ -2992,6 +3069,7 @@
           "organisations"
         ],
         "summary": "List Organisation Case Files",
+        "description": "The team's projects, by name.\n\nThis returned bare session ids, which meant the Team page could say how\nmany projects a team held but not which - a list of uuids being no use\nto anyone. Names come from one query over the ids rather than a fetch\nper row.\n\nEvery member can already read each of these, so naming them exposes\nnothing new; the membership check above is what guards it.",
         "operationId": "list_organisation_case_files_organisations__organisation_id__case_files_get",
         "parameters": [
           {
@@ -3028,7 +3106,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "$ref": "#/components/schemas/OrganisationCaseFile"
                   },
                   "title": "Response List Organisation Case Files Organisations  Organisation Id  Case Files Get"
                 }
@@ -4453,6 +4531,67 @@
         ],
         "title": "OccupancyType"
       },
+      "OccupantLoadEstimate": {
+        "properties": {
+          "resolved": {
+            "type": "boolean",
+            "title": "Resolved",
+            "description": "False when several Table 2 factors could apply and the sub-use is unknown."
+          },
+          "people": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "People",
+            "description": "The occupant load, rounded up. None when unresolved."
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation",
+            "default": ""
+          },
+          "caveats": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Caveats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resolved"
+        ],
+        "title": "OccupantLoadEstimate",
+        "description": "Table 2's occupant load, when it can be derived.\n\nInformational, never a verdict: an occupant load on its own says\nnothing about compliance - turning it into a required exit width needs\nthe stair and exit measurements in Table 3, which the Case File does\nnot hold. Carried alongside the findings rather than as one of them,\nso it cannot be mistaken for a pass or a fail."
+      },
       "Organisation": {
         "properties": {
           "id": {
@@ -4481,6 +4620,37 @@
           "created_at"
         ],
         "title": "Organisation"
+      },
+      "OrganisationCaseFile": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name"
+          },
+          "requires_review": {
+            "type": "boolean",
+            "title": "Requires Review",
+            "description": "Whether the engine flagged it - what makes a row worth looking at first.",
+            "default": false
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "project_name",
+          "updated_at"
+        ],
+        "title": "OrganisationCaseFile",
+        "description": "A team's project, as its members see it in a list.\n\nDeliberately thin: enough to recognise and open a project, and nothing\nabout the building. A member can read the whole case file anyway - this\nis a list, and a list that carried every field would send a megabyte to\nrender twenty rows."
       },
       "OrganisationCreate": {
         "properties": {
@@ -4604,6 +4774,43 @@
         ],
         "title": "PasswordResetRequest"
       },
+      "ProjectSearchHit": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name"
+          },
+          "matched_in": {
+            "type": "string",
+            "title": "Matched In",
+            "description": "'name' or 'conversation' - so the UI can say why a row is here."
+          },
+          "snippet": {
+            "type": "string",
+            "title": "Snippet",
+            "description": "The matching phrase in context. Empty for a name match.",
+            "default": ""
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "project_name",
+          "matched_in",
+          "updated_at"
+        ],
+        "title": "ProjectSearchHit",
+        "description": "One search result."
+      },
       "ProjectStage": {
         "type": "string",
         "enum": [
@@ -4702,6 +4909,17 @@
             "type": "array",
             "title": "Unrecognized Declarations",
             "description": "Entries in existing_fire_systems that could not be matched to a known installation. Surfaced rather than dropped: a system the engine did not understand is not the same as a system the building does not have, and silently ignoring it would make a requirement look unmet when it is not."
+          },
+          "occupant_load": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OccupantLoadEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Table 2's occupant load. Null when the occupancy or the area is missing. Never a pass or a fail - see OccupantLoadEstimate."
           },
           "met_count": {
             "type": "integer",

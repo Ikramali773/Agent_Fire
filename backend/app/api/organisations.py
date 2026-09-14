@@ -15,10 +15,12 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app import assignment_store, grant_store, organisation_store
+from app import assignment_store, grant_store, mail, organisation_store
 from app.auth.dependencies import get_current_user_required
 from app.auth.user_store import get_user_by_email
+from app.mail import messages
 from app.models.organisation import (
+    OrganisationCaseFile,
     Assignment,
     MemberRole,
     Organisation,
@@ -27,10 +29,19 @@ from app.models.organisation import (
 )
 from app.models.user import User
 from app.store import get as store_get
+from app.store import list_by_session_ids
 
 router = APIRouter(prefix="/organisations", tags=["organisations"])
 
 MAX_NAME_LENGTH = 120
+
+
+def _app_url() -> str:
+    """Where to send someone to act on a notification. Same variable the
+    reset and invite links are built from (see app/api/auth.py)."""
+    import os
+
+    return os.environ.get("FIRE_AGENT_APP_URL", "http://localhost:5173").rstrip("/")
 
 
 def _require_membership(
@@ -242,12 +253,34 @@ class CaseFileLink(BaseModel):
     session_id: str
 
 
-@router.get("/{organisation_id}/case-files", response_model=list[str])
+@router.get("/{organisation_id}/case-files", response_model=list[OrganisationCaseFile])
 def list_organisation_case_files(
     organisation_id: str, current_user: User = Depends(get_current_user_required)
-) -> list[str]:
+) -> list[OrganisationCaseFile]:
+    """The team's projects, by name.
+
+    This returned bare session ids, which meant the Team page could say how
+    many projects a team held but not which - a list of uuids being no use
+    to anyone. Names come from one query over the ids rather than a fetch
+    per row.
+
+    Every member can already read each of these, so naming them exposes
+    nothing new; the membership check above is what guards it.
+    """
     _require_membership(organisation_id, current_user)
-    return organisation_store.session_ids_for_organisation(organisation_id)
+    session_ids = organisation_store.session_ids_for_organisation(organisation_id)
+    return [
+        OrganisationCaseFile(
+            session_id=case_file.session_id,
+            project_name=case_file.project_name or "Untitled project",
+            requires_review=bool(
+                case_file.classification_result
+                and case_file.classification_result.require_human_review_flag
+            ),
+            updated_at=case_file.updated_at,
+        )
+        for case_file in list_by_session_ids(session_ids)
+    ]
 
 
 @router.post("/{organisation_id}/case-files", status_code=201)
@@ -415,7 +448,7 @@ def set_assignment(
             raise HTTPException(status_code=404, detail="No such account")
         email = assignee.email
 
-    return assignment_store.assign(
+    assignment = assignment_store.assign(
         session_id,
         assigned_by_user_id=current_user.id,
         assigned_to_user_id=body.assigned_to_user_id,
@@ -423,3 +456,19 @@ def set_assignment(
         due_at=body.due_at,
         note=body.note,
     )
+    if email:
+        # Without this, being assigned a case told the assignee nothing at
+        # all - they had to come and look. Unassigning mails nobody: there
+        # is no news in "you are not doing this any more" worth an inbox.
+        case_file = store_get(session_id)
+        mail.sender.send(
+            messages.case_assigned(
+                (case_file.project_name if case_file else "") or "a project",
+                current_user.email,
+                _app_url(),
+                due_at=body.due_at,
+                note=body.note,
+            ),
+            email,
+        )
+    return assignment

@@ -19,7 +19,7 @@ from enum import Enum
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 
 from app import (
@@ -32,6 +32,9 @@ from app import (
     preferences_store,
     review_store,
 )
+from app import mail
+from app.mail import messages
+from app.auth import rate_limit
 from app.auth.dependencies import get_current_user_optional, get_current_user_required
 from app.auth.user_store import get_user_by_email
 from app.dialogue.manager import handle_turn, start_conversation
@@ -154,6 +157,30 @@ def _reachable_through_an_organisation(session_id: str, user_id: str) -> bool:
     if not shared_with:
         return False
     return bool(shared_with & set(organisation_store.organisation_ids_for_user(user_id)))
+
+
+def _throttle(request: Request, kind: str, who: User | None, limit: int) -> None:
+    """Caps the endpoints that cost real money and CPU per request.
+
+    A chat turn calls an LLM; a document upload runs the OCR pipeline. Both
+    were completely unlimited, so one script or one runaway client could
+    spend an account's LLM budget or pin every worker on OCR. The
+    credential limiter existed for a different reason (brute force) and
+    left these untouched.
+
+    Keyed on the ACCOUNT where there is one, falling back to the client
+    address for an anonymous session. Keying on the address alone would
+    throttle a whole office behind one NAT together; keying on the account
+    alone would leave the anonymous Phase 1 flow unlimited.
+    """
+    who_key = who.id if who else (request.client.host if request.client else "unknown")
+    retry_after = rate_limit.check(f"{kind}:{who_key}", limit)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="That's a lot of requests in a short time. Wait a moment and try again.",
+            headers={"Retry-After": str(retry_after)},
+        )
 
 
 def _save_or_conflict(case_file: CaseFile, expected_version: int | None) -> CaseFile:
@@ -467,6 +494,16 @@ def create_invite(
         raise HTTPException(status_code=422, detail="You already own this project")
 
     token, invite = invite_store.create(session_id, email, current_user.id)
+    # Mailed as well as returned. The link still comes back to the owner
+    # once - that is what makes this work with no mail server at all - but
+    # a deployment that HAS one should not make them copy it by hand and
+    # tell the reviewer out of band that something is waiting.
+    mail.sender.send(
+        messages.reviewer_invite(
+            case_file.project_name or "a project", current_user.email, _invite_url(token)
+        ),
+        email,
+    )
     # The only moment the token exists in the clear.
     return invite.model_copy(update={"invite_url": _invite_url(token)})
 
@@ -792,6 +829,7 @@ def get_changes(
 def send_message(
     session_id: str,
     body: dict,
+    request: Request,
     llm: LLMClient = Depends(get_llm_client),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
@@ -799,6 +837,7 @@ def send_message(
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
     _check_access(case_file, current_user, Access.WRITE)
+    _throttle(request, "chat", current_user, rate_limit.CHAT_MAX_ATTEMPTS)
     user_message = body.get("message")
     if not user_message:
         raise HTTPException(status_code=422, detail="'message' is required")
@@ -838,6 +877,7 @@ def send_message(
 @router.post("/{session_id}/documents")
 async def upload_document(
     session_id: str,
+    request: Request,
     file: UploadFile = File(...),
     llm: LLMClient = Depends(get_llm_client),
     current_user: User | None = Depends(get_current_user_optional),
@@ -854,6 +894,10 @@ async def upload_document(
     if case_file is None:
         raise HTTPException(status_code=404, detail="Case file not found")
     _check_access(case_file, current_user, Access.WRITE)
+    # Before reading the body: the point is to refuse the expensive work,
+    # and streaming a 20 MB upload to memory first would already have paid
+    # most of what the limit is protecting.
+    _throttle(request, "upload", current_user, rate_limit.UPLOAD_MAX_ATTEMPTS)
 
     if file.content_type not in _SUPPORTED_UPLOAD_TYPES:
         raise HTTPException(
