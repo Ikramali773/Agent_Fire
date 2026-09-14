@@ -16,7 +16,7 @@ from fastapi import Depends, Header, HTTPException
 
 from app.auth import revoked_tokens
 from app.auth.tokens import decode_token
-from app.auth.user_store import get_user_by_id
+from app.auth.user_store import get_user_by_id, sessions_valid_from
 from app.models.user import User
 
 
@@ -30,6 +30,12 @@ def get_current_user_optional(authorization: Optional[str] = Header(default=None
     # A signed, unexpired token is not enough: it may have been logged out.
     # This is the one place signature validity and revocation are combined.
     if revoked_tokens.is_revoked(claims.token_id):
+        return None
+    # A password change closes every session that existed before it. There
+    # is no list of stateless tokens to walk, so the account carries a
+    # cut-off instead and each token is checked against it.
+    cutoff = sessions_valid_from(claims.user_id)
+    if cutoff is not None and claims.issued_at < cutoff.timestamp():
         return None
     return get_user_by_id(claims.user_id)
 

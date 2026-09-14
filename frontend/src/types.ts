@@ -36,6 +36,15 @@ export type RequirementReport = Omit<
   "findings"
 > & { findings: RequirementFinding[] };
 export type CaseFileGrant = Required<components["schemas"]["CaseFileGrant"]>;
+// `invite_url` is genuinely nullable on the wire - the backend fills it in
+// only on the response that creates an invite, because the token is stored
+// hashed and cannot be shown again. Required<> would wrongly promise it is
+// always there, so re-point it as it really is.
+export type CaseFileInvite = Omit<
+  Required<components["schemas"]["CaseFileInvite"]>,
+  "invite_url"
+> & { invite_url: string | null };
+export type InvitePreview = Required<components["schemas"]["InvitePreview"]>;
 // Required<> is SHALLOW, so it would leave `items` as the raw, partly
 // optional CaseFile rather than the Required one exported above - the same
 // trap normalizeClassification exists for. Re-point `items` explicitly.

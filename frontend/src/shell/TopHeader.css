@@ -197,7 +197,7 @@
   padding-bottom: var(--space-2);
 }
 
-.ds-top-header__account-signout {
+.ds-top-header__account-action {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -211,11 +211,11 @@
   text-align: left;
 }
 
-.ds-top-header__account-signout:hover {
+.ds-top-header__account-action:hover {
   background: var(--surface-hover);
 }
 
-.ds-top-header__account-signout svg {
+.ds-top-header__account-action svg {
   width: 14px;
   height: 14px;
 }

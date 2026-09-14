@@ -150,6 +150,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/case-files/{session_id}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Invites
+         * @description Outstanding and accepted invites on a project. Owner only, and never
+         *     with a token - they are stored hashed and cannot be shown again.
+         */
+        get: operations["list_invites_case_files__session_id__invites_get"];
+        put?: never;
+        /**
+         * Create Invite
+         * @description Creates a reviewer invite and returns the link, once.
+         *
+         *     This is how a consultant who has never used the product gets in:
+         *     sharing by account email answers an honest 404 for them, and this
+         *     product has no mail transport to send an invitation with. So the OWNER
+         *     receives the link and passes it on however they like - which is secure
+         *     precisely because the owner is already authorised to share the project.
+         *
+         *     OWN, not WRITE: a reviewer must never be able to invite a third party
+         *     onto someone else's project.
+         */
+        post: operations["create_invite_case_files__session_id__invites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/invites/{invited_email}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Invite
+         * @description Cancels an invite that has not been accepted.
+         *
+         *     Once accepted the access is an ordinary grant, revoked through
+         *     /shares - so a stale invite and a live reviewer are never confused.
+         */
+        delete: operations["revoke_invite_case_files__session_id__invites__invited_email__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/case-files/{session_id}/shares": {
         parameters: {
             query?: never;
@@ -550,6 +607,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description Changes the signed-in account's password.
+         *
+         *     Requires the current one: a session token alone should not be enough to
+         *     lock the real owner out of their own account.
+         *
+         *     Every other session is closed as a side effect (see
+         *     user_store.set_password). Someone changing their password because it may
+         *     have been stolen gains nothing if the thief's session stays alive.
+         */
+        post: operations["change_password_auth_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password-reset/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Password Reset
+         * @description Starts a password reset.
+         *
+         *     Always 204, whether or not the address has an account: answering
+         *     differently would turn this endpoint into a way to ask "does this person
+         *     use the product?", and for a compliance tool the client list is itself
+         *     worth protecting.
+         *
+         *     The link is never returned here - it goes to the delivery backend (see
+         *     app/auth/delivery.py). Returning it would mean anyone could take over
+         *     any account just by typing its address.
+         *
+         *     Rate-limited on the same counter shape as login, so this cannot be used
+         *     to flood an inbox or to fish for addresses.
+         */
+        post: operations["request_password_reset_auth_password_reset_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Password Reset
+         * @description Completes a reset with the token from the link.
+         *
+         *     Single-use and expiring (see app/auth/password_resets.py), and like a
+         *     change it closes every session the account already had - which is the
+         *     point when the reason for resetting is that someone else got in.
+         */
+        post: operations["confirm_password_reset_auth_password_reset_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -669,6 +809,64 @@ export interface paths {
         get: operations["list_my_review_queue_users_me_review_queue_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invites/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Invite
+         * @description What this link is, before signing up to accept it.
+         *
+         *     Unauthenticated on purpose - the recipient has no account yet, and
+         *     being asked to create one without being told what for is how an
+         *     invitation gets ignored.
+         *
+         *     Deliberately thin: the project's name and who sent it, and nothing
+         *     about the building. Whoever holds the link has not accepted yet, and
+         *     may not be the person it was meant for.
+         */
+        get: operations["preview_invite_invites__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invites/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Invite
+         * @description Redeems an invite, granting the signed-in account reviewer access.
+         *
+         *     Requires an account: a verdict has to be attributable to a person, and
+         *     "someone with the link" is not one.
+         *
+         *     The invite is accepted by whoever is signed in, which need not be the
+         *     address it was addressed to - a consultant may well sign up with a
+         *     different one, and refusing that would strand a legitimate reviewer
+         *     over a typo. The address it was sent to is kept on the record either
+         *     way, so the owner can see who they meant to invite and who actually
+         *     accepted.
+         */
+        post: operations["accept_invite_invites__token__accept_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -830,6 +1028,37 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * CaseFileInvite
+         * @description An invite as its owner sees it.
+         */
+        CaseFileInvite: {
+            /** Session Id */
+            session_id: string;
+            /** Invited Email */
+            invited_email: string;
+            /** Invited By User Id */
+            invited_by_user_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Accepted At */
+            accepted_at?: string | null;
+            /** Accepted By User Id */
+            accepted_by_user_id?: string | null;
+            /**
+             * Invite Url
+             * @description The full link, present ONLY in the response that created the invite - the token is stored hashed and cannot be shown again. Listing invites later shows who was invited and whether they accepted, never the link.
+             */
+            invite_url?: string | null;
         };
         /**
          * CaseFilePage
@@ -1038,6 +1267,29 @@ export interface components {
          */
         IndustrialHazardBand: "G-1" | "G-2" | "G-3";
         /**
+         * InvitePreview
+         * @description What the recipient is shown before signing up.
+         *
+         *     Deliberately thin: enough to know what they are accepting and from
+         *     whom, and nothing about the building. Whoever holds the link has not
+         *     accepted yet, and may not be the person it was meant for.
+         */
+        InvitePreview: {
+            /** Project Name */
+            project_name: string;
+            /** Invited By Email */
+            invited_by_email: string;
+            /** Invited Email */
+            invited_email: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Already Accepted */
+            already_accepted: boolean;
+        };
+        /**
          * MessageKind
          * @description How the frontend should render this message - mirrors the
          *     ConversationEntry union in frontend/src/pages/overview/conversation.ts.
@@ -1080,6 +1332,25 @@ export interface components {
          * @enum {string}
          */
         OccupancyType: "Residential" | "Educational" | "Institutional" | "Assembly" | "Business" | "Mercantile" | "Industrial" | "Storage" | "Hazardous" | "Mixed Use";
+        /** PasswordChange */
+        PasswordChange: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
+        /** PasswordResetConfirm */
+        PasswordResetConfirm: {
+            /** Token */
+            token: string;
+            /** New Password */
+            new_password: string;
+        };
+        /** PasswordResetRequest */
+        PasswordResetRequest: {
+            /** Email */
+            email: string;
+        };
         /**
          * ProjectStage
          * @enum {string}
@@ -1590,6 +1861,110 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ReviewState"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_invites_case_files__session_id__invites_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFileInvite"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_invite_case_files__session_id__invites_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFileInvite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_invite_case_files__session_id__invites__invited_email__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+                invited_email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -2266,6 +2641,101 @@ export interface operations {
             };
         };
     };
+    change_password_auth_password_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_password_reset_auth_password_reset_request_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_password_reset_auth_password_reset_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     logout_auth_logout_post: {
         parameters: {
             query?: never;
@@ -2414,6 +2884,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewQueueItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_invite_invites__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invite_invites__token__accept_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFileInvite"];
                 };
             };
             /** @description Validation Error */

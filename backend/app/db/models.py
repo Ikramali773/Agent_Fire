@@ -128,6 +128,33 @@ class CaseFileGrantRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class CaseFileInviteRecord(Base):
+    """Phase 4: an invitation to review a project, redeemable by link.
+
+    Sharing is otherwise account-to-account by email, which cannot reach a
+    consultant who has never signed up - the API answers an honest 404. An
+    invite is what makes "send this to your fire consultant" possible
+    without a mail transport: the OWNER gets the link and passes it on
+    however they like, which is secure precisely because the owner is
+    already authorised to share the project.
+
+    Only the token's hash is stored (see app/invite_store.py). Single-use
+    and expiring, because for its lifetime the link IS access to the
+    project.
+    """
+
+    __tablename__ = "case_file_invites"
+
+    token_hash: Mapped[str] = mapped_column(String, primary_key=True)
+    session_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    invited_email: Mapped[str] = mapped_column(String, nullable=False)
+    invited_by_user_id: Mapped[str] = mapped_column(String, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    accepted_by_user_id: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
 class CaseFileReviewRecord(Base):
     """Phase 3: one row per review verdict - append-only, like the
     transcript and the change log.
@@ -150,6 +177,25 @@ class CaseFileReviewRecord(Base):
     actor_user_id: Mapped[str | None] = mapped_column(String, nullable=True)
     actor_email: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class PasswordResetRecord(Base):
+    """A live password-reset token.
+
+    The token itself is never stored - only its SHA-256 hash, the same
+    reasoning as for passwords: a leaked database must not hand over the
+    ability to take over accounts. Single-use (`used_at`) and short-lived
+    (`expires_at`), because a reset token IS a credential for the window it
+    is alive.
+    """
+
+    __tablename__ = "password_resets"
+
+    token_hash: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class RevokedTokenRecord(Base):
@@ -186,3 +232,13 @@ class UserRecord(Base):
     email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Any token issued before this instant is refused. Session tokens are
+    # stateless, so there is no list of them to walk when a password
+    # changes - a cut-off is how "sign out everywhere" is expressed for a
+    # stateless token, and a password change that left old sessions alive
+    # would be no use to someone whose password had been stolen.
+    # Nullable only so the additive migration can add it; NULL means "no
+    # cut-off", i.e. every unexpired token is fine.
+    sessions_valid_from: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

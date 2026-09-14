@@ -34,6 +34,32 @@ what's actually implemented server-side.
   `api/client.ts`'s `setAuthToken(null)` is the default, so every Phase 1 flow (create a case file,
   no login at all) keeps working exactly as before. The top header's account menu is where you sign
   in/out.
+- **Account recovery** (`src/auth/`, `src/entry/`, Phase 4) — `LoginModal` grew a "Forgot your
+  password?" mode; `ChangePasswordModal.tsx` hangs off the top header's account menu.
+  - The reset confirmation deliberately says *"if there's an account for …"*, never *"we've emailed
+    you"*. The backend answers identically whether or not the account exists, precisely so this page
+    cannot be used to ask who uses the product — wording that claimed a message was sent would give
+    that away again, and a test asserts it does not.
+  - Changing a password closes **every** session on the account, this browser's included (the
+    backend stamps a cut-off). `AuthContext.changePassword` immediately re-logs in with the new
+    password, so the person who actually made the change stays signed in here and only here. Without
+    that the very next request would 401 and look like a bug.
+  - Confirmations are checked client-side before submitting. A reset link is single-use, so a typo
+    in the confirmation would set the password to something nobody knows with no second chance.
+- **Links that arrive from outside the app** (`src/entry/`, Phase 4) — `?reset=<token>` and
+  `?invite=<token>` on the app's own origin. There is no router here (navigation is `activeView`
+  state in `App.tsx`), so rather than adding one for two links, the query string is read **once** at
+  startup and the matching full-screen step takes over the whole app until it is done. Each step
+  strips the token from the address bar when it finishes: a token is a credential, and leaving it in
+  the URL leaves it in the history of a machine that may be shared.
+  - `ResetPasswordScreen.tsx` never signs the user in afterwards. `/auth/password-reset/confirm`
+    answers 204 and deliberately never says whose account it was, so there is no session to hand
+    back — the screen says so and sends them to sign in.
+  - `AcceptInviteScreen.tsx` shows **what the invitation is before asking for an account**, from the
+    unauthenticated preview endpoint: being told to sign up with no idea what for is how an
+    invitation gets closed. It also states the limits of what accepting grants, because a reviewer
+    signing an NBCS verdict needs to know what they are looking at. Accepting lands them on
+    **Review** — what they were invited for — not Overview, whose conversation they cannot continue.
 - **Conversation history** — the chat transcript is persisted server-side per case file, not held
   in React state, so changing section (or reopening a project from Project History, or reloading
   the browser) restores the conversation instead of losing it. `OverviewPage` reloads it from
@@ -107,7 +133,16 @@ what's actually implemented server-side.
     flagged case that never gets reviewed is the failure this whole phase exists to prevent. It says
     *why*, from the typed reasons, rather than a bare "needs review" that reads as boilerplate.
   - `SharePanel.tsx` (owner only) spells out exactly what a reviewer can and cannot do, rather than
-    leaving the owner to guess what they just granted.
+    leaving the owner to guess what they just granted. It offers two ways in, because the person you
+    need to review something usually doesn't have an account yet: **Add** by address (works only for
+    an existing account) and **Invite by link** (works for anyone). When Add fails with the 404 that
+    means "no account for that address", the panel turns that dead end into a one-click
+    `Create invite link` — before invites existed it said *"they need to sign up first"*, which left
+    the owner stuck on precisely the reviewer they needed. The fresh link is shown **once**, and the
+    panel says so: the token is stored hashed server-side, so a link not copied then is gone for
+    good. Pending invites are listed separately from live reviewers, and an accepted invite is
+    filtered out of that list — it is already a grant, and showing both would read as two reviewers
+    where there is one.
   - **Signed out, the Review page still reviews the open project.** There is no queue without an
     account (a queue spans projects; an anonymous session has one), but the backend treats an
     anonymous case file as open to whoever holds its session id, verdicts included — so sending
@@ -228,6 +263,12 @@ actually broken here before, rather than chasing coverage:
   actually flagged the case, sharing being hidden from anyone who cannot share, the verdict form
   never offering the derived `needs_review`, and a reviewer being unable to edit a project they can
   only read.
+- `auth/LoginModal.test.tsx` + `auth/ChangePasswordModal.test.tsx` + `entry/*.test.tsx` — the reset
+  confirmation never claiming the address has an account, a mistyped confirmation being caught
+  before a single-use link is spent, the backend's own "invalid, already used, or expired" reaching
+  the user (the difference between "try again" and "ask for a new link"), an invite preview refusing
+  to accept without an account, and an expired or already-used invitation not offering an Accept
+  button at all.
 - `lib/relativeTime.test.ts` — unit selection, and that an offset-less API timestamp is read as UTC
   rather than as local time (see the backend README's "UTC on every timestamp"): without that, a
   change made seconds ago showed as hours ago for anyone outside UTC.

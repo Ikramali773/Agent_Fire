@@ -5,10 +5,13 @@ import { SharePanel } from "./SharePanel";
 
 // Hoisted with the mocks: vi.mock's factory runs before module-level
 // declarations, so a plain `class ApiError` above would not exist yet.
-const { listShares, shareCaseFile, revokeShare, ApiError } = vi.hoisted(() => ({
+const { listShares, shareCaseFile, revokeShare, listInvites, createInvite, revokeInvite, ApiError } = vi.hoisted(() => ({
   listShares: vi.fn(),
   shareCaseFile: vi.fn(),
   revokeShare: vi.fn(),
+  listInvites: vi.fn(),
+  createInvite: vi.fn(),
+  revokeInvite: vi.fn(),
   ApiError: class ApiError extends Error {
     status: number;
     constructor(message: string, status: number) {
@@ -19,7 +22,7 @@ const { listShares, shareCaseFile, revokeShare, ApiError } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../api/client", () => ({
-  api: { listShares, shareCaseFile, revokeShare },
+  api: { listShares, shareCaseFile, revokeShare, listInvites, createInvite, revokeInvite },
   ApiError,
 }));
 
@@ -33,8 +36,23 @@ const GRANT = {
   created_at: "2026-06-15T12:00:00Z",
 };
 
+const INVITE = {
+  session_id: "s",
+  invited_email: "consultant@example.com",
+  invited_by_user_id: "u1",
+  created_at: "2026-06-15T12:00:00Z",
+  // Two weeks out from the fixture's "now", matching INVITE_TTL.
+  expires_at: "2026-06-29T12:00:00Z",
+  accepted_at: null,
+  accepted_by_user_id: null,
+  invite_url: null,
+};
+
 beforeEach(() => {
   listShares.mockResolvedValue([]);
+  listInvites.mockResolvedValue([]);
+  createInvite.mockResolvedValue({ ...INVITE, invite_url: "http://localhost:5173/?invite=raw-token" });
+  revokeInvite.mockResolvedValue(undefined);
   shareCaseFile.mockResolvedValue(GRANT);
   revokeShare.mockResolvedValue(undefined);
 });
@@ -69,19 +87,21 @@ describe("SharePanel", () => {
     await waitFor(() => expect(shareCaseFile).toHaveBeenCalled());
   });
 
-  it("says specifically that the address has no account", async () => {
-    // A generic "could not share" gives the owner nothing to act on; this
-    // tells them what to ask the reviewer to do.
+  it("offers an invite link when the address has no account", async () => {
+    // Before invites existed this said "they need to sign up first",
+    // which left the owner stuck: the reviewer they actually needed was
+    // precisely the one without an account. Now the same dead end is a
+    // one-click route out of it.
     shareCaseFile.mockRejectedValue(new ApiError("not found", 404));
     render(<SharePanel sessionId="s" />);
 
     await userEvent.type(screen.getByLabelText("Reviewer's email address"), "nobody@example.com");
     await userEvent.click(screen.getByRole("button", { name: "Add" }));
 
-    expect(await screen.findByRole("alert")).toHaveProperty(
-      "textContent",
-      expect.stringContaining("need to sign up"),
-    );
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("No account yet for nobody@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Create invite link" }));
+    expect(createInvite).toHaveBeenCalledWith("s", "nobody@example.com");
   });
 
   it("will not submit an empty address", async () => {
@@ -105,5 +125,54 @@ describe("SharePanel", () => {
     render(<SharePanel sessionId="s" />);
 
     expect(await screen.findByText("Not shared with anyone yet.")).toBeTruthy();
+  });
+
+  it("shows the invite link once, and says so", async () => {
+    // The token is stored hashed, so a link that is not copied here is
+    // gone for good. The panel has to be explicit about that rather than
+    // letting the owner assume they can come back for it.
+    render(<SharePanel sessionId="s" />);
+
+    await userEvent.type(screen.getByLabelText("Reviewer's email address"), "consultant@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Invite by link" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("shown once");
+    expect(screen.getByText("http://localhost:5173/?invite=raw-token")).toBeTruthy();
+  });
+
+  it("never shows a link for an invite it did not just create", async () => {
+    // Listing invites deliberately returns invite_url: null - the owner
+    // sees who was invited and whether they accepted, never the credential.
+    listInvites.mockResolvedValue([INVITE]);
+    render(<SharePanel sessionId="s" />);
+
+    expect(await screen.findByText("consultant@example.com")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy" })).toBeNull();
+  });
+
+  it("cancels a pending invitation", async () => {
+    listInvites.mockResolvedValue([INVITE]);
+    render(<SharePanel sessionId="s" />);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Cancel the invitation to consultant@example.com" }),
+    );
+
+    await waitFor(() => expect(revokeInvite).toHaveBeenCalledWith("s", "consultant@example.com"));
+  });
+
+  it("does not list an accepted invite alongside the reviewer it created", async () => {
+    // An accepted invite already shows up as a grant; listing it in both
+    // places would read as two reviewers where there is one.
+    listShares.mockResolvedValue([{ ...GRANT, granted_to_email: "consultant@example.com" }]);
+    listInvites.mockResolvedValue([
+      { ...INVITE, accepted_at: "2026-06-16T09:00:00Z", accepted_by_user_id: "u2" },
+    ]);
+    render(<SharePanel sessionId="s" />);
+
+    expect(await screen.findAllByText("consultant@example.com")).toHaveLength(1);
+    expect(screen.queryByText("Invited, not yet accepted")).toBeNull();
   });
 });

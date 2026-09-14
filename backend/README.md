@@ -54,6 +54,27 @@ Part B):
     - **Honest limitation**: in-process and dependency-free, so the counters reset on restart and
       are NOT shared across workers. Behind N workers the effective limit is N×. A large improvement
       on "no limit", and a poor substitute for a shared store (Redis) or a limit at the edge.
+  - **Account recovery** (`app/api/auth.py`, `app/auth/password_resets.py`, `app/auth/delivery.py`).
+    Until this existed a forgotten password meant a lost account, and a *stolen* one could not be
+    taken back. Three endpoints: `POST /auth/password` (change, requires the current one — a session
+    token alone must not be enough to lock the real owner out), `POST /auth/password-reset/request`,
+    `POST /auth/password-reset/confirm` (1-hour, single-use, stored hashed like an invite).
+    - **Changing or resetting a password closes every session on the account**, via a
+      `sessions_valid_from` cut-off checked on each authenticated request. Revoking only the current
+      token would be useless in the case that matters most: someone changing their password
+      *because* it may have been stolen gains nothing if the thief's session stays alive.
+    - **The reset link is never returned in the HTTP response.** It goes to a pluggable delivery
+      backend. Returning it would mean anyone could take over any account just by typing its
+      address.
+    - **`/auth/password-reset/request` always answers 204**, account or no account. Answering
+      differently would turn it into a way to ask "does this person use the product?", and for a
+      compliance tool the client list is itself worth protecting. Rate-limited on the same counter
+      shape as login so it cannot be used to flood an inbox or to fish for addresses.
+    - **Honest limitation**: the default delivery backend (`LoggingDelivery`) writes the link to the
+      server log. So today, **password reset only works for someone who can read that log** — which
+      is fine for development and is *not* a working recovery flow for real users. A real deployment
+      must set a mail backend via `app.auth.delivery.set_delivery()`; `FIRE_AGENT_APP_URL` controls
+      the link's origin (default `http://localhost:5173`).
   - **The development signing key cannot reach production.** `FIRE_AGENT_AUTH_SECRET` still defaults
     to a string that ships in this repository - anyone who knows it can mint a token for any
     account - so startup now **refuses** when `FIRE_AGENT_ENV` is production/prod/staging, and logs
@@ -307,11 +328,31 @@ Part B):
     levels (`Access.READ` / `WRITE` / `OWN`), because with reviewers the question is no longer "do
     you have access" but "access to do what". A reviewer reads, downloads and records verdicts; they
     cannot edit a field, continue the conversation, reclassify, delete, or re-share onward. A
-    verdict on facts the reviewer could have edited is worth nothing. Sharing needs the recipient to
-    have an account already — inviting an unknown address would mean sending mail, which this
-    product does not do, and silently creating an account for someone is worse than an honest 404.
+    verdict on facts the reviewer could have edited is worth nothing. Sharing by address needs the
+    recipient to have an account already; for everyone else there are **invites** (below).
     Anonymous Phase 1 case files are completely unchanged (no owner means open to whoever holds the
     session id), and that is covered by its own tests.
+  - **Invites** (`app/invite_store.py`, `app/api/invites.py`, `POST`/`GET`/`DELETE
+    /case-files/{id}/invites`, `GET`/`POST /invites/{token}[/accept]`) — sharing by address only
+    reaches someone who has already signed up, which is *not* the consultant you need the first time
+    you ask them to look at something. An invite is a 14-day, single-use, revocable link.
+    - **The link goes to the OWNER, once, not to an inbox.** They are already authorised to share
+      this project, so handing it to them is secure without a mail transport, and spares the product
+      one more thing to operate. It is returned only on the response that creates it: the token is
+      stored **hashed**, so a link that is not copied then cannot be recovered, only revoked and a
+      new one issued. Listing invites later shows who was invited and whether they accepted, never
+      the link.
+    - **Accepting requires an account** — a compliance verdict has to be attributable to a person,
+      and "whoever had the link" is not one. The preview (`GET /invites/{token}`) is deliberately
+      unauthenticated and deliberately thin (project name, who sent it, expiry — nothing about the
+      building): the recipient has no account yet, and being asked to create one without being told
+      what for is how an invitation gets ignored; but whoever holds the link has not accepted yet
+      and may not be the person it was meant for.
+    - Accepting with a **different** address than the invitation was sent to is allowed — a
+      consultant may well sign up with another one, and refusing would strand a legitimate reviewer
+      over a typo. Both addresses stay on the record.
+    - Accepting creates an ordinary reviewer grant, so every access rule above applies unchanged:
+      an invite is a way to *reach* a reviewer, never a second, weaker kind of access.
   - **Queue** (`GET /users/me/review-queue`) — every flagged case this account is responsible for,
     its own plus ones shared with it, **oldest first**. Unlike every other list in this product: a
     chat rail is newest-first because you are resuming what you were just doing; a compliance queue

@@ -2,12 +2,14 @@ import type {
   AuthResponse,
   CaseFile,
   CaseFileGrant,
+  CaseFileInvite,
   CaseFilePage,
   ChatTitle,
   ChatTurnResponse,
   ConversationMessage,
   DocumentUploadResponse,
   FieldChange,
+  InvitePreview,
   RequirementReport,
   ReviewQueueItem,
   ReviewState,
@@ -60,6 +62,20 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+// For the endpoints that answer 204 with no body. Exists because every
+// delete/logout call used to inline the same fetch-and-check block, and
+// request<T> cannot be used: response.json() throws on an empty body.
+async function requestNoContent(path: string, options?: RequestInit): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    ...options,
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
+  }
+}
+
 // Shared by every binary download. Prefers the backend's own sanitized,
 // project-name-derived filename (see exporters.py::safe_report_filename)
 // and falls back to a generic one if the header is missing or malformed.
@@ -86,16 +102,34 @@ export const api = {
   // Revokes the token server-side. Until this existed, signing out only
   // made this browser forget it while it stayed valid for the rest of its
   // seven-day life - anyone who had captured it still had the account.
-  logout: async (): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+  logout: () => requestNoContent("/auth/logout", { method: "POST" }),
+
+  // Changing a password closes EVERY session on the account, this browser's
+  // included (the backend stamps a cut-off - see user_store.set_password),
+  // so callers must obtain a fresh token afterwards or the very next
+  // request will 401. AuthContext.changePassword does that by re-logging
+  // in; nothing else should call this directly.
+  changePassword: (currentPassword: string, newPassword: string) =>
+    requestNoContent("/auth/password", {
       method: "POST",
-      headers: authHeaders(),
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
-    }
-  },
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }),
+
+  // Always succeeds, whether or not the address has an account - the
+  // backend deliberately answers the same either way so this cannot be
+  // used to ask who uses the product. The UI must not claim a message was
+  // sent to a real account, only that one was sent if the account exists.
+  requestPasswordReset: (email: string) =>
+    requestNoContent("/auth/password-reset/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  confirmPasswordReset: (token: string, newPassword: string) =>
+    requestNoContent("/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }),
 
   // Paged: the unbounded version grew linearly with an account's whole
   // history (0.81 MB of JSON at 500 projects) to render eight rail rows.
@@ -120,18 +154,9 @@ export const api = {
   getCaseFile: (sessionId: string) => request<CaseFile>(`/case-files/${sessionId}`),
 
   // Deletes the project AND its whole chat transcript (the backend does
-  // both in one step - see delete_case_file). Not routed through request()
-  // because a 204 has no body to parse.
-  deleteCaseFile: async (sessionId: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
-    }
-  },
+  // both in one step - see delete_case_file).
+  deleteCaseFile: (sessionId: string) =>
+    requestNoContent(`/case-files/${sessionId}`, { method: "DELETE" }),
 
   // The assistant's greeting for a case file that doesn't exist yet -
   // persists nothing, so simply opening the Overview page no longer
@@ -187,16 +212,34 @@ export const api = {
       body: JSON.stringify({ email }),
     }),
 
-  revokeShare: async (sessionId: string, grantedToUserId: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/case-files/${sessionId}/shares/${grantedToUserId}`, {
+  revokeShare: (sessionId: string, grantedToUserId: string) =>
+    requestNoContent(`/case-files/${sessionId}/shares/${grantedToUserId}`, { method: "DELETE" }),
+
+  // Phase 4 invites. Sharing by email only reaches someone who already has
+  // an account; an invite link reaches the consultant who does not.
+  listInvites: (sessionId: string) => request<CaseFileInvite[]>(`/case-files/${sessionId}/invites`),
+
+  // The response carries `invite_url` exactly once - the token is stored
+  // hashed, so a link that isn't copied here cannot be recovered, only
+  // revoked and reissued.
+  createInvite: (sessionId: string, email: string) =>
+    request<CaseFileInvite>(`/case-files/${sessionId}/invites`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  revokeInvite: (sessionId: string, invitedEmail: string) =>
+    requestNoContent(`/case-files/${sessionId}/invites/${encodeURIComponent(invitedEmail)}`, {
       method: "DELETE",
-      headers: authHeaders(),
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
-    }
-  },
+    }),
+
+  // Unauthenticated on purpose: the recipient has no account yet, and
+  // being asked to create one without being told what for is how an
+  // invitation gets ignored.
+  previewInvite: (token: string) => request<InvitePreview>(`/invites/${encodeURIComponent(token)}`),
+
+  acceptInvite: (token: string) =>
+    request<CaseFileInvite>(`/invites/${encodeURIComponent(token)}/accept`, { method: "POST" }),
 
   getHandoff: (sessionId: string) => request<{ markdown: string }>(`/case-files/${sessionId}/handoff`),
 

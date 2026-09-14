@@ -12,6 +12,7 @@ degrade to "message not understood, please rephrase".
 
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -21,7 +22,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
-from app import change_log, grant_store, message_store, review_store
+from app import change_log, grant_store, invite_store, message_store, review_store
 from app.auth.dependencies import get_current_user_optional, get_current_user_required
 from app.auth.user_store import get_user_by_email
 from app.dialogue.manager import handle_turn, start_conversation
@@ -32,6 +33,7 @@ from app.llm.client import LLMClient
 from app.models.case_file import CaseFile, ConversationStage, FieldSource, FieldSourceKind
 from app.models.change_log import ChangeSource, FieldChange
 from app.models.grant import CaseFileGrant
+from app.models.invite import CaseFileInvite
 from app.models.requirements import RequirementReport
 from app.models.review import RECORDABLE_STATUSES, ReviewState, ReviewStatus
 from app.models.conversation import ConversationMessage, MessageKind, MessageRole
@@ -263,6 +265,7 @@ def delete_case_file(
     change_log.delete_for_session(session_id)
     review_store.delete_for_session(session_id)
     grant_store.delete_for_session(session_id)
+    invite_store.delete_for_session(session_id)
     store_delete(session_id)
     return Response(status_code=204)
 
@@ -382,6 +385,81 @@ def record_review(
         actor_email=current_user.email if current_user else None,
     )
     return _build_review_state(store_get(session_id), current_user)
+
+
+def _invite_url(token: str) -> str:
+    """Where an invite link points. The frontend reads `invite` from the
+    query string and shows the accept screen."""
+    base = os.environ.get("FIRE_AGENT_APP_URL", "http://localhost:5173").rstrip("/")
+    return f"{base}/?invite={token}"
+
+
+@router.get("/{session_id}/invites", response_model=list[CaseFileInvite])
+def list_invites(
+    session_id: str, current_user: User | None = Depends(get_current_user_optional)
+) -> list[CaseFileInvite]:
+    """Outstanding and accepted invites on a project. Owner only, and never
+    with a token - they are stored hashed and cannot be shown again."""
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user, Access.OWN)
+    return invite_store.list_for_session(session_id)
+
+
+@router.post("/{session_id}/invites", response_model=CaseFileInvite, status_code=201)
+def create_invite(
+    session_id: str, body: dict, current_user: User | None = Depends(get_current_user_optional)
+) -> CaseFileInvite:
+    """Creates a reviewer invite and returns the link, once.
+
+    This is how a consultant who has never used the product gets in:
+    sharing by account email answers an honest 404 for them, and this
+    product has no mail transport to send an invitation with. So the OWNER
+    receives the link and passes it on however they like - which is secure
+    precisely because the owner is already authorised to share the project.
+
+    OWN, not WRITE: a reviewer must never be able to invite a third party
+    onto someone else's project.
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user, Access.OWN)
+    if current_user is None:
+        raise HTTPException(
+            status_code=401, detail="Sign in and claim this project before inviting a reviewer"
+        )
+
+    email = (body.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="A valid 'email' is required")
+    if email == current_user.email.lower():
+        raise HTTPException(status_code=422, detail="You already own this project")
+
+    token, invite = invite_store.create(session_id, email, current_user.id)
+    # The only moment the token exists in the clear.
+    return invite.model_copy(update={"invite_url": _invite_url(token)})
+
+
+@router.delete("/{session_id}/invites/{invited_email}", status_code=204)
+def revoke_invite(
+    session_id: str,
+    invited_email: str,
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Response:
+    """Cancels an invite that has not been accepted.
+
+    Once accepted the access is an ordinary grant, revoked through
+    /shares - so a stale invite and a live reviewer are never confused.
+    """
+    case_file = store_get(session_id)
+    if case_file is None:
+        raise HTTPException(status_code=404, detail="Case file not found")
+    _check_access(case_file, current_user, Access.OWN)
+    if not invite_store.revoke(session_id, invited_email.strip().lower()):
+        raise HTTPException(status_code=404, detail="No outstanding invite for that address")
+    return Response(status_code=204)
 
 
 @router.get("/{session_id}/shares", response_model=list[CaseFileGrant])

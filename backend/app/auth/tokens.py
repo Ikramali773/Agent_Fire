@@ -54,6 +54,7 @@ class TokenClaims:
     token_id: str
     """Unique per issued token, so one session can be revoked without
     invalidating every other session the same account has open."""
+    issued_at: int
     expires_at: int
 
 
@@ -112,6 +113,7 @@ def decode_token(token: str) -> TokenClaims | None:
     token_id = payload.get("jti")
     return TokenClaims(
         user_id=user_id,
+        issued_at=issued_at,
         # Tokens issued before jti existed have none; they simply cannot be
         # revoked individually, and expire within the TTL anyway.
         token_id=token_id if isinstance(token_id, str) else "",

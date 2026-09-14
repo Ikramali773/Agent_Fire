@@ -459,6 +459,199 @@
         }
       }
     },
+    "/case-files/{session_id}/invites": {
+      "get": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "List Invites",
+        "description": "Outstanding and accepted invites on a project. Owner only, and never\nwith a token - they are stored hashed and cannot be shown again.",
+        "operationId": "list_invites_case_files__session_id__invites_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CaseFileInvite"
+                  },
+                  "title": "Response List Invites Case Files  Session Id  Invites Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Create Invite",
+        "description": "Creates a reviewer invite and returns the link, once.\n\nThis is how a consultant who has never used the product gets in:\nsharing by account email answers an honest 404 for them, and this\nproduct has no mail transport to send an invitation with. So the OWNER\nreceives the link and passes it on however they like - which is secure\nprecisely because the owner is already authorised to share the project.\n\nOWN, not WRITE: a reviewer must never be able to invite a third party\nonto someone else's project.",
+        "operationId": "create_invite_case_files__session_id__invites_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFileInvite"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/invites/{invited_email}": {
+      "delete": {
+        "tags": [
+          "case-files"
+        ],
+        "summary": "Revoke Invite",
+        "description": "Cancels an invite that has not been accepted.\n\nOnce accepted the access is an ordinary grant, revoked through\n/shares - so a stale invite and a live reviewer are never confused.",
+        "operationId": "revoke_invite_case_files__session_id__invites__invited_email__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "invited_email",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Invited Email"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/case-files/{session_id}/shares": {
       "get": {
         "tags": [
@@ -1658,6 +1851,129 @@
         }
       }
     },
+    "/auth/password": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Change Password",
+        "description": "Changes the signed-in account's password.\n\nRequires the current one: a session token alone should not be enough to\nlock the real owner out of their own account.\n\nEvery other session is closed as a side effect (see\nuser_store.set_password). Someone changing their password because it may\nhave been stolen gains nothing if the thief's session stays alive.",
+        "operationId": "change_password_auth_password_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password-reset/request": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Request Password Reset",
+        "description": "Starts a password reset.\n\nAlways 204, whether or not the address has an account: answering\ndifferently would turn this endpoint into a way to ask \"does this person\nuse the product?\", and for a compliance tool the client list is itself\nworth protecting.\n\nThe link is never returned here - it goes to the delivery backend (see\napp/auth/delivery.py). Returning it would mean anyone could take over\nany account just by typing its address.\n\nRate-limited on the same counter shape as login, so this cannot be used\nto flood an inbox or to fish for addresses.",
+        "operationId": "request_password_reset_auth_password_reset_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password-reset/confirm": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Confirm Password Reset",
+        "description": "Completes a reset with the token from the link.\n\nSingle-use and expiring (see app/auth/password_resets.py), and like a\nchange it closes every session the account already had - which is the\npoint when the reason for resetting is that someone else got in.",
+        "operationId": "confirm_password_reset_auth_password_reset_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/logout": {
       "post": {
         "tags": [
@@ -1947,6 +2263,108 @@
                     "$ref": "#/components/schemas/ReviewQueueItem"
                   },
                   "title": "Response List My Review Queue Users Me Review Queue Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invites/{token}": {
+      "get": {
+        "tags": [
+          "invites"
+        ],
+        "summary": "Preview Invite",
+        "description": "What this link is, before signing up to accept it.\n\nUnauthenticated on purpose - the recipient has no account yet, and\nbeing asked to create one without being told what for is how an\ninvitation gets ignored.\n\nDeliberately thin: the project's name and who sent it, and nothing\nabout the building. Whoever holds the link has not accepted yet, and\nmay not be the person it was meant for.",
+        "operationId": "preview_invite_invites__token__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invites/{token}/accept": {
+      "post": {
+        "tags": [
+          "invites"
+        ],
+        "summary": "Accept Invite",
+        "description": "Redeems an invite, granting the signed-in account reviewer access.\n\nRequires an account: a verdict has to be attributable to a person, and\n\"someone with the link\" is not one.\n\nThe invite is accepted by whoever is signed in, which need not be the\naddress it was addressed to - a consultant may well sign up with a\ndifferent one, and refusing that would strand a legitimate reviewer\nover a typo. The address it was sent to is kept on the record either\nway, so the owner can see who they meant to invite and who actually\naccepted.",
+        "operationId": "accept_invite_invites__token__accept_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseFileInvite"
                 }
               }
             }
@@ -2326,6 +2744,77 @@
           "created_at"
         ],
         "title": "CaseFileGrant"
+      },
+      "CaseFileInvite": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "invited_email": {
+            "type": "string",
+            "title": "Invited Email"
+          },
+          "invited_by_user_id": {
+            "type": "string",
+            "title": "Invited By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "accepted_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted By User Id"
+          },
+          "invite_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invite Url",
+            "description": "The full link, present ONLY in the response that created the invite - the token is stored hashed and cannot be shown again. Listing invites later shows who was invited and whether they accepted, never the link."
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "invited_email",
+          "invited_by_user_id",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "CaseFileInvite",
+        "description": "An invite as its owner sees it."
       },
       "CaseFilePage": {
         "properties": {
@@ -2719,6 +3208,41 @@
         ],
         "title": "IndustrialHazardBand"
       },
+      "InvitePreview": {
+        "properties": {
+          "project_name": {
+            "type": "string",
+            "title": "Project Name"
+          },
+          "invited_by_email": {
+            "type": "string",
+            "title": "Invited By Email"
+          },
+          "invited_email": {
+            "type": "string",
+            "title": "Invited Email"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "already_accepted": {
+            "type": "boolean",
+            "title": "Already Accepted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_name",
+          "invited_by_email",
+          "invited_email",
+          "expires_at",
+          "already_accepted"
+        ],
+        "title": "InvitePreview",
+        "description": "What the recipient is shown before signing up.\n\nDeliberately thin: enough to know what they are accepting and from\nwhom, and nothing about the building. Whoever holds the link has not\naccepted yet, and may not be the person it was meant for."
+      },
       "MessageKind": {
         "type": "string",
         "enum": [
@@ -2794,6 +3318,55 @@
           "Mixed Use"
         ],
         "title": "OccupancyType"
+      },
+      "PasswordChange": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "PasswordChange"
+      },
+      "PasswordResetConfirm": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "PasswordResetConfirm"
+      },
+      "PasswordResetRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "PasswordResetRequest"
       },
       "ProjectStage": {
         "type": "string",

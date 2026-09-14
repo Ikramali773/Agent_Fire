@@ -1,6 +1,7 @@
-import { Bell, ChevronRight, CircleCheck, HelpCircle, Loader2, LogOut, Menu } from "lucide-react";
+import { Bell, ChevronRight, CircleCheck, HelpCircle, KeyRound, Loader2, LogOut, Menu } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { ChangePasswordModal } from "../auth/ChangePasswordModal";
 import { LoginModal } from "../auth/LoginModal";
 import { Badge } from "../design-system/components/Badge";
 import { Button } from "../design-system/components/Button";
@@ -21,6 +22,7 @@ export function TopHeader({ projectName, location, breadcrumb, codeEdition, sync
   const { user, logout } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const initial = user?.email.trim().charAt(0).toUpperCase() || "?";
 
   return (
@@ -88,7 +90,18 @@ export function TopHeader({ projectName, location, breadcrumb, codeEdition, sync
                 <span className="ds-top-header__account-email">{user.email}</span>
                 <button
                   type="button"
-                  className="ds-top-header__account-signout"
+                  className="ds-top-header__account-action"
+                  onClick={() => {
+                    setChangePasswordOpen(true);
+                    setMenuOpen(false);
+                  }}
+                >
+                  <KeyRound aria-hidden="true" />
+                  Change password
+                </button>
+                <button
+                  type="button"
+                  className="ds-top-header__account-action"
                   onClick={() => {
                     logout();
                     setMenuOpen(false);
@@ -108,6 +121,7 @@ export function TopHeader({ projectName, location, breadcrumb, codeEdition, sync
       </div>
 
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
+      {changePasswordOpen && <ChangePasswordModal onClose={() => setChangePasswordOpen(false)} />}
     </header>
   );
 }

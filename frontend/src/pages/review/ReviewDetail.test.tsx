@@ -12,7 +12,17 @@ const { getReview, recordReview, downloadHandoff, listShares } = vi.hoisted(() =
 }));
 
 vi.mock("../../api/client", () => ({
-  api: { getReview, recordReview, downloadHandoff, listShares, shareCaseFile: vi.fn(), revokeShare: vi.fn() },
+  api: {
+    getReview,
+    recordReview,
+    downloadHandoff,
+    listShares,
+    shareCaseFile: vi.fn(),
+    revokeShare: vi.fn(),
+    listInvites: vi.fn(() => Promise.resolve([])),
+    createInvite: vi.fn(),
+    revokeInvite: vi.fn(),
+  },
   ApiError: class ApiError extends Error {
     status: number;
     constructor(message: string, status: number) {

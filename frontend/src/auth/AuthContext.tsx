@@ -10,6 +10,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -59,6 +60,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applySession(result.access_token, result.user);
   };
 
+  // Changing a password closes every session on the account - including
+  // this browser's, by design, since the usual reason to change one is that
+  // it may have been stolen and a thief's live session has to die with it.
+  // Re-logging in immediately with the new password keeps the person who
+  // actually made the change signed in here, and only here.
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    if (!user) throw new Error("Not signed in");
+    await api.changePassword(currentPassword, newPassword);
+    const result = await api.login(user.email, newPassword);
+    applySession(result.access_token, result.user);
+  };
+
   const logout = () => {
     // Revoke server-side first, while the token is still attached. Fire
     // and forget: if the request fails the token stays alive until it
@@ -70,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, signup, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, signup, changePassword, logout }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

@@ -64,3 +64,28 @@
 .ds-login-modal__switch:hover {
   text-decoration: underline;
 }
+
+.ds-login-modal__forgot {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: 0;
+}
+
+.ds-login-modal__forgot:hover {
+  color: var(--text-link);
+  text-decoration: underline;
+}
+
+.ds-login-modal__sent {
+  padding: var(--space-3);
+  background: var(--status-pass-bg);
+  color: var(--status-pass-fg);
+  border: 1px solid var(--status-pass-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}

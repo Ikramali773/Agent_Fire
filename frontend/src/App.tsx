@@ -10,6 +10,9 @@ import { OverviewPage } from "./pages/overview/OverviewPage";
 import { ReportsPage } from "./pages/reports/ReportsPage";
 import { FindingsPage } from "./pages/findings/FindingsPage";
 import { ReviewPage } from "./pages/review/ReviewPage";
+import { AcceptInviteScreen } from "./entry/AcceptInviteScreen";
+import { clearLinkToken, readLinkToken, type LinkToken } from "./entry/linkToken";
+import { ResetPasswordScreen } from "./entry/ResetPasswordScreen";
 import { useProjects } from "./projects/ProjectsContext";
 import { NAV_ITEMS, type ViewKey } from "./shell/nav";
 import { Shell } from "./shell/Shell";
@@ -27,6 +30,11 @@ function App() {
   const [caseFileState, setCaseFileState] = useState<CaseFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(true);
+  // A `?reset=` or `?invite=` token in the address bar. Read once, at
+  // startup: these links take over the whole app until the step is done,
+  // and re-reading them on every render would re-open a step the user has
+  // just finished.
+  const [linkToken, setLinkToken] = useState<LinkToken | null>(readLinkToken);
 
   const setCaseFile = useCallback(
     (next: CaseFile | null) => {
@@ -143,7 +151,47 @@ function App() {
       .finally(() => setRestoring(false));
   }, [authLoading]);
 
+  // Strips the token from the URL as well as from state - it is a
+  // credential, and leaving it in the address bar leaves it in the history
+  // of a machine that may well be shared.
+  const finishLinkStep = useCallback(() => {
+    clearLinkToken();
+    setLinkToken(null);
+  }, []);
+
   const caseFile = caseFileState;
+
+  // These two take over the entire app on purpose. Whoever followed a reset
+  // link cannot get into their account, and whoever followed an invite has
+  // no project yet - in both cases the workspace behind is useless to them
+  // until the step finishes.
+  if (linkToken?.kind === "reset") {
+    return <ResetPasswordScreen token={linkToken.token} onDone={finishLinkStep} />;
+  }
+  if (linkToken?.kind === "invite") {
+    return (
+      <AcceptInviteScreen
+        token={linkToken.token}
+        onAccepted={(sessionId) => {
+          finishLinkStep();
+          // Land the reviewer on Review, which is what they were invited
+          // for - not on Overview, whose conversation they cannot continue.
+          void api
+            .getCaseFile(sessionId)
+            .then((accepted) => {
+              setCaseFile(accepted);
+              setActiveView("review");
+            })
+            .catch(() => {
+              // The grant exists either way; the project just could not be
+              // fetched this moment. Project History will show it.
+              setActiveView("history");
+            });
+        }}
+        onDismiss={finishLinkStep}
+      />
+    );
+  }
 
   return (
     <Shell

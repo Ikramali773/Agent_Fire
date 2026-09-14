@@ -7,13 +7,17 @@
 
 .ds-share-panel__form {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   margin-bottom: var(--space-2);
 }
 
 .ds-share-panel__input {
-  flex: 1 1 auto;
-  min-width: 0;
+  /* Wide enough to read the address being typed. With two buttons beside
+     it in a narrow inspector column, "auto" collapsed it to "reviewer@" -
+     so claim a real basis and let the buttons wrap below instead. */
+  flex: 1 1 190px;
+  min-width: 190px;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -61,4 +65,72 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ds-share-panel__error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ds-share-panel__section {
+  margin: var(--space-4) 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.ds-share-panel__expiry {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.ds-share-panel__link {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3);
+  background: var(--status-warning-bg);
+  border: 1px solid var(--status-warning-border);
+  border-radius: var(--radius-md);
+}
+
+.ds-share-panel__link-lead {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--status-warning-fg);
+}
+
+.ds-share-panel__link-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ds-share-panel__link-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.ds-share-panel__dismiss {
+  margin-top: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--status-warning-fg);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
 }
