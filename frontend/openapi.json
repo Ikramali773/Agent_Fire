@@ -1622,6 +1622,7 @@
           "auth"
         ],
         "summary": "Login",
+        "description": "Rate-limited: without one, passwords could be tried against a known\nemail as fast as the network allowed - and because bcrypt is expensive\nby design, each attempt costs the SERVER more than the attacker, so an\nunlimited endpoint is a denial-of-service lever too.",
         "operationId": "login_auth_login_post",
         "requestBody": {
           "content": {
@@ -1643,6 +1644,49 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout",
+        "description": "Revokes the presented token.\n\nUntil this existed, logging out only made the frontend forget the\ntoken - it stayed valid for the rest of its seven-day life, so anyone\nwho had captured it still had the account. Revoking is per token, so\nsigning out on one device leaves other sessions alone.\n\nAlways 204, even for a missing or already-dead token: \"am I logged\nout?\" should have exactly one answer, and reporting failure would both\nconfuse the caller and confirm to an attacker which tokens are live.",
+        "operationId": "logout_auth_logout_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",

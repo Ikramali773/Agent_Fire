@@ -279,8 +279,10 @@ browser check that a real API response still renders correctly end-to-end.
 - **The review queue does not span an organisation** — there are accounts, but no teams. A firm's
   cases cannot be pooled into one queue several reviewers work from.
 - **"Approved" is one person's sign-off, not a compliance verdict** — deliberately. The product
-  does not certify anything (see the footer on every page), and per-requirement pass/fail
-  evaluation is still Phase 4's compliance engine, not this.
+  does not certify anything (see the footer on every page). Phase 4's compliance engine now gives
+  per-requirement verdicts (see Findings above), and those are separate from a reviewer's approval:
+  the engine says what the code requires and what has been declared, the reviewer says whether they
+  are satisfied.
 - **Plans is still a placeholder, and says why.** Geometry-aware plan viewing needs CAD/BIM parsing
   that isn't built; uploaded drawings are read for their text and tables today, which is not the
   same thing. The nav entry stays, honestly labelled, rather than being faked.

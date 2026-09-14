@@ -536,8 +536,43 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login */
+        /**
+         * Login
+         * @description Rate-limited: without one, passwords could be tried against a known
+         *     email as fast as the network allowed - and because bcrypt is expensive
+         *     by design, each attempt costs the SERVER more than the attacker, so an
+         *     unlimited endpoint is a denial-of-service lever too.
+         */
         post: operations["login_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Revokes the presented token.
+         *
+         *     Until this existed, logging out only made the frontend forget the
+         *     token - it stayed valid for the rest of its seven-day life, so anyone
+         *     who had captured it still had the account. Revoking is per token, so
+         *     signing out on one device leaves other sessions alone.
+         *
+         *     Always 204, even for a missing or already-dead token: "am I logged
+         *     out?" should have exactly one answer, and reporting failure would both
+         *     confuse the caller and confirm to an attacker which tokens are live.
+         */
+        post: operations["logout_auth_logout_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2219,6 +2254,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuthResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
