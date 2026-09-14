@@ -171,7 +171,7 @@ def search(session_ids: list[str], query: str, limit: int = 20) -> dict[str, str
             session.query(ConversationMessageRecord.session_id, ConversationMessageRecord.text)
             .filter(
                 ConversationMessageRecord.session_id.in_(session_ids),
-                ConversationMessageRecord.text.ilike(f"%{needle}%"),
+                ConversationMessageRecord.text.ilike(f"%{_escape_like(needle)}%", escape="\\"),
             )
             .order_by(ConversationMessageRecord.id.asc())
             .all()
@@ -186,6 +186,19 @@ def search(session_ids: list[str], query: str, limit: int = 20) -> dict[str, str
         if len(found) >= limit:
             break
     return found
+
+
+def _escape_like(value: str) -> str:
+    """Neutralises LIKE's own wildcards in what the user typed.
+
+    The query is parameterised, so this was never an injection route - a
+    search for "' OR 1=1 --" correctly finds nothing. But `%` and `_` are
+    LIKE metacharacters, so searching for a literal underscore matched any
+    character, and a query of "%%" matched every message the caller could
+    reach. Wrong answers, and a cheap way to make the database scan
+    everything you own.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def _snippet(text: str, needle: str) -> str:

@@ -144,6 +144,40 @@ Part B):
       the test suite zero-setup but means N workers booting together would race to apply the same
       revision. `FIRE_AGENT_AUTO_MIGRATE=0` turns that off so a deployment can run
       `alembic upgrade head` as a deploy step, which is what it should do.
+  - **Findings from the security review of the access-control surface.** Four issues, each
+    reproduced before being fixed and each now covered by `tests/test_security_review.py`.
+    - **Login revealed who had an account, by the clock.** `verify_credentials` short-circuited on
+      an unknown address - `record is None or not verify_password(...)` - so bcrypt never ran.
+      Measured at **311 ms when the account exists against 0.3 ms when it does not**, a
+      thousandfold gap anybody can time from outside. That mattered more here than it usually
+      would: `/auth/password-reset/request` answers 204 either way *specifically* so it cannot be
+      used to ask who uses the product, and for a compliance tool the client list is itself worth
+      protecting - so a stopwatch on `/auth/login` made that promise worthless. An unknown address
+      is now verified against a throwaway hash instead; measured at 1.01x afterwards.
+    - **Two definitions of "who may read this".** `_check_access` honoured organisation membership
+      from the day teams shipped; `can_record_verdict` was written before teams existed and still
+      asked only about ownership and individual grants. So a team member *assigned* a case saw it
+      in their queue, opened it, and found no verdict form - while the API would have accepted the
+      verdict perfectly well. It failed CLOSED, so this was a usability bug rather than a hole; the
+      same mistake failing open is a breach, which is why the fix is one `_can_read` function both
+      call rather than a second expression kept in step by hope.
+    - **LIKE wildcards in search were not escaped.** Never an injection route - the query is
+      parameterised, and `' OR 1=1 --` correctly finds nothing - but `%` and `_` are LIKE
+      metacharacters, so `%%` matched every message the caller could reach and a literal underscore
+      matched any character. Wrong answers, and a cheap way to make the database scan everything
+      you own. Escaped now, and a literal `100%` is findable, which over-escaping would have broken.
+    - **CORS origins were not whitespace-stripped**, so the natural `"http://a, http://b"` produced
+      an origin with a leading space that matches no browser. Fails closed, so the symptom was "the
+      frontend mysteriously cannot reach the API".
+  - **Known and NOT fixed: rate limiting sees the proxy, not the client.** `request.client.host` is
+    whatever connected, so behind a load balancer or reverse proxy every caller shares one key and
+    the per-client limits become global ones. `X-Forwarded-For` is deliberately **not** trusted:
+    honouring it without a trusted-proxy allowlist would let anyone spoof the header and evade the
+    limiter entirely, which is strictly worse. The login limiter is keyed on client **and** account,
+    so one attacker still cannot lock a victim out of their own account; the exposure is that
+    everyone behind one NAT shares the anonymous chat and upload budget. Fixing it properly means
+    configuring the trusted proxy hops at deployment, which is a deployment decision rather than a
+    code one.
   - **The development signing key cannot reach production.** `FIRE_AGENT_AUTH_SECRET` still defaults
     to a string that ships in this repository - anyone who knows it can mint a token for any
     account - so startup now **refuses** when `FIRE_AGENT_ENV` is production/prod/staging, and logs
@@ -700,7 +734,7 @@ Part B):
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
 alembic upgrade head         # optional: the app does this itself on startup (see migrations/README)
-python -m pytest -q          # 631 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 642 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export FIRE_AGENT_SMTP_HOST=smtp.example.com   # optional - without it NOTHING is emailed

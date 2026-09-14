@@ -116,6 +116,32 @@ class Access(str, Enum):
     project onward."""
 
 
+def _can_read(case_file: CaseFile, current_user: User | None) -> bool:
+    """Whether this caller may read the case file - the single definition.
+
+    Exists because there were two. `_check_access` honoured organisation
+    membership from the moment teams shipped; `_build_review_state`'s
+    `can_record_verdict` was written before teams existed and still asked
+    only about ownership and individual grants. So a team member assigned
+    a case saw it in their queue, opened it, and found no verdict form -
+    while the API would have accepted the verdict perfectly well.
+
+    That failed closed, so it was a usability bug rather than a hole. The
+    same two-definitions mistake failing OPEN is a breach, which is why
+    the answer is one function rather than a second fix.
+    """
+    if case_file.owner_user_id is None:
+        # Anonymous, Phase 1 style: open to whoever holds the session id.
+        return True
+    if current_user is None:
+        return False
+    if current_user.id == case_file.owner_user_id:
+        return True
+    if grant_store.has_grant(case_file.session_id, current_user.id):
+        return True
+    return _reachable_through_an_organisation(case_file.session_id, current_user.id)
+
+
 def _check_access(
     case_file: CaseFile, current_user: User | None, need: Access = Access.READ
 ) -> None:
@@ -139,16 +165,14 @@ def _check_access(
         raise HTTPException(status_code=403, detail="You do not have access to this case file")
     if current_user.id == case_file.owner_user_id:
         return
-    if need is Access.READ:
-        if grant_store.has_grant(case_file.session_id, current_user.id):
-            return
-        # Phase 4: a project shared with an organisation is readable by
-        # every member. Same READ level as an individual reviewer, and for
-        # the same reason - a verdict on facts the reviewer could have
-        # edited is worth nothing, and that does not stop being true
-        # because the reviewer is a colleague.
-        if _reachable_through_an_organisation(case_file.session_id, current_user.id):
-            return
+    # READ is the only level a non-owner can reach, through an individual
+    # grant or an organisation - see _can_read, which is also what decides
+    # whether the UI offers the verdict form. WRITE and OWN stay the
+    # owner's alone: a verdict on facts the reviewer could have edited is
+    # worth nothing, and that does not stop being true because the
+    # reviewer is a colleague.
+    if need is Access.READ and _can_read(case_file, current_user):
+        return
     raise HTTPException(status_code=403, detail="You do not have access to this case file")
 
 
@@ -359,13 +383,10 @@ def claim_case_file(
 
 def _build_review_state(case_file: CaseFile, current_user: User | None) -> ReviewState:
     """One response with everything the Review page needs for a case."""
-    can_record = case_file.owner_user_id is None or (
-        current_user is not None
-        and (
-            current_user.id == case_file.owner_user_id
-            or grant_store.has_grant(case_file.session_id, current_user.id)
-        )
-    )
+    # The same question `record_review` itself asks, asked the same way -
+    # see _can_read. These were two separate expressions, and they drifted
+    # the moment organisations shipped.
+    can_record = _can_read(case_file, current_user)
     return ReviewState(
         session_id=case_file.session_id,
         project_name=case_file.project_name,

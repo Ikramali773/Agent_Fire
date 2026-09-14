@@ -7,6 +7,8 @@ has no password field at all.
 
 from __future__ import annotations
 
+import secrets
+
 import uuid
 from datetime import datetime, timezone
 
@@ -72,13 +74,39 @@ def get_user_by_id(user_id: str) -> User | None:
         return _to_user(record) if record is not None else None
 
 
+# A real bcrypt hash of a value nobody can supply, verified against when
+# the account does not exist. Computed once at import: the point is to
+# spend the same time as a real check, not to be a usable credential.
+_ABSENT_ACCOUNT_HASH = hash_password(secrets.token_urlsafe(32))
+
+
 def verify_credentials(email: str, password: str) -> User | None:
     """Returns the User if email+password match a real account, else None -
     the one place a raw hashed_password value is ever read.
+
+    **Takes the same time whether or not the account exists.** It used to
+    short-circuit - `record is None or not verify_password(...)` - so bcrypt
+    never ran for an unknown address. Measured: 311 ms when the account
+    exists against 0.3 ms when it does not, a 1000x difference anybody can
+    time from outside.
+
+    That mattered here more than usual, because this product goes to real
+    lengths elsewhere to hide exactly this: /auth/password-reset/request
+    answers 204 whether or not the address has an account, specifically so
+    it cannot be used to ask who uses the product. Leaking the same fact
+    through a stopwatch on /auth/login made that promise worthless.
+
+    So an unknown address is verified against a throwaway hash instead.
+    The comparison always fails; the cost is the same either way.
     """
     with get_session() as session:
         record = session.query(UserRecord).filter(UserRecord.email == email).one_or_none()
-        if record is None or not verify_password(password, record.hashed_password):
+        # Deliberately NOT short-circuited - see the docstring. Both
+        # branches run one bcrypt verification.
+        if record is None:
+            verify_password(password, _ABSENT_ACCOUNT_HASH)
+            return None
+        if not verify_password(password, record.hashed_password):
             return None
         return _to_user(record)
 

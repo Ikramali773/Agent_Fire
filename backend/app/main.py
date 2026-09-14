@@ -88,7 +88,17 @@ app = FastAPI(
 # comma-separated list via FRONTEND_ORIGINS in any real deployment - this
 # default is not meant to be production config.
 _default_origins = "http://localhost:5173,http://127.0.0.1:5173"
-allowed_origins = os.environ.get("FRONTEND_ORIGINS", _default_origins).split(",")
+# Stripped, and empties dropped. Without this, the natural way to write
+# the variable - "http://a.example.com, http://b.example.com", with a
+# space after the comma - produced " http://b.example.com", which matches
+# no browser Origin header and silently blocked that site. It fails closed,
+# so the symptom is "the frontend mysteriously cannot reach the API"
+# rather than a hole, but it is a poor thing to debug.
+allowed_origins = [
+    origin.strip()
+    for origin in os.environ.get("FRONTEND_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
