@@ -14,7 +14,8 @@ from typing import Optional
 
 from fastapi import Depends, Header, HTTPException
 
-from app.auth.tokens import verify_token
+from app.auth import revoked_tokens
+from app.auth.tokens import decode_token
 from app.auth.user_store import get_user_by_id
 from app.models.user import User
 
@@ -23,10 +24,14 @@ def get_current_user_optional(authorization: Optional[str] = Header(default=None
     if not authorization or not authorization.startswith("Bearer "):
         return None
     token = authorization[len("Bearer ") :]
-    user_id = verify_token(token)
-    if user_id is None:
+    claims = decode_token(token)
+    if claims is None:
         return None
-    return get_user_by_id(user_id)
+    # A signed, unexpired token is not enough: it may have been logged out.
+    # This is the one place signature validity and revocation are combined.
+    if revoked_tokens.is_revoked(claims.token_id):
+        return None
+    return get_user_by_id(claims.user_id)
 
 
 def get_current_user_required(user: User | None = Depends(get_current_user_optional)) -> User:

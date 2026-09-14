@@ -152,6 +152,28 @@ class CaseFileReviewRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class RevokedTokenRecord(Base):
+    """Phase 4 hardening: a session token that has been logged out.
+
+    The tokens are stateless HMAC-signed payloads, which is what makes them
+    cheap to verify - and also what made logging out purely cosmetic: the
+    frontend forgot the token while it stayed valid for the rest of its
+    seven-day life, so anyone who had captured it still had an account.
+    This is the smallest thing that fixes that: one row per revoked token
+    id, checked on each authenticated request.
+
+    Rows are pruned once their token would have expired anyway, so the
+    table stays proportional to recent logouts rather than to all of them.
+    """
+
+    __tablename__ = "revoked_tokens"
+
+    token_id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class UserRecord(Base):
     """Phase 2 (accounts). hashed_password never leaves app/auth/user_store.py -
     every API-facing model is app/models/user.py's User, which has no

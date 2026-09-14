@@ -83,6 +83,20 @@ export const api = {
 
   me: () => request<User>("/auth/me"),
 
+  // Revokes the token server-side. Until this existed, signing out only
+  // made this browser forget it while it stayed valid for the rest of its
+  // seven-day life - anyone who had captured it still had the account.
+  logout: async (): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new ApiError(`${response.status} ${response.statusText}: ${body}`, response.status);
+    }
+  },
+
   // Paged: the unbounded version grew linearly with an account's whole
   // history (0.81 MB of JSON at 500 projects) to render eight rail rows.
   myCaseFiles: (limit = PROJECT_PAGE_SIZE, offset = 0) =>

@@ -37,6 +37,27 @@ Part B):
     they turn out to be needed. The wiring is left in place (harmless when unused - it only adds a
     placeholder-tagged section to the report) so real content can drop in later without code changes,
     but it is not being actively developed right now.
+- **Session security** (`app/auth/`, Phase 4 hardening) — three holes that only matter once somebody
+  other than the developer uses this, all flagged in the Phase 1–3 audit and now closed.
+  - **Logout revokes the token** (`POST /auth/logout`, `app/auth/revoked_tokens.py`). Tokens are
+    stateless HMAC payloads, which is what makes them cheap to verify and also what made logging out
+    purely cosmetic: the frontend forgot the token while it stayed valid for the rest of its
+    seven-day life, so anyone who had captured it still had the account. Each token now carries its
+    own id, so signing out on one device leaves other sessions alone; revoked rows are pruned once
+    the token would have expired anyway. Measured at 0.22 ms per authenticated request against 2,000
+    revoked rows - a primary-key lookup.
+  - **`/auth/login` is rate-limited** (`app/auth/rate_limit.py`, 5 attempts/minute per client+email).
+    Without one, passwords could be tried as fast as the network allowed - and since bcrypt is
+    expensive *by design*, an unlimited endpoint costs the server more than the attacker, making it
+    a denial-of-service lever as much as a brute-force hole. Keyed on client **and** account so an
+    attacker cannot lock a victim out of their own account; a correct password clears the counter.
+    - **Honest limitation**: in-process and dependency-free, so the counters reset on restart and
+      are NOT shared across workers. Behind N workers the effective limit is N×. A large improvement
+      on "no limit", and a poor substitute for a shared store (Redis) or a limit at the edge.
+  - **The development signing key cannot reach production.** `FIRE_AGENT_AUTH_SECRET` still defaults
+    to a string that ships in this repository - anyone who knows it can mint a token for any
+    account - so startup now **refuses** when `FIRE_AGENT_ENV` is production/prod/staging, and logs
+    a prominent SECURITY warning everywhere else.
 - **Compliance engine** (`app/engine/requirements.py`, `GET /case-files/{id}/findings`, Phase 4) —
   Phase 1's classifier determines WHICH requirements apply to a building; nothing ever determined
   whether the building MEETS them, which is why every clause on the Compliance page rendered an
@@ -50,10 +71,21 @@ Part B):
     wet riser" and "we do not know whether you have one" are a defect and a question, and the
     product must not confuse them.
   - `existing_fire_systems` is free text, so declarations are matched against a **deliberately
-    conservative** synonym list (longest match wins). Anything unmatched is reported as
-    unrecognized, never guessed at - a wrong match would mark a requirement met that is not, which
-    is the most damaging mistake this module could make. An unrecognized system is surfaced rather
-    than dropped, because it is not the same as a system the building does not have.
+    conservative** synonym list. Anything unmatched is reported as unrecognized, never guessed at -
+    a wrong match would mark a requirement met that is not, which is the most damaging mistake this
+    module could make. An unrecognized system is surfaced rather than dropped, because it is not the
+    same as a system the building does not have.
+  - **Negation is understood.** "no sprinklers", "sprinklers: none", "to be provided" and friends
+    were originally matched as a DECLARED sprinkler system, crediting a building for the exact thing
+    its owner had just said it lacks. A negated clause is now recorded as *declared absent* - which
+    is stronger information than silence, so it reads as NOT MET with "explicitly recorded as not
+    present" rather than being thrown away.
+  - **An entry naming several systems credits all of them.** "fire extinguishers, hose reel, wet
+    riser" originally credited only the first and failed the other two - a false failure, which on a
+    compliance record is as damaging as a false pass. Entries are split into clauses, which also
+    scopes negation ("wet riser installed, no sprinklers" says one of each). Splitting on "and" is
+    conditional: two of the eight installations have "and" in their own names, so an unconditional
+    split would cut one in half and quote back half a name as the evidence.
   - **"Declared", never "verified".** The system knows an installation was reported; it does not
     know that it exists, covers the right areas, or is correctly designed. Every finding's wording,
     the report section and the UI all keep that distinction rather than letting "met" read as

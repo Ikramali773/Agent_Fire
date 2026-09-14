@@ -87,10 +87,93 @@ _SYNONYMS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Words that turn a mention of an installation into a statement that it is
+# NOT there. Without these, "no sprinklers" reads as a declared sprinkler
+# system and marks the requirement met - crediting a building for the exact
+# thing its owner just said it lacks, which is the worst mistake this
+# module can make. "to be provided" and friends are the same case: a system
+# that is planned is not a system that exists.
+_ABSENCE_MARKERS = (
+    "no ",
+    "not ",
+    "non ",
+    "nil",
+    "none",
+    "absent",
+    "without",
+    "n a",
+    "missing",
+    "lacking",
+    "to be provided",
+    "to be installed",
+    "proposed",
+    "planned",
+    "future",
+    "tbd",
+    "pending",
+    "under installation",
+    "out of order",
+    "defunct",
+    "non functional",
+    "not working",
+)
+
+# One entry often names several systems ("fire extinguishers, hose reel and
+# wet riser"), so an entry is split before matching - otherwise only one is
+# credited and the rest read as missing, which is a false failure on a
+# compliance record. Splitting also scopes negation, so "wet riser
+# installed, no sprinklers" says one of each.
+_SEGMENT_SEPARATORS = re.compile(r"[,;/\n]")
+# Splitting on " and " is conditional (see _clauses): two of the eight
+# installations have "and" in their own names - "automatic fire detection
+# AND alarm system", "public address AND voice evacuation system" - so
+# splitting unconditionally would cut a single system in half and quote
+# back half its name as the evidence.
+_CONJUNCTIONS = re.compile(r" and | & | plus | but | with ", re.IGNORECASE)
+
+
 def _normalize(text: str) -> str:
     """Lowercased, punctuation flattened to single spaces - so "Wet-Riser",
     "wet riser" and "WET RISER (2 nos.)" all compare equal."""
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def _stem(text: str) -> str:
+    """Normalized, with a trailing plural "s" dropped from each word.
+
+    People write "fire extinguishers" and the rule data says
+    "fire_extinguisher". Matching is word-bounded (so a synonym cannot be
+    found inside an unrelated word), which means the plural has to be
+    handled rather than relying on a bare substring test. Crude, but both
+    sides go through it and it only ever compares against a fixed
+    eight-installation vocabulary.
+
+    Applied to MATCHING only, never to the absence check: "(2 nos.)" would
+    stem to "no" and read as a negation.
+    """
+    return " ".join(
+        word[:-1] if len(word) > 3 and word.endswith("s") else word
+        for word in _normalize(text).split()
+    )
+
+
+# Precomputed once: normalizing every synonym on every declaration was
+# pointless work, and doing it here keeps the matcher's cost proportional
+# to what the user actually typed.
+_NORMALIZED_SYNONYMS: list[tuple[int, str, str]] = sorted(
+    (
+        (len(_stem(synonym)), _stem(synonym), code)
+        for code, synonyms in _SYNONYMS.items()
+        for synonym in synonyms
+    ),
+    reverse=True,
+)
+
+
+def asserts_absence(declaration: str) -> bool:
+    """Whether this text says the system is NOT there (or not there yet)."""
+    padded = f" {_normalize(declaration)} "
+    return any(f" {marker.strip()} " in padded or padded.startswith(f" {marker.strip()} ") for marker in _ABSENCE_MARKERS)
 
 
 def match_declaration(declaration: str) -> str | None:
@@ -101,34 +184,86 @@ def match_declaration(declaration: str) -> str | None:
     phrasing that contains another installation's name as a substring
     resolves to the more specific one.
     """
-    normalized = _normalize(declaration)
-    if not normalized:
-        return None
-    candidates = [
-        (len(_normalize(synonym)), code)
-        for code, synonyms in _SYNONYMS.items()
-        for synonym in synonyms
-        if _normalize(synonym) in normalized
-    ]
-    if not candidates:
-        return None
-    return max(candidates)[1]
+    codes = match_all_declarations(declaration)
+    return codes[0] if codes else None
 
 
-def normalize_declared_systems(declarations: list[str]) -> tuple[dict[str, str], list[str]]:
-    """Splits free-text declarations into {code: the text it matched} and
-    the ones nothing recognised."""
-    matched: dict[str, str] = {}
+def match_all_declarations(declaration: str) -> list[str]:
+    """Every installation named in one piece of text, most specific first.
+
+    Deduplicated by code, so "automatic wet sprinkler system" (which
+    contains the shorter "sprinkler" synonym of the same installation)
+    counts once.
+    """
+    stemmed = _stem(declaration)
+    if not stemmed:
+        return []
+    found: list[str] = []
+    for _length, synonym, code in _NORMALIZED_SYNONYMS:
+        if code in found:
+            continue
+        if f" {synonym} " in f" {stemmed} ":
+            found.append(code)
+    return found
+
+
+def _clauses(segment: str) -> list[str]:
+    """One segment, split on conjunctions only where that actually helps.
+
+    Splitting is worth doing when it finds MORE systems than the whole
+    segment does, or when the halves disagree about absence ("wet riser
+    installed but no sprinklers"). Otherwise the segment is left alone, so
+    an installation whose own name contains "and" survives intact and its
+    full text is what gets quoted back as evidence.
+    """
+    parts = [part for part in _CONJUNCTIONS.split(segment) if part.strip()]
+    if len(parts) < 2:
+        return [segment]
+
+    whole_codes = match_all_declarations(segment)
+    part_codes = {code for part in parts for code in match_all_declarations(part)}
+    absence_differs = len({asserts_absence(part) for part in parts}) > 1
+
+    if len(part_codes) > len(whole_codes) or absence_differs:
+        return parts
+    return [segment]
+
+
+def normalize_declared_systems(
+    declarations: list[str],
+) -> tuple[dict[str, str], dict[str, str], list[str]]:
+    """Splits free-text declarations into what is present, what is stated to
+    be absent, and what nothing recognised - each as {code: the text}.
+
+    A clause claiming absence is NOT simply dropped: "no wet riser" is more
+    information than silence, and reporting it as "not recorded" would lose
+    the user's own statement.
+    """
+    present: dict[str, str] = {}
+    absent: dict[str, str] = {}
     unrecognized: list[str] = []
     for declaration in declarations:
         if not declaration or not declaration.strip():
             continue
-        code = match_declaration(declaration)
-        if code is None:
+        matched_anything = False
+        for segment in _SEGMENT_SEPARATORS.split(declaration):
+            for clause in _clauses(segment):
+                codes = match_all_declarations(clause)
+                if not codes:
+                    continue
+                matched_anything = True
+                target = absent if asserts_absence(clause) else present
+                for code in codes:
+                    target.setdefault(code, clause.strip())
+        if not matched_anything:
             unrecognized.append(declaration.strip())
-        else:
-            matched.setdefault(code, declaration.strip())
-    return matched, unrecognized
+    # A system named in one clause as present and another as absent is a
+    # contradiction in the user's own input; absence wins, because crediting
+    # it would be the dangerous reading.
+    for code in list(present):
+        if code in absent:
+            del present[code]
+    return present, absent, unrecognized
 
 
 def evaluate_requirements(case_file: CaseFile) -> RequirementReport:
@@ -151,7 +286,9 @@ def evaluate_requirements(case_file: CaseFile) -> RequirementReport:
             protection_level=result.protection_level,
         )
 
-    declared, unrecognized = normalize_declared_systems(case_file.existing_fire_systems)
+    declared, declared_absent, unrecognized = normalize_declared_systems(
+        case_file.existing_fire_systems
+    )
     nothing_declared = not case_file.existing_fire_systems
 
     findings: list[RequirementFinding] = []
@@ -161,11 +298,12 @@ def evaluate_requirements(case_file: CaseFile) -> RequirementReport:
             # Worth saying when a building has something it does not need:
             # the reader would otherwise wonder whether their declaration
             # was understood at all.
-            extra = (
-                " Declared as present anyway."
-                if code in declared
-                else ""
-            )
+            if code in declared:
+                extra = " Declared as present anyway."
+            elif code in declared_absent:
+                extra = " Recorded as not present, which is fine - it is not required."
+            else:
+                extra = ""
             findings.append(
                 RequirementFinding(
                     code=code,
@@ -173,7 +311,7 @@ def evaluate_requirements(case_file: CaseFile) -> RequirementReport:
                     status=RequirementStatus.NOT_REQUIRED,
                     required=False,
                     detail=f"Table {result.table_7_ref} does not require this for this building.{extra}",
-                    matched_declaration=declared.get(code),
+                    matched_declaration=declared.get(code) or declared_absent.get(code),
                 )
             )
             continue
@@ -192,6 +330,21 @@ def evaluate_requirements(case_file: CaseFile) -> RequirementReport:
                         "specification and installation have not been checked."
                     ),
                     matched_declaration=declared[code],
+                )
+            )
+        elif code in declared_absent:
+            findings.append(
+                RequirementFinding(
+                    code=code,
+                    label=label,
+                    status=RequirementStatus.NOT_MET,
+                    required=True,
+                    detail=(
+                        f"Required by Table {result.table_7_ref}"
+                        f"{f' band {result.protection_level}' if result.protection_level else ''}, "
+                        "and explicitly recorded as not present."
+                    ),
+                    matched_declaration=declared_absent[code],
                 )
             )
         elif nothing_declared:

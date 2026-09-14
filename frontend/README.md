@@ -113,6 +113,11 @@ what's actually implemented server-side.
     anonymous case file as open to whoever holds its session id, verdicts included — so sending
     someone here from the banner and then showing them a sign-in wall would be a dead end of our own
     making. Sharing is hidden there, since there is no account to share as.
+- **Signing out actually signs you out** — `logout()` revokes the token server-side before this
+  browser forgets it. Fire-and-forget on purpose: if that request fails the token lives until it
+  expires, but this browser still ends up signed out — leaving someone *appearing* logged in because
+  the network blipped is worse. A rate-limited sign-in (429) gets its own readable message rather
+  than the raw status line.
 - **Edit conflicts are surfaced, never swallowed** — a case file carries a `version`, and every save
   sends it back. If someone else changed the project in between, the server answers 409 and the page
   says *"Someone else changed this project while you had it open. Reload…"* rather than silently

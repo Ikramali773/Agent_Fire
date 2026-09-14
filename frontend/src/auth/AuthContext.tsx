@@ -60,6 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Revoke server-side first, while the token is still attached. Fire
+    // and forget: if the request fails the token stays alive until it
+    // expires, but this browser must still end up signed out - leaving
+    // someone appearing logged in because the network blipped is worse.
+    void api.logout().catch(() => undefined);
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setAuthToken(null);
     setUser(null);

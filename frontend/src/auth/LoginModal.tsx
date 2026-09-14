@@ -29,7 +29,15 @@ export function LoginModal({ onClose }: Props) {
       }
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message.replace(/^\d+ [^:]+:\s*/, "") : "Something went wrong.");
+      // 429 carries a detail worth showing verbatim ("too many attempts"),
+      // but the raw "429 Too Many Requests: {...}" body is not it.
+      setError(
+        err instanceof ApiError && err.status === 429
+          ? "Too many sign-in attempts. Wait a moment and try again."
+          : err instanceof ApiError
+            ? err.message.replace(/^\d+ [^:]+:\s*/, "")
+            : "Something went wrong.",
+      );
     } finally {
       setLoading(false);
     }

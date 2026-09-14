@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user_required
-from app.auth.tokens import create_token
+from app.auth import rate_limit, revoked_tokens
+from app.auth.tokens import create_token, decode_token
 from app.auth.security import MAX_PASSWORD_BYTES, password_is_too_long
 from app.auth.user_store import create_user, get_user_by_email, verify_credentials
 from app.models.user import User
@@ -62,12 +65,61 @@ def signup(body: Credentials) -> AuthResponse:
     return AuthResponse(access_token=create_token(user.id), user=user)
 
 
+def _rate_limit_key(request: Request, email: str) -> str:
+    """Keyed on the client AND the account, so one attacker cannot lock a
+    victim out of their own account by burning the limit on their email
+    from somewhere else."""
+    client = request.client.host if request.client else "unknown"
+    return f"{client}:{email.strip().lower()}"
+
+
 @router.post("/login", response_model=AuthResponse)
-def login(body: Credentials) -> AuthResponse:
+def login(body: Credentials, request: Request) -> AuthResponse:
+    """Rate-limited: without one, passwords could be tried against a known
+    email as fast as the network allowed - and because bcrypt is expensive
+    by design, each attempt costs the SERVER more than the attacker, so an
+    unlimited endpoint is a denial-of-service lever too.
+    """
+    key = _rate_limit_key(request, body.email)
+    retry_after = rate_limit.check(key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many sign-in attempts. Wait a moment and try again.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     user = verify_credentials(body.email, body.password)
     if user is None:
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
+    # A correct password clears the counter, so a person who mistyped a few
+    # times is not left throttled once they get it right.
+    rate_limit.reset(key)
     return AuthResponse(access_token=create_token(user.id), user=user)
+
+
+@router.post("/logout", status_code=204)
+def logout(authorization: str | None = Header(default=None)) -> Response:
+    """Revokes the presented token.
+
+    Until this existed, logging out only made the frontend forget the
+    token - it stayed valid for the rest of its seven-day life, so anyone
+    who had captured it still had the account. Revoking is per token, so
+    signing out on one device leaves other sessions alone.
+
+    Always 204, even for a missing or already-dead token: "am I logged
+    out?" should have exactly one answer, and reporting failure would both
+    confuse the caller and confirm to an attacker which tokens are live.
+    """
+    if authorization and authorization.startswith("Bearer "):
+        claims = decode_token(authorization[len("Bearer ") :])
+        if claims is not None:
+            revoked_tokens.revoke(
+                claims.token_id,
+                claims.user_id,
+                datetime.fromtimestamp(claims.expires_at, tz=timezone.utc),
+            )
+    return Response(status_code=204)
 
 
 @router.get("/me", response_model=User)

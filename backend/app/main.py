@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -7,7 +8,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.case_files import router as case_files_router
 from app.api.users import router as users_router
+from app.auth.tokens import using_default_secret
 from app.db.init_db import create_all_tables
+
+
+# Environments where running on the built-in signing key is a real
+# exposure rather than a dev convenience. Anyone who knows that key - it is
+# in this repository - can mint a session token for any account.
+_PRODUCTION_ENVS = {"production", "prod", "staging"}
+
+
+def _check_auth_secret() -> None:
+    """Refuses to start a production deployment on the development signing
+    key, and warns about it everywhere else.
+
+    A warning alone is not enough for production: this is the difference
+    between "every account is protected by a password" and "every account
+    is open to anyone who has read the source".
+    """
+    if not using_default_secret():
+        return
+    environment = os.environ.get("FIRE_AGENT_ENV", "development").strip().lower()
+    message = (
+        "FIRE_AGENT_AUTH_SECRET is not set, so session tokens are signed with the "
+        "development key that ships in this repository. Anyone who knows it can mint "
+        "a token for any account. Set FIRE_AGENT_AUTH_SECRET to a long random value."
+    )
+    if environment in _PRODUCTION_ENVS:
+        raise RuntimeError(f"Refusing to start with FIRE_AGENT_ENV={environment}: {message}")
+    logging.getLogger("uvicorn.error").warning("SECURITY: %s", message)
 
 
 @asynccontextmanager
@@ -19,6 +48,7 @@ async def lifespan(app: FastAPI):
     # once a schema change needs more than an additive nullable column
     # (a rename, a drop, a NOT NULL backfill).
     create_all_tables()
+    _check_auth_secret()
     yield
 
 

@@ -86,21 +86,160 @@ class TestMatchingDeclarations:
         assert match_declaration("") is None
 
     def test_unrecognized_declarations_are_reported_not_dropped(self):
-        matched, unrecognized = normalize_declared_systems(["wet riser", "foam deluge"])
+        present, absent, unrecognized = normalize_declared_systems(["wet riser", "foam deluge"])
 
-        assert matched == {"wet_riser": "wet riser"}
+        assert present == {"wet_riser": "wet riser"}
+        assert absent == {}
         assert unrecognized == ["foam deluge"]
 
     def test_blank_entries_are_ignored_entirely(self):
-        matched, unrecognized = normalize_declared_systems(["", "   ", "wet riser"])
+        present, _absent, unrecognized = normalize_declared_systems(["", "   ", "wet riser"])
 
-        assert list(matched) == ["wet_riser"]
+        assert list(present) == ["wet_riser"]
         assert unrecognized == []
 
     def test_the_matched_text_is_kept_for_display(self):
-        matched, _ = normalize_declared_systems(["Wet-Riser (2 nos.)"])
+        present, _absent, _unrecognized = normalize_declared_systems(["Wet-Riser (2 nos.)"])
 
-        assert matched["wet_riser"] == "Wet-Riser (2 nos.)"
+        assert present["wet_riser"] == "Wet-Riser (2 nos.)"
+
+    def test_a_plural_still_matches_the_singular_rule_data_name(self):
+        # People write "fire extinguishers"; the rule data says
+        # "fire_extinguisher".
+        present, _absent, _unrecognized = normalize_declared_systems(["fire extinguishers"])
+
+        assert list(present) == ["fire_extinguisher"]
+
+
+class TestNegatedDeclarations:
+    """Regression: "no sprinklers" was matched as a DECLARED sprinkler
+    system, marking a required installation met for a building whose owner
+    had just said it lacks one - the exact mistake this module documents as
+    the worst it could make."""
+
+    @pytest.mark.parametrize(
+        "declaration",
+        [
+            "no sprinklers",
+            "sprinklers: none",
+            "sprinkler system not installed",
+            "no sprinkler",
+            "sprinklers absent",
+            "sprinklers to be provided",
+            "sprinklers planned",
+            "sprinkler system tbd",
+            "sprinklers - not working",
+        ],
+    )
+    def test_a_negated_system_is_never_credited_as_present(self, declaration: str):
+        present, absent, _unrecognized = normalize_declared_systems([declaration])
+
+        assert present == {}
+        assert list(absent) == ["automatic_wet_sprinkler_system"]
+
+    def test_a_stated_absence_is_kept_rather_than_thrown_away(self):
+        # "no wet riser" is more information than silence; reporting it as
+        # "not recorded" would lose the user's own statement.
+        _present, absent, unrecognized = normalize_declared_systems(["no wet riser"])
+
+        assert absent["wet_riser"] == "no wet riser"
+        assert unrecognized == []
+
+    def test_absence_is_scoped_to_its_own_clause(self):
+        present, absent, _unrecognized = normalize_declared_systems(
+            ["wet riser installed, no sprinklers"]
+        )
+
+        assert list(present) == ["wet_riser"]
+        assert list(absent) == ["automatic_wet_sprinkler_system"]
+
+    def test_absence_wins_when_the_input_contradicts_itself(self):
+        present, absent, _unrecognized = normalize_declared_systems(
+            ["wet riser", "no wet riser"]
+        )
+
+        assert present == {}
+        assert list(absent) == ["wet_riser"]
+
+    def test_a_brand_name_containing_not_is_not_read_as_a_negation(self):
+        # "Notifier" must not trip the " not " marker.
+        present, absent, _unrecognized = normalize_declared_systems(
+            ["Fire alarm panel - Notifier brand"]
+        )
+
+        assert list(present) == ["automatic_fire_detection_and_alarm_system"]
+        assert absent == {}
+
+    def test_a_quantity_abbreviation_is_not_read_as_a_negation(self):
+        # "(2 nos.)" must not stem to "no" and read as absent.
+        present, absent, _unrecognized = normalize_declared_systems(["Wet riser (2 nos.)"])
+
+        assert list(present) == ["wet_riser"]
+        assert absent == {}
+
+    def test_an_absent_required_system_reads_as_not_met_and_says_why(self):
+        case_file = _classified(existing_fire_systems=["no down-comer", "fire extinguishers"])
+
+        finding = next(
+            f for f in evaluate_requirements(case_file).findings if f.code == "down_comer"
+        )
+
+        assert finding.status is RequirementStatus.NOT_MET
+        assert "explicitly recorded as not present" in finding.detail
+
+
+class TestMultiSystemDeclarations:
+    """Regression: one entry naming several systems credited only the
+    first, so the rest read as missing - a false failure on a compliance
+    record, which is as damaging as a false pass."""
+
+    def test_every_system_in_a_comma_list_is_credited(self):
+        present, _absent, _unrecognized = normalize_declared_systems(
+            ["fire extinguishers, hose reel, wet riser"]
+        )
+
+        assert sorted(present) == ["fire_extinguisher", "first_aid_hose_reel", "wet_riser"]
+
+    def test_every_system_joined_by_and_is_credited(self):
+        present, _absent, _unrecognized = normalize_declared_systems(["wet riser and sprinklers"])
+
+        assert sorted(present) == ["automatic_wet_sprinkler_system", "wet_riser"]
+
+    @pytest.mark.parametrize(
+        "declaration,code",
+        [
+            ("Automatic fire detection and alarm system - 12 nos.", "automatic_fire_detection_and_alarm_system"),
+            ("public address and voice evacuation system", "public_address_and_voice_evacuation_system"),
+        ],
+    )
+    def test_an_installation_whose_own_name_contains_and_survives_intact(
+        self, declaration: str, code: str
+    ):
+        # Splitting on "and" unconditionally would cut these in half and
+        # quote back half a name as the evidence.
+        present, _absent, _unrecognized = normalize_declared_systems([declaration])
+
+        assert list(present) == [code]
+        assert present[code] == declaration
+
+    def test_a_mixed_entry_splits_only_where_it_helps(self):
+        present, absent, _unrecognized = normalize_declared_systems(
+            ["wet riser installed but no sprinklers"]
+        )
+
+        assert list(present) == ["wet_riser"]
+        assert list(absent) == ["automatic_wet_sprinkler_system"]
+
+    def test_all_of_them_reach_the_findings(self):
+        required = _classified().classification_result.required_installations
+        case_file = _classified(
+            existing_fire_systems=[", ".join(INSTALLATION_LABELS[code] for code in required)]
+        )
+
+        report = evaluate_requirements(case_file)
+
+        assert report.met_count == len(required)
+        assert report.not_met_count == 0
 
 
 class TestEvaluation:
