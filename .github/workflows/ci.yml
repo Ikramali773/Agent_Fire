@@ -1,0 +1,117 @@
+# Runs everything a contributor would run locally, on every push and pull
+# request. Until this existed the suites ran only when somebody remembered
+# to run them - which meant the migration drift guard, the access-control
+# tests and the type checker were all protecting the repository only when
+# a person thought to ask.
+#
+# Two jobs rather than one, deliberately: a frontend type error and a
+# backend regression are different problems for different people, and a
+# single job would hide whichever failed second.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A new push supersedes an in-flight run of the same branch. The backend
+# suite takes minutes; queueing several for commits nobody will look at
+# again wastes both time and runner minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # Genuinely required, not belt-and-braces: tests/test_ingest_tiers.py
+      # makes REAL Tesseract calls against REAL PDFs rather than mocking the
+      # OCR, which is what makes it worth having. Without this the ingest
+      # tier tests fail rather than skip.
+      - name: Install Tesseract
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Before the tests: a schema that does not build is a faster, clearer
+      # failure than four hundred tests failing for the same reason.
+      - name: Migrations build the schema from nothing
+        run: python -m alembic upgrade head
+        env:
+          DATABASE_URL: sqlite:///./ci-migrations.db
+
+      # The guard that stops migrations quietly ceasing to describe the
+      # models. It is also run inside the suite; here it fails fast and
+      # says so in its own step.
+      - name: Models and migrations agree
+        run: python -m alembic check
+        env:
+          DATABASE_URL: sqlite:///./ci-migrations.db
+
+      - name: Tests
+        run: python -m pytest -q
+
+      # The checked-in OpenAPI schema is what the frontend's types are
+      # generated from. If it drifts, the frontend compiles against an API
+      # that no longer exists - and nothing else would notice until
+      # runtime.
+      - name: The exported API schema is up to date
+        run: |
+          python scripts/export_openapi.py
+          git diff --exit-code ../frontend/openapi.json \
+            || { echo "::error::openapi.json is stale. Run backend/scripts/export_openapi.py and commit the result."; exit 1; }
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # --legacy-peer-deps matches what backend/README.md and this
+      # project's own setup use; npm ci would fail on the peer ranges.
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      # Runs BEFORE the tests on purpose. vitest does not type-check, so
+      # tsc is the only thing that catches a fixture whose shape no longer
+      # matches the API - which it has, repeatedly.
+      - name: Type check
+        run: npx tsc -b
+
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      # Reported, not enforced. There are existing warnings (see
+      # frontend/README.md); failing the build on them today would mean
+      # either a green build that ignores lint or a red one nobody can
+      # fix in passing. Turn this into a gate once the count is zero.
+      - name: Lint
+        run: npx oxlint
