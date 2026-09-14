@@ -24,7 +24,7 @@ from app.db import session as db_session
 from alembic.script import ScriptDirectory
 
 from app.db import init_db
-from app.db.init_db import BASELINE_REVISION, create_all_tables, run_migrations
+from app.db.init_db import create_all_tables, run_migrations
 from app.db.models import Base
 
 
@@ -140,7 +140,7 @@ def test_running_migrations_twice_changes_nothing(db_path):
 # --- 2. Already under Alembic ----------------------------------------
 
 
-def test_an_alembic_database_is_never_adopted_a_second_time(db_path, monkeypatch):
+def test_an_alembic_database_is_never_reconciled_a_second_time(db_path, monkeypatch):
     # Adoption is a one-shot path, and re-running it on an already-versioned
     # database would re-stamp it at the BASELINE - silently undoing every
     # migration applied since. Today head and baseline are the same
@@ -150,19 +150,19 @@ def test_an_alembic_database_is_never_adopted_a_second_time(db_path, monkeypatch
         run_migrations()
 
         called = []
-        monkeypatch.setattr(init_db, "_adopt_legacy", lambda conn: called.append(conn))
+        monkeypatch.setattr(init_db, "_reconcile_legacy", lambda conn: called.append(conn))
         run_migrations()
 
         assert called == []
     assert stamped_revision(db_path) == head_revision()
 
 
-def test_a_legacy_database_is_adopted_exactly_once(db_path, monkeypatch):
+def test_a_legacy_database_is_reconciled_exactly_once(db_path, monkeypatch):
     build_pre_alembic_database(db_path)
     calls = []
-    real = init_db._adopt_legacy
+    real = init_db._reconcile_legacy
     monkeypatch.setattr(
-        init_db, "_adopt_legacy", lambda conn: (calls.append(conn), real(conn))[1]
+        init_db, "_reconcile_legacy", lambda conn: (calls.append(conn), real(conn))[1]
     )
     with database_at(db_path):
         run_migrations()
@@ -203,13 +203,14 @@ def test_a_legacy_database_gains_the_tables_it_never_had(db_path):
         assert table.name in present, f"{table.name} missing after adoption"
 
 
-def test_a_legacy_database_ends_up_stamped_at_the_baseline(db_path):
+def test_a_legacy_database_ends_up_at_head_having_walked_every_revision(db_path):
+    # Not stamped at the baseline and left there: it takes the ordinary
+    # upgrade path through every revision in order, which is what makes a
+    # later migration - schema or data - apply to it at all.
     build_pre_alembic_database(db_path)
     with database_at(db_path):
         create_all_tables()
-    # The baseline, not head: stamping a legacy database at head would
-    # claim it had been through migrations it has never seen.
-    assert stamped_revision(db_path) == BASELINE_REVISION
+    assert stamped_revision(db_path) == head_revision()
 
 
 def test_a_legacy_flagged_case_stays_visible_to_the_review_queue(db_path):
@@ -283,6 +284,47 @@ def test_auto_migrate_can_be_turned_off(db_path, monkeypatch):
     with database_at(db_path):
         create_all_tables()
     assert stamped_revision(db_path) == head_revision()
+
+
+def test_a_legacy_database_gets_tables_from_migrations_after_the_baseline(db_path):
+    """The flaw the FIRST post-baseline migration exposed.
+
+    Adoption used to build today's whole schema with `create_all` and then
+    stamp the database at the baseline. That is a contradiction: the
+    database had tables from today's models while its version claimed
+    "baseline", so the next migration ran against a table that already
+    existed and blew up with "table rate_limit_attempts already exists".
+    Had it not blown up it would have been worse - a later migration
+    silently skipped.
+
+    So: a legacy database must end up holding the tables introduced AFTER
+    the baseline, and must have got them by running those migrations.
+    """
+    build_pre_alembic_database(db_path)
+    with database_at(db_path):
+        create_all_tables()
+
+    present = table_names(db_path)
+    baseline_tables = {"case_files", "users"}
+    later_tables = {
+        table.name for table in Base.metadata.sorted_tables if table.name not in baseline_tables
+    }
+    assert later_tables <= present
+    assert stamped_revision(db_path) == head_revision()
+
+
+def test_the_baseline_leaves_a_table_that_already_exists_alone(db_path):
+    # It creates only what is absent. If it dropped and recreated
+    # `case_files` instead, a legacy database would lose every project on
+    # the first boot after upgrading.
+    build_pre_alembic_database(db_path)
+    with database_at(db_path):
+        run_migrations()
+
+        from app.store import get as store_get
+
+        assert store_get("legacy-plain") is not None
+        assert store_get("legacy-flagged") is not None
 
 
 # --- Drift -----------------------------------------------------------

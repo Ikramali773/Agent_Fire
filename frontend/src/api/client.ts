@@ -1,4 +1,5 @@
 import type {
+  Assignment,
   AuthResponse,
   CaseFile,
   CaseFileGrant,
@@ -10,11 +11,16 @@ import type {
   DocumentUploadResponse,
   FieldChange,
   InvitePreview,
+  MemberRole,
+  Organisation,
+  OrganisationMember,
+  OrganisationSummary,
   RequirementReport,
   ReviewQueueItem,
   ReviewState,
   ReviewStatus,
   User,
+  UserPreferences,
 } from "../types";
 
 // Vite exposes env vars prefixed VITE_ on import.meta.env. Default targets
@@ -142,6 +148,21 @@ export const api = {
   myChatTitles: (limit = PROJECT_PAGE_SIZE, offset = 0) =>
     request<ChatTitle[]>(`/users/me/chat-titles?limit=${limit}&offset=${offset}`),
 
+  // Phase 4: how this account likes to work. A whole-object replace
+  // rather than a patch: the object is small, it is always edited as a
+  // whole, and a patch would need a way to say "set this list to empty"
+  // distinct from "leave this list alone" - the ambiguity that makes
+  // patch APIs error-prone for collections.
+  getPreferences: () => request<UserPreferences>("/users/me/preferences"),
+
+  // Returns what was actually STORED, not what was sent - the server drops
+  // duplicates and caps the list, so echoing the request back would drift.
+  savePreferences: (preferences: UserPreferences) =>
+    request<UserPreferences>("/users/me/preferences", {
+      method: "PUT",
+      body: JSON.stringify(preferences),
+    }),
+
   // Phase 3: every flagged case this account is responsible for - its own
   // projects plus ones shared with it for review. Oldest-first: a
   // compliance queue is FIFO, unlike the newest-first chat rail.
@@ -202,6 +223,77 @@ export const api = {
     request<ReviewState>(`/case-files/${sessionId}/review`, {
       method: "POST",
       body: JSON.stringify({ status, note }),
+    }),
+
+  // Phase 4: teams. Sharing one project with one person at a time does
+  // not survive six colleagues and forty projects.
+  listOrganisations: () => request<OrganisationSummary[]>("/organisations"),
+
+  createOrganisation: (name: string) =>
+    request<Organisation>("/organisations", { method: "POST", body: JSON.stringify({ name }) }),
+
+  renameOrganisation: (organisationId: string, name: string) =>
+    request<Organisation>(`/organisations/${organisationId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteOrganisation: (organisationId: string) =>
+    requestNoContent(`/organisations/${organisationId}`, { method: "DELETE" }),
+
+  listMembers: (organisationId: string) =>
+    request<OrganisationMember[]>(`/organisations/${organisationId}/members`),
+
+  addMember: (organisationId: string, email: string, role: MemberRole = "member") =>
+    request<OrganisationMember>(`/organisations/${organisationId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    }),
+
+  setMemberRole: (organisationId: string, userId: string, role: MemberRole) =>
+    request<OrganisationMember>(`/organisations/${organisationId}/members/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
+
+  removeMember: (organisationId: string, userId: string) =>
+    requestNoContent(`/organisations/${organisationId}/members/${userId}`, { method: "DELETE" }),
+
+  listOrganisationCaseFiles: (organisationId: string) =>
+    request<string[]>(`/organisations/${organisationId}/case-files`),
+
+  // Only the project's OWNER may do this - administering a team must
+  // never become a way to pull in a colleague's other work.
+  addCaseFileToOrganisation: (organisationId: string, sessionId: string) =>
+    requestNoContent(`/organisations/${organisationId}/case-files`, {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId }),
+    }),
+
+  removeCaseFileFromOrganisation: (organisationId: string, sessionId: string) =>
+    requestNoContent(`/organisations/${organisationId}/case-files/${sessionId}`, {
+      method: "DELETE",
+    }),
+
+  // Null on a case nobody has been asked to look at, which is most of them.
+  getAssignment: (sessionId: string) =>
+    request<Assignment | null>(`/case-files/${sessionId}/assignment`),
+
+  getAssignmentHistory: (sessionId: string) =>
+    request<Assignment[]>(`/case-files/${sessionId}/assignment/history`),
+
+  // Append-only server-side: reassigning records a new row rather than
+  // overwriting. Passing a null assignee UNASSIGNS, which is its own
+  // recorded act, not the absence of one.
+  setAssignment: (
+    sessionId: string,
+    assignedToUserId: string | null,
+    dueAt: string | null,
+    note = "",
+  ) =>
+    request<Assignment>(`/case-files/${sessionId}/assignment`, {
+      method: "POST",
+      body: JSON.stringify({ assigned_to_user_id: assignedToUserId, due_at: dueAt, note }),
     }),
 
   listShares: (sessionId: string) => request<CaseFileGrant[]>(`/case-files/${sessionId}/shares`),

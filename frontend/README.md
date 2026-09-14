@@ -98,9 +98,46 @@ what's actually implemented server-side.
     three inline controls do not fit a narrow rail. Renaming sets the Case File's own
     `project_name`, so it shows up in that project's change log like any other edit rather than
     being separate hidden UI state.
-  - **Pins** (`projects/usePinnedChats.ts`) live in `localStorage`, namespaced by account id so two
-    people sharing a machine don't see each other's. See "Not yet built" for the limitation that
-    comes with that.
+  - **Pins** (`projects/usePinnedChats.ts`) live on the ACCOUNT, via the per-user preferences
+    store (`/users/me/preferences`), so they follow the person to another browser or a phone. They
+    used to live in `localStorage`, which meant they did not — that was documented as a limitation
+    rather than hidden, and this removes it.
+    - Signed out there is no account to attach a pin to, so it stays in this browser, namespaced by
+      account id so two people sharing a machine don't see each other's.
+    - **Pins made before signing up are merged in, once.** Someone who pinned ten projects and then
+      created an account should not silently lose them. The local copy is cleared only after the
+      merge succeeds, so a failed request cannot destroy the only copy there is.
+    - Writes are **optimistic**: the pin flips immediately and the request follows. Pinning is a UI
+      convenience, and making someone watch a round trip to see a star fill in would be worse than
+      reconciling a rare failed write on the next load.
+    - A slow response for the previous account cannot overwrite the new one's pins — a real hazard
+      when signing out and back in as someone else on a shared machine, and covered by a test.
+- **Team** (`src/pages/team/`, Phase 4) — the Team nav item is live: your teams, their members, and
+  which of your projects each can see. A project shared with a team is readable by every member, and
+  removing someone takes away all of it at once rather than one project at a time.
+  - The page states what a team does NOT grant, for the same reason `SharePanel` does: members read,
+    download the handoff pack and record a verdict, and cannot edit a fact, continue the
+    conversation, delete a project or share it onward.
+  - "Share this project with the team" appears only for a project you **own** — administering a team
+    is not a way to pull in a colleague's work, and the page says that rather than showing a button
+    that 403s.
+  - It says plainly that a colleague needs an account already, and points at the per-project invite
+    link for someone who hasn't signed up. That is the one thing people get wrong about teams here,
+    and there is no mail transport to fix it with.
+- **Assignment and due dates** (`src/pages/review/AssignmentPanel.tsx`, and the queue, Phase 4) —
+  who owes a review, and by when.
+  - The panel **never claims a due date is enforced**: "a note to the people involved… nothing here
+    enforces it or acts when it passes". A compliance tool that implied otherwise would be making a
+    promise it does not keep, and a test asserts the wording.
+  - A date-only deadline is sent as **midday UTC**, not midnight — read back in a timezone behind
+    UTC, midnight would land on the previous day. Also tested, because it is the kind of thing that
+    looks right until someone in a different timezone opens it.
+  - The queue marks an overdue case with a plain `Overdue` pill, never as a compliance status (this
+    product does not issue one), and offers an "only cases assigned to me" filter — shown only when
+    something actually is, since a filter that can only empty the list is noise. Filtering is
+    client-side because the rows are already there.
+  - The panel distinguishes "nobody has been asked yet" from "explicitly unassigned", because the
+    backend records those differently and collapsing them would lose the distinction it keeps.
 - **Projects state** (`src/projects/ProjectsContext.tsx`) — one owner of "the signed-in account's
   projects", shared by the chat rail and the Project History page so a delete in either updates
   both immediately instead of leaving a ghost row until reload. `DeleteProjectDialog.tsx` is the
@@ -256,7 +293,9 @@ actually broken here before, rather than chasing coverage:
 - `shell/RecentChats.test.tsx` + `shell/chatGroups.test.ts` + `projects/usePinnedChats.test.ts` —
   titles fall back in the right order, grouping counts calendar days rather than elapsed hours,
   search reaches projects the rail isn't showing, a pinned chat is lifted out of the date groups,
-  and two accounts sharing a browser don't see each other's pins.
+  two accounts sharing a browser don't see each other's pins, a pin made before signing up is
+  merged into the account exactly once, and a slow response for the previous account cannot
+  overwrite the new one's.
 - `pages/review/*.test.tsx` + `lib/review.test.ts` + `lib/access.test.ts` — the review vocabulary
   (notably that "approved" is **not** rendered as a compliance pass: this product does not certify
   anything, and the footer on every page says so), the banner staying invisible unless the engine
@@ -269,6 +308,11 @@ actually broken here before, rather than chasing coverage:
   the user (the difference between "try again" and "ask for a new link"), an invite preview refusing
   to accept without an account, and an expired or already-used invitation not offering an Accept
   button at all.
+- `pages/review/AssignmentPanel.test.tsx` + the assignment cases in `pages/review/ReviewQueue.test.tsx`
+  — a refused assignment explaining *why* (the person cannot see the project) rather than just that
+  it failed, a due date going out as an instant rather than a bare date, the panel offering no
+  controls to someone who cannot assign, "never assigned" reading differently from "explicitly
+  unassigned", and the queue's mine-only filter staying hidden until something is actually mine.
 - `lib/relativeTime.test.ts` — unit selection, and that an offset-less API timestamp is read as UTC
   rather than as local time (see the backend README's "UTC on every timestamp"): without that, a
   change made seconds ago showed as hours ago for anyone outside UTC.
@@ -302,10 +346,6 @@ browser check that a real API response still renders correctly end-to-end.
 - **A chat's title is its first message, not a summary of the conversation** - unlike Claude/ChatGPT,
   no model writes a title from what was discussed; the rail shows the opening message verbatim,
   trimmed. A chat abandoned before anything was typed still reads "Untitled project".
-- **Pinned chats don't follow the account to another browser** - a pin is per-user UI state, and
-  the Case File schema is fixed, so pins live in that browser's `localStorage` (namespaced by
-  account id). Making them follow the account needs a per-user preferences store, which doesn't
-  exist yet.
 - **Chat search matches the title only** - not the conversation's contents or the case file's
   fields, and it is a plain substring match with no ranking. Finding "that project where we
   discussed the atrium" still means opening chats.

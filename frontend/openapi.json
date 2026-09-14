@@ -2280,6 +2280,114 @@
         }
       }
     },
+    "/users/me/preferences": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get My Preferences",
+        "description": "How this account likes to work - see app/models/preferences.py.\n\nAlways answers, defaults included: an account that has never set\nanything is not an error, and making the frontend distinguish \"no\npreferences yet\" from \"no preferences set\" would buy nothing.",
+        "operationId": "get_my_preferences_users_me_preferences_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPreferences"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Replace My Preferences",
+        "description": "Replaces this account's preferences wholesale.\n\nReturns what was actually stored, not what was sent: duplicates are\ndropped and the list is capped, so a caller that echoed its own\nrequest back would drift out of step with the server.\n\nRequires an account, obviously - there is nothing to attach a\npreference to without one. An anonymous session keeps using the\nbrowser's own storage, which is the correct place for it.",
+        "operationId": "replace_my_preferences_users_me_preferences_put",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPreferences"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPreferences"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/invites/{token}": {
       "get": {
         "tags": [
@@ -2382,6 +2490,887 @@
         }
       }
     },
+    "/organisations": {
+      "post": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Create Organisation",
+        "description": "Creates an organisation with the caller as its first administrator.",
+        "operationId": "create_organisation_organisations_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganisationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organisation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "List My Organisations",
+        "operationId": "list_my_organisations_organisations_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganisationSummary"
+                  },
+                  "title": "Response List My Organisations Organisations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organisations/{organisation_id}": {
+      "patch": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Rename Organisation",
+        "operationId": "rename_organisation_organisations__organisation_id__patch",
+        "parameters": [
+          {
+            "name": "organisation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organisation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganisationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organisation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Delete Organisation",
+        "description": "Deletes the organisation, its memberships and its project links.\n\nThe projects themselves are untouched - an organisation is a way of\nsharing them, never where they live. Restricted to the person who\ncreated it: an administrator added later can manage the team, but\ndissolving it is not theirs to do.",
+        "operationId": "delete_organisation_organisations__organisation_id__delete",
+        "parameters": [
+          {
+            "name": "organisation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organisation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organisations/{organisation_id}/members": {
+      "get": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "List Members",
+        "description": "Visible to every member: you should be able to see who else can read\nthe projects you put in here.",
+        "operationId": "list_members_organisations__organisation_id__members_get",
+        "parameters": [
+          {
+            "name": "organisation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organisation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganisationMember"
+                  },
+                  "title": "Response List Members Organisations  Organisation Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Add Member",
+        "description": "Adds an existing account to the organisation.\n\nThe address must already have an account. Silently creating one for\nsomeone is worse than an honest 404, and there is no mail transport\nhere to invite them through - the per-project invite link (see\napp/api/invites.py) is the route for someone who has not signed up.",
+        "operationId": "add_member_organisations__organisation_id__members_post",
+        "parameters": [
+          {
+            "name": "organisation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organisation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberAdd"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationMember"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organisations/{organisation_id}/members/{user_id}": {
+      "patch": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Set Member Role",
+        "description": "Promotes or demotes a member.\n\nThe creator cannot be demoted, by anyone including themselves: an\norganisation whose last administrator demoted themselves is one nobody\ncan add a member to or delete, and there is no support desk here to\nunstick it.",
+        "operationId": "set_member_role_organisations__organisation_id__members__user_id__patch",
+        "parameters": [
+          {
+            "name": "organisation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organisation Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationMember"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Remove Member",
+        "description": "Removes a member. Their access to every one of this organisation's\nprojects goes with it, in one step - which is the point of having one.\n\nLeaving voluntarily is allowed for anyone; removing somebody else needs\nto be an administrator. The creator cannot be removed at all, for the\nsame reason they cannot be demoted.",
+        "operationId": "remove_member_organisations__organisation_id__members__user_id__delete",
+        "parameters": [
+          {
+            "name": "organisation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organisation Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organisations/{organisation_id}/case-files": {
+      "get": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "List Organisation Case Files",
+        "operationId": "list_organisation_case_files_organisations__organisation_id__case_files_get",
+        "parameters": [
+          {
+            "name": "organisation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organisation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response List Organisation Case Files Organisations  Organisation Id  Case Files Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Add Case File",
+        "description": "Shares a project with the organisation.\n\nOnly its OWNER may do this, not an organisation administrator: being\nable to administer a team must never become a way to pull in projects\nbelonging to its members. It is the same rule as individual sharing -\na reviewer cannot re-share onward - applied to teams.",
+        "operationId": "add_case_file_organisations__organisation_id__case_files_post",
+        "parameters": [
+          {
+            "name": "organisation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organisation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseFileLink"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organisations/{organisation_id}/case-files/{session_id}": {
+      "delete": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Remove Case File",
+        "description": "Stops sharing a project with the organisation.\n\nEither its owner or an administrator: the owner is taking their own\nproject back, and an administrator is deciding what their team holds.\nNeither deletes anything.",
+        "operationId": "remove_case_file_organisations__organisation_id__case_files__session_id__delete",
+        "parameters": [
+          {
+            "name": "organisation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organisation Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/assignment": {
+      "get": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Get Assignment",
+        "description": "The current assignment, or null if the case has never had one.\n\nReadable by anyone who can read the case - knowing whose job something\nis should not need more access than seeing the case itself.",
+        "operationId": "get_assignment_case_files__session_id__assignment_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Assignment"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Assignment Case Files  Session Id  Assignment Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Set Assignment",
+        "description": "Assigns the case to someone, with an optional due date.\n\nThe due date is ADVISORY. Nothing in this product enforces one or acts\nwhen it passes - the queue says a case is overdue and that is all.\nPretending otherwise in a compliance tool would be worse than not\nhaving due dates.",
+        "operationId": "set_assignment_case_files__session_id__assignment_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Assignment"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/case-files/{session_id}/assignment/history": {
+      "get": {
+        "tags": [
+          "organisations"
+        ],
+        "summary": "Get Assignment History",
+        "description": "Every assignment this case has had, oldest first. Append-only, so a\ncase reassigned twice reads differently from one assigned once.",
+        "operationId": "get_assignment_history_case_files__session_id__assignment_history_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Assignment"
+                  },
+                  "title": "Response Get Assignment History Case Files  Session Id  Assignment History Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -2405,6 +3394,112 @@
   },
   "components": {
     "schemas": {
+      "Assignment": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "assigned_to_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To User Id",
+            "description": "None means the case was explicitly UNASSIGNED - a deliberate act with its own row, not an absence of one."
+          },
+          "assigned_to_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To Email"
+          },
+          "assigned_by_user_id": {
+            "type": "string",
+            "title": "Assigned By User Id"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At",
+            "description": "Advisory only. Nothing in this product enforces a due date or acts when one passes; it is a note to the people involved."
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "assigned_by_user_id",
+          "created_at"
+        ],
+        "title": "Assignment",
+        "description": "Who is expected to review a flagged case, and by when.\n\nAppend-only (see app/assignment_store.py): the current assignment is the\nlatest row. A case reassigned twice reads differently from one assigned\nonce, and in a compliance record that difference is the point."
+      },
+      "AssignmentRequest": {
+        "properties": {
+          "assigned_to_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To User Id",
+            "description": "None unassigns the case - a deliberate act, recorded as its own row."
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "AssignmentRequest"
+      },
       "AuthResponse": {
         "properties": {
           "access_token": {
@@ -2815,6 +3910,19 @@
         ],
         "title": "CaseFileInvite",
         "description": "An invite as its owner sees it."
+      },
+      "CaseFileLink": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id"
+        ],
+        "title": "CaseFileLink"
       },
       "CaseFilePage": {
         "properties": {
@@ -3243,6 +4351,32 @@
         "title": "InvitePreview",
         "description": "What the recipient is shown before signing up.\n\nDeliberately thin: enough to know what they are accepting and from\nwhom, and nothing about the building. Whoever holds the link has not\naccepted yet, and may not be the person it was meant for."
       },
+      "MemberAdd": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MemberRole",
+            "default": "member"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "MemberAdd"
+      },
+      "MemberRole": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "member"
+        ],
+        "title": "MemberRole",
+        "description": "What a member may do to the ORGANISATION - not to its projects.\n\nProject access is the same for both: read and review. The difference is\nadministrative."
+      },
       "MessageKind": {
         "type": "string",
         "enum": [
@@ -3318,6 +4452,108 @@
           "Mixed Use"
         ],
         "title": "OccupancyType"
+      },
+      "Organisation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "title": "Created By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_by_user_id",
+          "created_at"
+        ],
+        "title": "Organisation"
+      },
+      "OrganisationCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "OrganisationCreate"
+      },
+      "OrganisationMember": {
+        "properties": {
+          "organisation_id": {
+            "type": "string",
+            "title": "Organisation Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MemberRole"
+          },
+          "added_by_user_id": {
+            "type": "string",
+            "title": "Added By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organisation_id",
+          "user_id",
+          "email",
+          "role",
+          "added_by_user_id",
+          "created_at"
+        ],
+        "title": "OrganisationMember"
+      },
+      "OrganisationSummary": {
+        "properties": {
+          "organisation": {
+            "$ref": "#/components/schemas/Organisation"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MemberRole"
+          },
+          "member_count": {
+            "type": "integer",
+            "title": "Member Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organisation",
+          "role",
+          "member_count"
+        ],
+        "title": "OrganisationSummary",
+        "description": "An organisation as one of its members sees it in a list."
       },
       "PasswordChange": {
         "properties": {
@@ -3595,6 +4831,29 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "assignment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Assignment"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The current assignment, if the case has one. Carried on the queue row so the list can show who owes this and by when without a request per row."
+          },
+          "assigned_to_me": {
+            "type": "boolean",
+            "title": "Assigned To Me",
+            "description": "Whether the current assignment names this account - what 'my queue' filters on.",
+            "default": false
+          },
+          "is_overdue": {
+            "type": "boolean",
+            "title": "Is Overdue",
+            "description": "Past its due date and not yet settled. Advisory: nothing in this product acts when a due date passes, it only says so.",
+            "default": false
           }
         },
         "type": "object",
@@ -3715,6 +4974,18 @@
         "title": "ReviewStatus",
         "description": "Where a flagged case is in its review.\n\n`NEEDS_REVIEW` is the implicit starting state of any flagged case - it\nis never written as an event, it is simply what a case with no review\nevents yet is. Everything else is a person's recorded decision."
       },
+      "RoleChange": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/MemberRole"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "RoleChange"
+      },
       "SourceDocument": {
         "properties": {
           "filename": {
@@ -3777,6 +5048,21 @@
           "created_at"
         ],
         "title": "User"
+      },
+      "UserPreferences": {
+        "properties": {
+          "pinned_session_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pinned Session Ids",
+            "description": "Projects this account has pinned, most recently pinned first. Ids only - the projects themselves are read through the ordinary access checks, so a pin can never be a way to see a project you no longer have access to."
+          }
+        },
+        "type": "object",
+        "title": "UserPreferences",
+        "description": "Everything this product remembers about how one person likes to work.\n\nNote what is NOT here: the active project and the session token. Those\nare per-BROWSER, not per-user - \"which project was I last looking at\"\nshould differ between the laptop and the phone, and syncing it would\nmake two open tabs fight. They stay in localStorage on purpose."
       },
       "ValidationError": {
         "properties": {

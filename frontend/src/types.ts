@@ -17,6 +17,7 @@ export type OccupancyBreakdownItem = Required<components["schemas"]["OccupancyBr
 export type FloorAreaItem = components["schemas"]["FloorAreaItem"];
 export type CaseFile = Required<components["schemas"]["CaseFile"]>;
 export type User = Required<components["schemas"]["User"]>;
+export type UserPreferences = Required<components["schemas"]["UserPreferences"]>;
 export type AuthResponse = Required<components["schemas"]["AuthResponse"]>;
 export type ConversationMessage = Required<components["schemas"]["ConversationMessage"]>;
 export type FieldChange = Required<components["schemas"]["FieldChange"]>;
@@ -26,7 +27,12 @@ export type ReviewReasonCode = components["schemas"]["ReviewReasonCode"];
 export type ReviewStatus = components["schemas"]["ReviewStatus"];
 export type ReviewEvent = Required<components["schemas"]["ReviewEvent"]>;
 export type ReviewState = Required<components["schemas"]["ReviewState"]>;
-export type ReviewQueueItem = Required<components["schemas"]["ReviewQueueItem"]>;
+// `assignment` is null on a case nobody has been asked to look at, which
+// is most of them - Required<> would wrongly promise it is always there.
+export type ReviewQueueItem = Omit<
+  Required<components["schemas"]["ReviewQueueItem"]>,
+  "assignment"
+> & { assignment: Assignment | null };
 export type RequirementStatus = components["schemas"]["RequirementStatus"];
 export type RequirementFinding = Required<components["schemas"]["RequirementFinding"]>;
 // Required<> is shallow, so `findings` would stay the raw partly-optional
@@ -45,6 +51,26 @@ export type CaseFileInvite = Omit<
   "invite_url"
 > & { invite_url: string | null };
 export type InvitePreview = Required<components["schemas"]["InvitePreview"]>;
+export type MemberRole = components["schemas"]["MemberRole"];
+export type Organisation = Required<components["schemas"]["Organisation"]>;
+export type OrganisationMember = Required<components["schemas"]["OrganisationMember"]>;
+// Required<> is shallow, so `organisation` would stay the raw partly-optional
+// shape - re-point it, same as CaseFilePage and RequirementReport.
+export type OrganisationSummary = Omit<
+  Required<components["schemas"]["OrganisationSummary"]>,
+  "organisation"
+> & { organisation: Organisation };
+// `assigned_to_user_id`, `assigned_to_email` and `due_at` are genuinely
+// nullable on the wire: a row with no assignee means the case was
+// explicitly UNASSIGNED, and a due date is optional.
+export type Assignment = Omit<
+  Required<components["schemas"]["Assignment"]>,
+  "assigned_to_user_id" | "assigned_to_email" | "due_at"
+> & {
+  assigned_to_user_id: string | null;
+  assigned_to_email: string | null;
+  due_at: string | null;
+};
 // Required<> is SHALLOW, so it would leave `items` as the raw, partly
 // optional CaseFile rather than the Required one exported above - the same
 // trap normalizeClassification exists for. Re-point `items` explicitly.

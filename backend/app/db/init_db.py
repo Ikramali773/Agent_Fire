@@ -40,12 +40,6 @@ _LOG = logging.getLogger("uvicorn.error")
 
 ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
 
-# The revision a pre-Alembic database is stamped at once reconciled. Not
-# "head": stamping a legacy database at head would claim it had been
-# through migrations it has never seen.
-BASELINE_REVISION = "0001_baseline"
-
-
 def alembic_config(connection=None) -> Config:
     config = Config(str(ALEMBIC_INI))
     config.set_main_option("script_location", str(ALEMBIC_INI.parent / "migrations"))
@@ -67,7 +61,7 @@ def run_migrations() -> None:
     with engine.begin() as connection:
         current = MigrationContext.configure(connection).get_current_revision()
         if current is None and _has_legacy_tables(connection):
-            _adopt_legacy(connection)
+            _reconcile_legacy(connection)
     command.upgrade(alembic_config(), "head")
 
 
@@ -93,33 +87,25 @@ def _has_legacy_tables(connection) -> bool:
     return any(table.name in present for table in Base.metadata.sorted_tables)
 
 
-def _adopt_legacy(connection) -> None:
-    """Reconciles a pre-Alembic database to the baseline, then stamps it.
+def _reconcile_legacy(connection) -> None:
+    """Adds the columns a pre-Alembic database is missing, and backfills the
+    one that cannot be left NULL.
 
-    The reconciliation is the additive column pass this module used to run
-    on every single boot, now run once and only against a database that
-    has never seen a migration. A column added to a model after a database
-    was created is silently missing from it, and every query mentioning
-    that column then fails ("no such column: case_files.owner_user_id" -
+    Runs BEFORE the baseline migration, and does not create tables or stamp
+    anything - the migrations do both. It exists because the baseline
+    creates only tables that are absent, so it never touches the
+    `case_files` a legacy database already has, and a column added to that
+    model after the database was created would stay missing. Every query
+    mentioning it then fails ("no such column: case_files.owner_user_id" -
     hit for real against a pre-Phase-2 local database).
 
-    Deliberately still additive-only: no renames, drops, or type changes.
-    Those are what migrations are for, and from this point on there IS a
+    Deliberately additive-only: no renames, drops, or type changes. Those
+    are what migrations are for, and from this point on there IS a
     migration path, so nothing new should ever be added here.
     """
-    _LOG.info("Database predates Alembic - reconciling to %s and stamping it.", BASELINE_REVISION)
-    # Tables first, THEN columns. A pre-Phase-2 database has `case_files`
-    # and `users` and none of the seven tables added since; stamping it at
-    # the baseline without creating those would assert a schema it does not
-    # have, and the first query against `conversation_messages` would fail
-    # with the stamp insisting everything was fine. Caught by building a
-    # genuine pre-Alembic database and running this against it - the first
-    # version of this function stamped and left seven tables missing.
-    # checkfirst leaves every existing table, and its data, untouched.
-    Base.metadata.create_all(bind=connection, checkfirst=True)
+    _LOG.info("Database predates Alembic - reconciling it before migrating.")
     _add_missing_columns(connection)
     _backfill_requires_review(connection)
-    command.stamp(alembic_config(connection), BASELINE_REVISION)
 
 
 def _add_missing_columns(connection) -> None:
@@ -128,7 +114,8 @@ def _add_missing_columns(connection) -> None:
     dialect = connection.engine.dialect
     for table in Base.metadata.sorted_tables:
         if table.name not in present:
-            # create_all above just made it, in full - nothing to add.
+            # Absent entirely - the baseline migration creates it in full,
+            # indexes and all, a moment from now.
             continue
         existing = {col["name"] for col in inspector.get_columns(table.name)}
         for column in table.columns:

@@ -8,6 +8,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   History,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -25,6 +26,7 @@ export type ViewKey =
   | "findings"
   | "reports"
   | "review"
+  | "team"
   | "history";
 
 export interface NavItem {
@@ -44,6 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "findings", label: "Findings", icon: Search },
   { key: "reports", label: "Reports", icon: ClipboardList },
   { key: "review", label: "Review", icon: ClipboardCheck },
+  { key: "team", label: "Team", icon: Users },
   { key: "history", label: "Project History", icon: History },
 ];
 

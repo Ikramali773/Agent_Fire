@@ -815,6 +815,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Preferences
+         * @description How this account likes to work - see app/models/preferences.py.
+         *
+         *     Always answers, defaults included: an account that has never set
+         *     anything is not an error, and making the frontend distinguish "no
+         *     preferences yet" from "no preferences set" would buy nothing.
+         */
+        get: operations["get_my_preferences_users_me_preferences_get"];
+        /**
+         * Replace My Preferences
+         * @description Replaces this account's preferences wholesale.
+         *
+         *     Returns what was actually stored, not what was sent: duplicates are
+         *     dropped and the list is capped, so a caller that echoed its own
+         *     request back would drift out of step with the server.
+         *
+         *     Requires an account, obviously - there is nothing to attach a
+         *     preference to without one. An anonymous session keeps using the
+         *     browser's own storage, which is the correct place for it.
+         */
+        put: operations["replace_my_preferences_users_me_preferences_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invites/{token}": {
         parameters: {
             query?: never;
@@ -873,6 +909,220 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organisations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List My Organisations */
+        get: operations["list_my_organisations_organisations_get"];
+        put?: never;
+        /**
+         * Create Organisation
+         * @description Creates an organisation with the caller as its first administrator.
+         */
+        post: operations["create_organisation_organisations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organisations/{organisation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Organisation
+         * @description Deletes the organisation, its memberships and its project links.
+         *
+         *     The projects themselves are untouched - an organisation is a way of
+         *     sharing them, never where they live. Restricted to the person who
+         *     created it: an administrator added later can manage the team, but
+         *     dissolving it is not theirs to do.
+         */
+        delete: operations["delete_organisation_organisations__organisation_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Organisation */
+        patch: operations["rename_organisation_organisations__organisation_id__patch"];
+        trace?: never;
+    };
+    "/organisations/{organisation_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Members
+         * @description Visible to every member: you should be able to see who else can read
+         *     the projects you put in here.
+         */
+        get: operations["list_members_organisations__organisation_id__members_get"];
+        put?: never;
+        /**
+         * Add Member
+         * @description Adds an existing account to the organisation.
+         *
+         *     The address must already have an account. Silently creating one for
+         *     someone is worse than an honest 404, and there is no mail transport
+         *     here to invite them through - the per-project invite link (see
+         *     app/api/invites.py) is the route for someone who has not signed up.
+         */
+        post: operations["add_member_organisations__organisation_id__members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organisations/{organisation_id}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Member
+         * @description Removes a member. Their access to every one of this organisation's
+         *     projects goes with it, in one step - which is the point of having one.
+         *
+         *     Leaving voluntarily is allowed for anyone; removing somebody else needs
+         *     to be an administrator. The creator cannot be removed at all, for the
+         *     same reason they cannot be demoted.
+         */
+        delete: operations["remove_member_organisations__organisation_id__members__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Set Member Role
+         * @description Promotes or demotes a member.
+         *
+         *     The creator cannot be demoted, by anyone including themselves: an
+         *     organisation whose last administrator demoted themselves is one nobody
+         *     can add a member to or delete, and there is no support desk here to
+         *     unstick it.
+         */
+        patch: operations["set_member_role_organisations__organisation_id__members__user_id__patch"];
+        trace?: never;
+    };
+    "/organisations/{organisation_id}/case-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Organisation Case Files */
+        get: operations["list_organisation_case_files_organisations__organisation_id__case_files_get"];
+        put?: never;
+        /**
+         * Add Case File
+         * @description Shares a project with the organisation.
+         *
+         *     Only its OWNER may do this, not an organisation administrator: being
+         *     able to administer a team must never become a way to pull in projects
+         *     belonging to its members. It is the same rule as individual sharing -
+         *     a reviewer cannot re-share onward - applied to teams.
+         */
+        post: operations["add_case_file_organisations__organisation_id__case_files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organisations/{organisation_id}/case-files/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Case File
+         * @description Stops sharing a project with the organisation.
+         *
+         *     Either its owner or an administrator: the owner is taking their own
+         *     project back, and an administrator is deciding what their team holds.
+         *     Neither deletes anything.
+         */
+        delete: operations["remove_case_file_organisations__organisation_id__case_files__session_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Assignment
+         * @description The current assignment, or null if the case has never had one.
+         *
+         *     Readable by anyone who can read the case - knowing whose job something
+         *     is should not need more access than seeing the case itself.
+         */
+        get: operations["get_assignment_case_files__session_id__assignment_get"];
+        put?: never;
+        /**
+         * Set Assignment
+         * @description Assigns the case to someone, with an optional due date.
+         *
+         *     The due date is ADVISORY. Nothing in this product enforces one or acts
+         *     when it passes - the queue says a case is overdue and that is all.
+         *     Pretending otherwise in a compliance tool would be worse than not
+         *     having due dates.
+         */
+        post: operations["set_assignment_case_files__session_id__assignment_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/case-files/{session_id}/assignment/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Assignment History
+         * @description Every assignment this case has had, oldest first. Append-only, so a
+         *     case reassigned twice reads differently from one assigned once.
+         */
+        get: operations["get_assignment_history_case_files__session_id__assignment_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -894,6 +1144,59 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Assignment
+         * @description Who is expected to review a flagged case, and by when.
+         *
+         *     Append-only (see app/assignment_store.py): the current assignment is the
+         *     latest row. A case reassigned twice reads differently from one assigned
+         *     once, and in a compliance record that difference is the point.
+         */
+        Assignment: {
+            /** Id */
+            id: number;
+            /** Session Id */
+            session_id: string;
+            /**
+             * Assigned To User Id
+             * @description None means the case was explicitly UNASSIGNED - a deliberate act with its own row, not an absence of one.
+             */
+            assigned_to_user_id?: string | null;
+            /** Assigned To Email */
+            assigned_to_email?: string | null;
+            /** Assigned By User Id */
+            assigned_by_user_id: string;
+            /**
+             * Due At
+             * @description Advisory only. Nothing in this product enforces a due date or acts when one passes; it is a note to the people involved.
+             */
+            due_at?: string | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AssignmentRequest */
+        AssignmentRequest: {
+            /**
+             * Assigned To User Id
+             * @description None unassigns the case - a deliberate act, recorded as its own row.
+             */
+            assigned_to_user_id?: string | null;
+            /** Due At */
+            due_at?: string | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
         /** AuthResponse */
         AuthResponse: {
             /** Access Token */
@@ -1059,6 +1362,11 @@ export interface components {
              * @description The full link, present ONLY in the response that created the invite - the token is stored hashed and cannot be shown again. Listing invites later shows who was invited and whether they accepted, never the link.
              */
             invite_url?: string | null;
+        };
+        /** CaseFileLink */
+        CaseFileLink: {
+            /** Session Id */
+            session_id: string;
         };
         /**
          * CaseFilePage
@@ -1289,6 +1597,22 @@ export interface components {
             /** Already Accepted */
             already_accepted: boolean;
         };
+        /** MemberAdd */
+        MemberAdd: {
+            /** Email */
+            email: string;
+            /** @default member */
+            role: components["schemas"]["MemberRole"];
+        };
+        /**
+         * MemberRole
+         * @description What a member may do to the ORGANISATION - not to its projects.
+         *
+         *     Project access is the same for both: read and review. The difference is
+         *     administrative.
+         * @enum {string}
+         */
+        MemberRole: "admin" | "member";
         /**
          * MessageKind
          * @description How the frontend should render this message - mirrors the
@@ -1332,6 +1656,52 @@ export interface components {
          * @enum {string}
          */
         OccupancyType: "Residential" | "Educational" | "Institutional" | "Assembly" | "Business" | "Mercantile" | "Industrial" | "Storage" | "Hazardous" | "Mixed Use";
+        /** Organisation */
+        Organisation: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Created By User Id */
+            created_by_user_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** OrganisationCreate */
+        OrganisationCreate: {
+            /** Name */
+            name: string;
+        };
+        /** OrganisationMember */
+        OrganisationMember: {
+            /** Organisation Id */
+            organisation_id: string;
+            /** User Id */
+            user_id: string;
+            /** Email */
+            email: string;
+            role: components["schemas"]["MemberRole"];
+            /** Added By User Id */
+            added_by_user_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * OrganisationSummary
+         * @description An organisation as one of its members sees it in a list.
+         */
+        OrganisationSummary: {
+            organisation: components["schemas"]["Organisation"];
+            role: components["schemas"]["MemberRole"];
+            /** Member Count */
+            member_count: number;
+        };
         /** PasswordChange */
         PasswordChange: {
             /** Current Password */
@@ -1489,6 +1859,20 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** @description The current assignment, if the case has one. Carried on the queue row so the list can show who owes this and by when without a request per row. */
+            assignment?: components["schemas"]["Assignment"] | null;
+            /**
+             * Assigned To Me
+             * @description Whether the current assignment names this account - what 'my queue' filters on.
+             * @default false
+             */
+            assigned_to_me: boolean;
+            /**
+             * Is Overdue
+             * @description Past its due date and not yet settled. Advisory: nothing in this product acts when a due date passes, it only says so.
+             * @default false
+             */
+            is_overdue: boolean;
         };
         /** ReviewReason */
         ReviewReason: {
@@ -1554,6 +1938,10 @@ export interface components {
          * @enum {string}
          */
         ReviewStatus: "needs_review" | "in_review" | "approved" | "changes_requested" | "rejected";
+        /** RoleChange */
+        RoleChange: {
+            role: components["schemas"]["MemberRole"];
+        };
         /** SourceDocument */
         SourceDocument: {
             /** Filename */
@@ -1585,6 +1973,22 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * UserPreferences
+         * @description Everything this product remembers about how one person likes to work.
+         *
+         *     Note what is NOT here: the active project and the session token. Those
+         *     are per-BROWSER, not per-user - "which project was I last looking at"
+         *     should differ between the laptop and the phone, and syncing it would
+         *     make two open tabs fight. They stay in localStorage on purpose.
+         */
+        UserPreferences: {
+            /**
+             * Pinned Session Ids
+             * @description Projects this account has pinned, most recently pinned first. Ids only - the projects themselves are read through the ordinary access checks, so a pin can never be a way to see a project you no longer have access to.
+             */
+            pinned_session_ids?: string[];
         };
         /** ValidationError */
         ValidationError: {
@@ -2897,6 +3301,72 @@ export interface operations {
             };
         };
     };
+    get_my_preferences_users_me_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferences"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_my_preferences_users_me_preferences_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPreferences"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferences"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_invite_invites__token__get: {
         parameters: {
             query?: never;
@@ -2948,6 +3418,485 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseFileInvite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_organisations_organisations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_organisation_organisations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganisationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organisation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_organisation_organisations__organisation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organisation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_organisation_organisations__organisation_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organisation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganisationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organisation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_members_organisations__organisation_id__members_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organisation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationMember"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_member_organisations__organisation_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organisation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationMember"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_organisations__organisation_id__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organisation_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_member_role_organisations__organisation_id__members__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organisation_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationMember"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_organisation_case_files_organisations__organisation_id__case_files_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organisation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_case_file_organisations__organisation_id__case_files_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organisation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseFileLink"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_case_file_organisations__organisation_id__case_files__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                organisation_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_assignment_case_files__session_id__assignment_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_assignment_case_files__session_id__assignment_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_assignment_history_case_files__session_id__assignment_history_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"][];
                 };
             };
             /** @description Validation Error */

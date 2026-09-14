@@ -6,14 +6,23 @@ is the one place both meet.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from app import grant_store, message_store, review_store
+from app import (
+    assignment_store,
+    grant_store,
+    message_store,
+    organisation_store,
+    preferences_store,
+    review_store,
+)
 from app.auth.dependencies import get_current_user_required
 from app.models.case_file import CaseFile
+from app.models.organisation import Assignment
+from app.models.preferences import UserPreferences
 from app.models.review import ReviewStatus
 from app.models.user import User
 from app.store import count_by_owner, list_by_owner, list_flagged_for_review
@@ -110,6 +119,24 @@ class ReviewQueueItem(BaseModel):
         description="Whether this account owns the project or is reviewing it for someone else."
     )
     updated_at: datetime
+    assignment: Assignment | None = Field(
+        default=None,
+        description=(
+            "The current assignment, if the case has one. Carried on the queue row so the "
+            "list can show who owes this and by when without a request per row."
+        ),
+    )
+    assigned_to_me: bool = Field(
+        default=False,
+        description="Whether the current assignment names this account - what 'my queue' filters on.",
+    )
+    is_overdue: bool = Field(
+        default=False,
+        description=(
+            "Past its due date and not yet settled. Advisory: nothing in this product acts "
+            "when a due date passes, it only says so."
+        ),
+    )
 
 
 # Terminal from the queue's point of view: the case has had its answer and
@@ -140,16 +167,33 @@ def list_my_review_queue(
     # owned case file plus one lookup per grant, then discard the ones that
     # were not flagged - O(all your projects) to answer a question about a
     # handful of them.
-    shared_ids = grant_store.list_session_ids_for_user(current_user.id)
-    flagged = list_flagged_for_review(current_user.id, shared_ids)
-    statuses = review_store.current_statuses([case_file.session_id for case_file in flagged])
+    # Phase 4 adds a third source: projects shared with an organisation
+    # this account belongs to. Folded into the same `extra_session_ids`
+    # the query already takes, so the queue stays one indexed query
+    # however many ways a case reaches you.
+    reachable_ids = set(grant_store.list_session_ids_for_user(current_user.id))
+    reachable_ids.update(organisation_store.session_ids_for_user(current_user.id))
+    flagged = list_flagged_for_review(current_user.id, sorted(reachable_ids))
+    session_ids = [case_file.session_id for case_file in flagged]
+    statuses = review_store.current_statuses(session_ids)
+    # One query for every row's assignment, not one per row - the O(n)
+    # round trips this queue was rewritten to avoid.
+    assignments = assignment_store.current_for_sessions(session_ids)
+    now = datetime.now(timezone.utc)
 
     items = []
     for case_file in flagged:
         status = statuses.get(case_file.session_id, ReviewStatus.NEEDS_REVIEW)
-        if not include_settled and status in _SETTLED_STATUSES:
+        settled = status in _SETTLED_STATUSES
+        if not include_settled and settled:
             continue
         reasons = case_file.classification_result.review_reasons
+        assignment = assignments.get(case_file.session_id)
+        # An assignment row with no assignee means the case was explicitly
+        # UNASSIGNED, which is not the same as never assigned - but for
+        # "is this mine" and "is this late" both read the same way.
+        assigned_to = assignment.assigned_to_user_id if assignment else None
+        due_at = assignment.due_at if assignment else None
         items.append(
             ReviewQueueItem(
                 session_id=case_file.session_id,
@@ -159,7 +203,43 @@ def list_my_review_queue(
                 status=status,
                 is_owner=case_file.owner_user_id == current_user.id,
                 updated_at=case_file.updated_at,
+                assignment=assignment,
+                assigned_to_me=assigned_to == current_user.id,
+                # A settled case is not late - it is done. Saying otherwise
+                # would leave permanent red rows nobody can clear.
+                is_overdue=bool(due_at and due_at < now and not settled),
             )
         )
     # The query already returns oldest-first; nothing here reorders it.
     return items
+
+
+@router.get("/me/preferences", response_model=UserPreferences)
+def get_my_preferences(
+    current_user: User = Depends(get_current_user_required),
+) -> UserPreferences:
+    """How this account likes to work - see app/models/preferences.py.
+
+    Always answers, defaults included: an account that has never set
+    anything is not an error, and making the frontend distinguish "no
+    preferences yet" from "no preferences set" would buy nothing.
+    """
+    return preferences_store.get(current_user.id)
+
+
+@router.put("/me/preferences", response_model=UserPreferences)
+def replace_my_preferences(
+    preferences: UserPreferences,
+    current_user: User = Depends(get_current_user_required),
+) -> UserPreferences:
+    """Replaces this account's preferences wholesale.
+
+    Returns what was actually stored, not what was sent: duplicates are
+    dropped and the list is capped, so a caller that echoed its own
+    request back would drift out of step with the server.
+
+    Requires an account, obviously - there is nothing to attach a
+    preference to without one. An anonymous session keeps using the
+    browser's own storage, which is the correct place for it.
+    """
+    return preferences_store.save(current_user.id, preferences)

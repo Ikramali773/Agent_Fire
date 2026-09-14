@@ -22,7 +22,16 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
-from app import change_log, grant_store, invite_store, message_store, review_store
+from app import (
+    assignment_store,
+    change_log,
+    grant_store,
+    invite_store,
+    message_store,
+    organisation_store,
+    preferences_store,
+    review_store,
+)
 from app.auth.dependencies import get_current_user_optional, get_current_user_required
 from app.auth.user_store import get_user_by_email
 from app.dialogue.manager import handle_turn, start_conversation
@@ -127,9 +136,24 @@ def _check_access(
         raise HTTPException(status_code=403, detail="You do not have access to this case file")
     if current_user.id == case_file.owner_user_id:
         return
-    if need is Access.READ and grant_store.has_grant(case_file.session_id, current_user.id):
-        return
+    if need is Access.READ:
+        if grant_store.has_grant(case_file.session_id, current_user.id):
+            return
+        # Phase 4: a project shared with an organisation is readable by
+        # every member. Same READ level as an individual reviewer, and for
+        # the same reason - a verdict on facts the reviewer could have
+        # edited is worth nothing, and that does not stop being true
+        # because the reviewer is a colleague.
+        if _reachable_through_an_organisation(case_file.session_id, current_user.id):
+            return
     raise HTTPException(status_code=403, detail="You do not have access to this case file")
+
+
+def _reachable_through_an_organisation(session_id: str, user_id: str) -> bool:
+    shared_with = set(organisation_store.organisations_for_case_file(session_id))
+    if not shared_with:
+        return False
+    return bool(shared_with & set(organisation_store.organisation_ids_for_user(user_id)))
 
 
 def _save_or_conflict(case_file: CaseFile, expected_version: int | None) -> CaseFile:
@@ -266,6 +290,11 @@ def delete_case_file(
     review_store.delete_for_session(session_id)
     grant_store.delete_for_session(session_id)
     invite_store.delete_for_session(session_id)
+    # A pin that outlives the project it points at is a dead row that never
+    # gets cleaned up, so the cascade reaches preferences too.
+    preferences_store.forget_session(session_id)
+    organisation_store.delete_for_session(session_id)
+    assignment_store.delete_for_session(session_id)
     store_delete(session_id)
     return Response(status_code=204)
 

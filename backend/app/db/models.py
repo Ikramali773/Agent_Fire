@@ -198,6 +198,27 @@ class PasswordResetRecord(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class RateLimitAttemptRecord(Base):
+    """One credential attempt, for the rate limiter (app/auth/rate_limit.py).
+
+    In the database rather than in a worker's memory because a limit that
+    is per-process is a limit an attacker multiplies by opening more
+    connections. Rows older than the window are deleted on every check, so
+    this table holds at most the last minute of attempts - it is a counter,
+    not a log, and deliberately records no account, address, or outcome.
+    """
+
+    __tablename__ = "rate_limit_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # Whatever the endpoint keys on - client plus account, hashed shapes and
+    # all. Indexed because every check counts one key's rows.
+    key: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # Indexed because every check also deletes everything older than the
+    # window, across all keys.
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
 class RevokedTokenRecord(Base):
     """Phase 4 hardening: a session token that has been logged out.
 
@@ -218,6 +239,95 @@ class RevokedTokenRecord(Base):
     user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class OrganisationRecord(Base):
+    """A named group of accounts - Phase 4. See app/models/organisation.py."""
+
+    __tablename__ = "organisations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_by_user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class OrganisationMemberRecord(Base):
+    """One account's membership of one organisation.
+
+    Unique on (organisation, user): adding someone twice is the same
+    intent expressed twice, not two memberships.
+    """
+
+    __tablename__ = "organisation_members"
+    __table_args__ = (UniqueConstraint("organisation_id", "user_id", name="uq_org_member"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organisation_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # Indexed because "which organisations am I in" runs on every request
+    # that resolves access to a project.
+    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    added_by_user_id: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class OrganisationCaseFileRecord(Base):
+    """A project shared with an organisation.
+
+    A link table rather than a column on case_files, deliberately: which
+    group can see a project is a relationship between two things, not a
+    fact about the building - and the Case File model stays untouched.
+    """
+
+    __tablename__ = "organisation_case_files"
+    __table_args__ = (UniqueConstraint("organisation_id", "session_id", name="uq_org_case_file"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organisation_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    session_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    added_by_user_id: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class CaseFileAssignmentRecord(Base):
+    """Who is expected to review a case, and by when.
+
+    Append-only, like case_file_reviews and for the same reason: a case
+    reassigned twice reads differently from one assigned once, and an
+    UPDATE in place could not tell you which you were looking at.
+    """
+
+    __tablename__ = "case_file_assignments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # NULL means explicitly unassigned - a deliberate act with its own row.
+    assigned_to_user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    assigned_to_email: Mapped[str | None] = mapped_column(String, nullable=True)
+    assigned_by_user_id: Mapped[str] = mapped_column(String, nullable=False)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class UserPreferenceRecord(Base):
+    """One row per account, holding how that person likes to work.
+
+    A blob for the reason CaseFileRecord is one: preferences are read and
+    written whole, and nothing queries an individual preference in SQL.
+
+    Keyed by user_id rather than carrying a surrogate id - an account has
+    exactly one of these, and a primary key that says so is better than a
+    uniqueness constraint that hopes so.
+    """
+
+    __tablename__ = "user_preferences"
+
+    user_id: Mapped[str] = mapped_column(String, primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class UserRecord(Base):

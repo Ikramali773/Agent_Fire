@@ -22,6 +22,11 @@ interface Props {
 export function ReviewQueue({ selectedSessionId, onSelect, refreshKey }: Props) {
   const [items, setItems] = useState<ReviewQueueItem[] | null>(null);
   const [includeSettled, setIncludeSettled] = useState(false);
+  // Phase 4: a team's queue is everyone's queue, which is not much use to
+  // the person who has to clear their own. Filtering is client-side
+  // because the rows are already here - the backend sends assigned_to_me
+  // per row - and a round trip to hide some of them would be waste.
+  const [mineOnly, setMineOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -43,6 +48,9 @@ export function ReviewQueue({ selectedSessionId, onSelect, refreshKey }: Props) 
 
   useEffect(load, [load, refreshKey]);
 
+  const visible = items === null ? null : mineOnly ? items.filter((item) => item.assigned_to_me) : items;
+  const assignedToMeCount = items?.filter((item) => item.assigned_to_me).length ?? 0;
+
   return (
     <div className="ds-review-queue">
       <header className="ds-review-queue__header">
@@ -57,6 +65,19 @@ export function ReviewQueue({ selectedSessionId, onSelect, refreshKey }: Props) 
         </label>
       </header>
 
+      {/* Only offered when something actually is assigned to you - a
+          filter that can only ever empty the list is noise. */}
+      {assignedToMeCount > 0 && (
+        <label className="ds-review-queue__toggle ds-review-queue__toggle--filter">
+          <input
+            type="checkbox"
+            checked={mineOnly}
+            onChange={(event) => setMineOnly(event.target.checked)}
+          />
+          Only cases assigned to me ({assignedToMeCount})
+        </label>
+      )}
+
       {error && (
         <p className="ds-review-queue__note ds-review-queue__note--error" role="alert">
           {error}
@@ -65,20 +86,22 @@ export function ReviewQueue({ selectedSessionId, onSelect, refreshKey }: Props) 
 
       {items === null && !error && <p className="ds-review-queue__note">Loading…</p>}
 
-      {items !== null && items.length === 0 && (
+      {visible !== null && visible.length === 0 && (
         <EmptyState
-          title="Nothing waiting"
+          title={mineOnly ? "Nothing assigned to you" : "Nothing waiting"}
           description={
-            includeSettled
-              ? "No case has ever been flagged for review on this account."
-              : "No flagged case is waiting. Settled ones are hidden — tick “Show settled” to see them."
+            mineOnly
+              ? "Other cases are waiting, but none of them are yours. Untick the filter to see them."
+              : includeSettled
+                ? "No case has ever been flagged for review on this account."
+                : "No flagged case is waiting. Settled ones are hidden — tick “Show settled” to see them."
           }
         />
       )}
 
-      {items !== null && items.length > 0 && (
+      {visible !== null && visible.length > 0 && (
         <ul className="ds-review-queue__list">
-          {items.map((item) => (
+          {visible.map((item) => (
             <li key={item.session_id}>
               <button
                 type="button"
@@ -91,6 +114,10 @@ export function ReviewQueue({ selectedSessionId, onSelect, refreshKey }: Props) 
                 <span className="ds-review-queue__item-head">
                   <span className="ds-review-queue__item-name">{item.project_name || "Untitled project"}</span>
                   <StatusPill status={reviewStatusTone(item.status)} label={reviewStatusLabel(item.status)} size="sm" />
+                  {/* Overdue is advisory - nothing acts when a due date
+                      passes - so it is said plainly and never as a
+                      compliance status, which this product does not issue. */}
+                  {item.is_overdue && <StatusPill status="fail" label="Overdue" size="sm" />}
                 </span>
                 <span className="ds-review-queue__item-reasons">
                   {item.reason_codes.map(reviewReasonLabel).join(" · ") || "No reason recorded"}
@@ -101,6 +128,12 @@ export function ReviewQueue({ selectedSessionId, onSelect, refreshKey }: Props) 
                   {item.is_owner ? "Your project" : "Shared with you"} · waiting since{" "}
                   {relativeTime(item.updated_at)}
                 </span>
+                {item.assignment?.assigned_to_email && (
+                  <span className="ds-review-queue__item-meta">
+                    {item.assigned_to_me ? "Assigned to you" : `Assigned to ${item.assignment.assigned_to_email}`}
+                    {item.assignment.due_at && ` · due ${relativeTime(item.assignment.due_at)}`}
+                  </span>
+                )}
               </button>
             </li>
           ))}

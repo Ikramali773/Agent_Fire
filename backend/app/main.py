@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.case_files import router as case_files_router
 from app.api.invites import router as invites_router
+from app.api.organisations import assignment_router, router as organisations_router
 from app.api.users import router as users_router
 from app.auth.tokens import using_default_secret
 from app.db.init_db import create_all_tables
@@ -89,6 +90,8 @@ app.include_router(case_files_router)
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(invites_router)
+app.include_router(organisations_router)
+app.include_router(assignment_router)
 
 
 @app.get("/health")

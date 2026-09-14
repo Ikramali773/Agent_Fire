@@ -51,9 +51,29 @@ Part B):
     expensive *by design*, an unlimited endpoint costs the server more than the attacker, making it
     a denial-of-service lever as much as a brute-force hole. Keyed on client **and** account so an
     attacker cannot lock a victim out of their own account; a correct password clears the counter.
-    - **Honest limitation**: in-process and dependency-free, so the counters reset on restart and
-      are NOT shared across workers. Behind N workers the effective limit is N×. A large improvement
-      on "no limit", and a poor substitute for a shared store (Redis) or a limit at the edge.
+    A **sliding** window, not a fixed one - a fixed window can be walked around by timing requests
+    to its edge, which quietly doubles the real allowance for anyone who bothers.
+    - **The counters are shared** (`DatabaseBackend`). They used to live in one worker's memory, so
+      they reset on restart and behind N workers the effective limit was N× - and N is something an
+      attacker raises just by opening more connections, which makes it not really a limit at all.
+      They now live in the database this product already requires, so nothing new has to be
+      operated, and every worker and instance pointed at it counts the same attempts.
+      `tests/test_rate_limit_shared.py` proves that by spending attempts in a genuinely separate
+      **process** and asserting the first one still refuses; those tests fail against the in-memory
+      backend, which is what makes them worth having.
+    - **Cost**: measured at **2.8 ms** per check, and still 2.8 ms with 20,000 attempts live in the
+      window. Login does a bcrypt hash anyway (272 ms on this machine), so the limiter is ~1% of
+      work the endpoint was already doing. The table holds at most one window of attempts - every
+      check deletes what has aged out, across all keys - so it is a counter, not a log, and does not
+      grow. The one-off cost of clearing a large backlog (20,000 stale rows) was 44 ms, paid by a
+      single request.
+    - **It fails open.** A database error is logged and the attempt is allowed. Both endpoints
+      behind this limiter need the database to do their real job, so a database that cannot serve
+      the limiter cannot serve the login either - failing closed would turn a limiter problem into
+      an outage while protecting nothing.
+    - The backend is swappable (`set_backend`), which is the seam a Redis or edge-level limiter
+      drops into without the endpoints changing. `InMemoryBackend` is kept for tests and deliberate
+      single-process use.
   - **The session cut-off is compared at full precision** (`app/auth/tokens.py`). `iat` was whole
     seconds while `sessions_valid_from` is a real instant, so a change at t=100.7 stamped a cut-off
     of 100.7 while the login a fraction later still minted `iat=100` - and 100 < 100.7, so the
@@ -102,6 +122,15 @@ Part B):
       Covered now by `tests/test_db_migration.py`, which builds a genuine pre-Alembic database with
       raw `sqlite3` and then asserts the *application* works against it, not merely that the tables
       exist.
+    - **A third bug, exposed by the very first migration written after the baseline** — which is
+      the best argument for having added migrations at all. Adoption built today's whole schema with
+      `create_all` and then stamped the database at the *baseline*. That is a contradiction: the
+      database held tables from today's models while its version claimed to be at the baseline, so
+      the next migration ran against a table that already existed (`table rate_limit_attempts
+      already exists`). Had it not failed loudly it would have been worse — a later migration
+      silently skipped. A legacy database now walks the ordinary upgrade path through every revision
+      in order, with the baseline creating only the tables that are genuinely absent, which is also
+      what will make a future *data* migration apply to it.
     - **A second bug, found by an unrelated failing test**: Alembic's `fileConfig()` disables every
       logger not named in the ini it reads, and `alembic.ini` names none of ours — so migrating
       in-process at startup silently switched off `uvicorn.error`, taking the SECURITY warning below
@@ -398,6 +427,71 @@ Part B):
     chat rail is newest-first because you are resuming what you were just doing; a compliance queue
     is oldest-first because the case waiting longest is the one most at risk of being forgotten.
     Approved and rejected cases drop out by default (`include_settled=true` to see them).
+- **Organisations** (`app/models/organisation.py`, `app/organisation_store.py`,
+  `app/assignment_store.py`, `app/api/organisations.py`, Phase 4) — sharing was one project to one
+  person at a time. Six colleagues and forty projects is two hundred and forty shares; the day
+  somebody leaves, you have to remember all of them. An organisation is a named group of accounts:
+  a project shared with it is readable by every member, and a member who leaves loses that access
+  in one step.
+  - **A team grants READ, never WRITE.** Members read, download the handoff pack, record a verdict
+    and can be assigned a review — exactly the reviewer capability that already existed, because
+    the reason for it has not changed: *a verdict on facts the reviewer could have edited is worth
+    nothing*, and that does not stop being true because the reviewer is a colleague.
+  - **Only a project's OWNER can put it into a team.** Being able to administer a team must never
+    become a way to pull in a colleague's other work — the same rule as "a reviewer cannot re-share
+    onward", applied to groups. Removing it again is allowed to the owner or an admin; neither
+    deletes anything.
+  - **Deleting a team deletes no projects.** An organisation is a way of sharing work, never where
+    it lives. Only its creator can dissolve it; an admin added later manages the team but not its
+    existence. The creator also cannot be demoted or removed — an organisation whose last admin
+    demoted themselves is one nobody can add a member to or delete, and there is no support desk
+    here to unstick it.
+  - **A non-member gets a 404, not a 403**, for anything addressed by organisation id. Whether an
+    organisation exists is itself something only its members should be able to find out.
+  - `organisation_case_files` is a **link table**, not a column on `case_files`: which group can see
+    a project is a relationship between two things, not a fact about the building — and the Case
+    File model is untouched by this whole feature.
+- **Review assignment and due dates** (`app/assignment_store.py`,
+  `GET`/`POST /case-files/{id}/assignment`, `GET .../assignment/history`, Phase 4) — who is expected
+  to look at a flagged case, and by when.
+  - **Append-only**, like `case_file_reviews`: a case reassigned twice reads differently from one
+    assigned once, and an UPDATE in place could not tell you which you were looking at.
+    *Unassigning writes a row with no assignee* rather than deleting one — a deliberate act,
+    recorded as such, and distinguishable from never having been assigned.
+  - **Assignment is never a back door to access.** You can only assign a case to someone who could
+    already open it; otherwise "assign to anyone" would quietly become "share with anyone",
+    bypassing both the owner-only share rule and the team it goes through. Covered by a test that
+    also asserts the would-be assignee still gets a 403.
+  - Who may assign: the project's owner, or an **admin** of a team it is shared with. A plain member
+    cannot — being able to read a case is not the same as being able to hand it to a colleague.
+  - **Due dates are advisory and the product says so, in the API description and on screen.**
+    Nothing enforces one or acts when it passes; the queue marks the case overdue and that is the
+    whole of it. A settled case is never overdue — it is done, not late, and saying otherwise would
+    leave permanent red rows nobody can clear.
+  - The queue carries each row's assignment, fetched in **one query for the whole page**
+    (`current_for_sessions`), not one per row — the O(n) round trips the queue was rewritten to
+    avoid in the first place.
+- **Per-user preferences** (`app/models/preferences.py`, `app/preferences_store.py`,
+  `GET`/`PUT /users/me/preferences`, Phase 4) — a pinned chat is per-USER state, and the Case File
+  schema is fixed: there is no field on it for "this person pinned this project", and inventing one
+  would put one account's preference on a record that gets shared with reviewers. So pins lived in
+  the browser and did not follow the account to a second device. This is where they live now.
+  - **Typed, not an open JSON bag.** A free-form key-value store would let the frontend write
+    anything, which is how a preferences table becomes an unversioned second schema nobody can
+    reason about. Adding a preference is a deliberate act with a migration behind it.
+  - **Whole-object replace, not a patch.** The object is small and always edited as a whole, and a
+    patch endpoint would need a way to say "set this list to empty" distinct from "leave this list
+    alone" — exactly the ambiguity that makes patch APIs error-prone for collections. The response
+    is what was actually *stored* (duplicates dropped, list capped), not what was sent, so a caller
+    echoing its own request back cannot drift out of step.
+  - **A pin is not access.** Ids only; the projects themselves still go through every ordinary
+    access check, so pinning a session id you do not own grants nothing. Covered by a test.
+  - Deleting a project unpins it for every account, through the same cascade that clears its
+    messages, changes, reviews, grants and invites — otherwise a pin outlives what it points at and
+    the list fills with ids that resolve to nothing.
+  - What is deliberately NOT here: the active project and the session token. Those are per-BROWSER
+    — "which project was I last looking at" should differ between the laptop and the phone, and
+    syncing it would make two open tabs fight.
 - **Consultant handoff pack** (`app/reports/handoff.py`, `GET /case-files/{id}/handoff[.pdf|.docx]`,
   Phase 3) — the report plus the three things only this system knows: **why** review is required
   (the engine's typed reasons), **where every fact came from** (`field_sources`, which has been
@@ -550,7 +644,7 @@ Part B):
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
 alembic upgrade head         # optional: the app does this itself on startup (see migrations/README)
-python -m pytest -q          # 518 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+python -m pytest -q          # 578 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and

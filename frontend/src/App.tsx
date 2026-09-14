@@ -10,6 +10,7 @@ import { OverviewPage } from "./pages/overview/OverviewPage";
 import { ReportsPage } from "./pages/reports/ReportsPage";
 import { FindingsPage } from "./pages/findings/FindingsPage";
 import { ReviewPage } from "./pages/review/ReviewPage";
+import { TeamPage } from "./pages/team/TeamPage";
 import { AcceptInviteScreen } from "./entry/AcceptInviteScreen";
 import { clearLinkToken, readLinkToken, type LinkToken } from "./entry/linkToken";
 import { ResetPasswordScreen } from "./entry/ResetPasswordScreen";
@@ -220,6 +221,7 @@ function App() {
       {!restoring && activeView === "reports" && <ReportsPage caseFile={caseFile} />}
       {!restoring && activeView === "findings" && <FindingsPage caseFile={caseFile} />}
       {!restoring && activeView === "review" && <ReviewPage caseFile={caseFile} onCaseFileChange={setCaseFile} />}
+      {!restoring && activeView === "team" && <TeamPage caseFile={caseFile} />}
       {!restoring && activeView === "history" && (
         <ProjectHistoryPage
           activeSessionId={caseFile?.session_id ?? null}

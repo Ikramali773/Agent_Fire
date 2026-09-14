@@ -97,3 +97,7 @@
 .ds-review-queue__note--error {
   color: var(--status-fail-fg);
 }
+
+.ds-review-queue__toggle--filter {
+  padding: 0 var(--space-4) var(--space-2);
+}

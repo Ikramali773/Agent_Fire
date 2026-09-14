@@ -6,6 +6,7 @@ import { Card } from "../../design-system/components/Card";
 import { StatusPill } from "../../design-system/components/StatusPill";
 import { parseApiTimestamp, relativeTime } from "../../lib/relativeTime";
 import { RECORDABLE_STATUSES, reviewReasonLabel, reviewStatusLabel, reviewStatusTone } from "../../lib/review";
+import { AssignmentPanel } from "./AssignmentPanel";
 import { SharePanel } from "./SharePanel";
 import type { ReviewState, ReviewStatus } from "../../types";
 import "./ReviewDetail.css";
@@ -240,6 +241,12 @@ export function ReviewDetail({ sessionId, canShare, onRecorded }: Props) {
       {/* Sharing is owner-only: a reviewer must never be able to pass
           someone else's project onward, and an anonymous session has no
           account to share as. The backend enforces both. */}
+      {/* Assignment is offered to anyone signed in: the server decides
+          whether they may actually change it (owner or team admin) and the
+          panel reflects that, but everyone who can read the case should be
+          able to SEE whose job it is. `canShare` is the owner test, which
+          is also what makes someone able to assign on their own project. */}
+      {canShare && <AssignmentPanel sessionId={sessionId} canAssign={canShare} />}
       {canShare && <SharePanel sessionId={sessionId} />}
     </div>
   );
