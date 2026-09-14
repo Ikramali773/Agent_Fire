@@ -54,8 +54,17 @@ class TokenClaims:
     token_id: str
     """Unique per issued token, so one session can be revoked without
     invalidating every other session the same account has open."""
-    issued_at: int
-    expires_at: int
+    # Seconds since the epoch, with sub-second precision. NOT truncated to
+    # whole seconds, and that is load-bearing: `sessions_valid_from` (the
+    # "sign out everywhere" cut-off, see app/auth/dependencies.py) is a
+    # full-precision instant, so a whole-second `iat` could not tell a
+    # token issued just BEFORE a password change from one issued just
+    # after it within the same second. Changing a password and
+    # immediately signing back in - which is exactly what the frontend
+    # does - then 401'd the person who had just changed it, at random,
+    # depending on where in the second the change landed.
+    issued_at: float
+    expires_at: float
 
 
 def using_default_secret() -> bool:
@@ -71,7 +80,7 @@ def using_default_secret() -> bool:
 def create_token(user_id: str) -> str:
     payload = {
         "sub": user_id,
-        "iat": int(time.time()),
+        "iat": time.time(),
         # A token id is what makes logout able to revoke THIS session
         # rather than all of them - or, without it, nothing at all.
         "jti": secrets.token_urlsafe(16),
@@ -103,7 +112,12 @@ def decode_token(token: str) -> TokenClaims | None:
         return None
 
     issued_at = payload.get("iat")
-    if not isinstance(issued_at, int) or time.time() - issued_at > _TOKEN_TTL_SECONDS:
+    # int as well as float: tokens minted before `iat` gained sub-second
+    # precision are still live for the rest of their seven-day TTL, and
+    # rejecting them would sign out every existing session on deploy.
+    if not isinstance(issued_at, (int, float)) or isinstance(issued_at, bool):
+        return None
+    if time.time() - issued_at > _TOKEN_TTL_SECONDS:
         return None
 
     user_id = payload.get("sub")

@@ -360,7 +360,11 @@ class TestReviewQueueIsAQuery:
             session.commit()
         assert client.get("/users/me/review-queue", headers=_headers(account)).json() == []
 
-        _backfill_requires_review(get_engine())
+        # Takes a connection rather than an engine since migrations were
+        # adopted: the backfill is one step of adopting a pre-Alembic
+        # database, and every step of that runs on one transaction.
+        with get_engine().begin() as connection:
+            _backfill_requires_review(connection)
 
         assert len(client.get("/users/me/review-queue", headers=_headers(account)).json()) == 1
 

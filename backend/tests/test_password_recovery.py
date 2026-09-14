@@ -66,6 +66,64 @@ def _login(email: str = "a@example.com", password: str = "correct-horse"):
     return client.post("/auth/login", json={"email": email, "password": password})
 
 
+class TestTheCutOffIsNotARace:
+    """The sign-out-everywhere cut-off is a full-precision instant, so the
+    token's `iat` has to be one too.
+
+    With `iat` truncated to whole seconds, a change at t=100.7 stamped a
+    cut-off of 100.7 while a login a fraction later still minted iat=100 -
+    and 100 < 100.7, so the brand-new token was rejected. It failed or
+    passed depending on where in the second the change happened to land,
+    which is how it survived one full test run before failing the next.
+    The frontend re-logs in the moment a password changes, so this locked
+    people out of their own account at random.
+    """
+
+    def test_a_token_minted_after_the_cut_off_is_accepted(self):
+        # Deterministic where the end-to-end version was a coin flip: the
+        # cut-off is stamped first, the token second, so a correct
+        # implementation accepts it however the clock happens to fall.
+        from app.auth.dependencies import get_current_user_optional
+        from app.auth.tokens import create_token
+        from app.auth.user_store import set_password
+
+        account = _signup()
+        user_id = client.get("/auth/me", headers=_headers(account["access_token"])).json()["id"]
+
+        set_password(user_id, "battery-staple")
+        fresh = create_token(user_id)
+
+        assert get_current_user_optional(f"Bearer {fresh}") is not None
+
+    def test_a_token_minted_before_the_cut_off_is_rejected(self):
+        # The precision fix must not quietly widen the hole it closes.
+        from app.auth.dependencies import get_current_user_optional
+        from app.auth.tokens import create_token
+        from app.auth.user_store import set_password
+
+        account = _signup()
+        user_id = client.get("/auth/me", headers=_headers(account["access_token"])).json()["id"]
+
+        stale = create_token(user_id)
+        set_password(user_id, "battery-staple")
+
+        assert get_current_user_optional(f"Bearer {stale}") is None
+
+    def test_the_whole_flow_holds_end_to_end(self):
+        # The same thing through the API, which is where it actually bit.
+        account = _signup()
+
+        client.post(
+            "/auth/password",
+            json={"current_password": "correct-horse", "new_password": "battery-staple"},
+            headers=_headers(account["access_token"]),
+        )
+        token = _login(password="battery-staple").json()["access_token"]
+
+        assert client.get("/auth/me", headers=_headers(token)).status_code == 200
+        assert client.get("/auth/me", headers=_headers(account["access_token"])).status_code == 401
+
+
 class TestChangingPassword:
     def test_the_new_password_works_and_the_old_one_does_not(self):
         account = _signup()

@@ -21,8 +21,20 @@ from sqlalchemy.orm import Session, sessionmaker
 DEFAULT_DATABASE_URL = "sqlite:///./case_files.db"
 
 
+def database_url() -> str:
+    """The one answer to "which database is this?".
+
+    Read afresh each call rather than captured at import, so a test that
+    points DATABASE_URL at a throwaway file (with reset_engine_for_testing
+    below) actually gets that file. Alembic's env.py reads it from here
+    too, instead of keeping a second copy in alembic.ini that could
+    silently migrate the wrong database.
+    """
+    return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
+
+
 def _make_engine():
-    url = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
+    url = database_url()
     connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
     return create_engine(url, connect_args=connect_args)
 

@@ -42,12 +42,11 @@ def _check_auth_secret() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Idempotent (CREATE TABLE IF NOT EXISTS semantics via SQLAlchemy's
-    # create_all, plus a lightweight add-missing-columns pass - see
-    # app/db/init_db.py) - safe to run on every boot rather than requiring
-    # a separate migration step. Revisit with real migrations (Alembic)
-    # once a schema change needs more than an additive nullable column
-    # (a rename, a drop, a NOT NULL backfill).
+    # Runs Alembic migrations (see app/db/init_db.py), which is what keeps
+    # a fresh checkout and the test suite zero-setup. Idempotent: on an
+    # up-to-date database it is a version lookup and nothing else. Set
+    # FIRE_AGENT_AUTO_MIGRATE=0 to make migrating a deploy step instead,
+    # which is what a multi-worker deployment wants.
     create_all_tables()
     _check_auth_secret()
     yield

@@ -54,6 +54,15 @@ Part B):
     - **Honest limitation**: in-process and dependency-free, so the counters reset on restart and
       are NOT shared across workers. Behind N workers the effective limit is N×. A large improvement
       on "no limit", and a poor substitute for a shared store (Redis) or a limit at the edge.
+  - **The session cut-off is compared at full precision** (`app/auth/tokens.py`). `iat` was whole
+    seconds while `sessions_valid_from` is a real instant, so a change at t=100.7 stamped a cut-off
+    of 100.7 while the login a fraction later still minted `iat=100` - and 100 < 100.7, so the
+    brand-new token was rejected. Since the frontend re-logs in the moment a password changes, this
+    locked people out of the account they had just secured, at random, depending on where in the
+    second the change landed. It passed one full test run and failed the next, which is exactly what
+    a race looks like. `iat` now carries sub-second precision; `decode_token` still accepts the
+    integer form so tokens minted before the fix stay valid for the rest of their TTL rather than
+    signing everyone out on deploy. Covered by deterministic tests rather than a timing loop.
   - **Account recovery** (`app/api/auth.py`, `app/auth/password_resets.py`, `app/auth/delivery.py`).
     Until this existed a forgotten password meant a lost account, and a *stolen* one could not be
     taken back. Three endpoints: `POST /auth/password` (change, requires the current one — a session
@@ -75,6 +84,37 @@ Part B):
       is fine for development and is *not* a working recovery flow for real users. A real deployment
       must set a mail backend via `app.auth.delivery.set_delivery()`; `FIRE_AGENT_APP_URL` controls
       the link's origin (default `http://localhost:5173`).
+  - **Migrations** (`migrations/`, `app/db/init_db.py`). The schema used to be
+    created by `Base.metadata.create_all()` plus an additive add-missing-columns pass that ran on
+    every boot. That is fine for adding a nullable column and nothing else: it cannot rename, drop,
+    change a type, or backfill, and it leaves no record of what the schema has been. Alembic now
+    owns the schema.
+    - **Adopting an existing database is the hard part**, and it is not hypothetical — every
+      database created before this commit, including the developer's own `case_files.db`, has our
+      tables and no `alembic_version`. Running `upgrade head` against one of those would try to
+      `CREATE TABLE` over live data. So there are three paths: an empty database gets `upgrade
+      head`; one already under Alembic gets whatever is new; one that predates Alembic is
+      **reconciled and stamped** once, then is an ordinary versioned database forever.
+    - **A bug this caught, by being run rather than reasoned about**: the first version of the
+      adoption path stamped a legacy database at the baseline while leaving seven tables missing —
+      the stamp asserting a schema that was not there, so the first query against
+      `conversation_messages` would fail with the version table insisting everything was fine.
+      Covered now by `tests/test_db_migration.py`, which builds a genuine pre-Alembic database with
+      raw `sqlite3` and then asserts the *application* works against it, not merely that the tables
+      exist.
+    - **A second bug, found by an unrelated failing test**: Alembic's `fileConfig()` disables every
+      logger not named in the ini it reads, and `alembic.ini` names none of ours — so migrating
+      in-process at startup silently switched off `uvicorn.error`, taking the SECURITY warning below
+      and uvicorn's request log with it. `env.py` now configures logging only when the CLI is
+      driving.
+    - `tests/test_db_migration.py` also guards against **drift**: `alembic check` fails the suite if
+      `app/db/models.py` changes without a migration, which is the quiet way migrations stop
+      describing reality. Verified against a real local Postgres as well as SQLite — all three
+      adoption paths, and the drift check.
+    - **Honest limitation**: migrations run on startup by default, which keeps a fresh checkout and
+      the test suite zero-setup but means N workers booting together would race to apply the same
+      revision. `FIRE_AGENT_AUTO_MIGRATE=0` turns that off so a deployment can run
+      `alembic upgrade head` as a deploy step, which is what it should do.
   - **The development signing key cannot reach production.** `FIRE_AGENT_AUTH_SECRET` still defaults
     to a string that ships in this repository - anyone who knows it can mint a token for any
     account - so startup now **refuses** when `FIRE_AGENT_ENV` is production/prod/staging, and logs
@@ -458,17 +498,16 @@ Part B):
   classification result, and independently confirmed the row via `psql` — before this was
   considered done; the automated test suite still runs on SQLite (`tests/conftest.py` pins
   `DATABASE_URL` to a throwaway file) so `pytest` never needs a real database server available.
-  - **Schema changes against an existing database** (`app/db/init_db.py`) — `create_all_tables()`
-    only creates tables that don't exist yet (SQLAlchemy's `create_all`); it never alters one that
-    already exists, so a column added to a model after a database file/instance was first created
-    (e.g. `CaseFileRecord.owner_user_id`, Phase 2) went silently missing from any pre-existing
-    database and broke every query mentioning it with `no such column: case_files.owner_user_id` -
-    hit live against a pre-Phase-2 local `case_files.db`. Fixed with a lightweight, additive-only
-    migration pass that runs right after `create_all` on every boot: it adds any column a model
-    declares that the live table is missing. **Not a real migration tool** - no renames, drops, type
-    changes, or NOT-NULL backfill; only ever safe for a nullable column with no dependent backfill,
-    which is true of everything added this way so far (see `test_db_migration.py`). A schema change
-    beyond that needs real migrations (Alembic).
+  - **Schema changes against an existing database** — now **Alembic** (`migrations/`,
+    `app/db/init_db.py`; see the Phase 4 hardening section above for the full account, including two
+    bugs that only showed up when it was run rather than reasoned about). The problem that forced
+    this: `create_all` only creates tables that don't exist; it never alters one that does, so a
+    column added to a model after a database was created went silently missing and broke every query
+    mentioning it — `no such column: case_files.owner_user_id`, hit live against a pre-Phase-2 local
+    `case_files.db`. The additive add-missing-columns pass that fixed *that* could never do more:
+    no renames, drops, type changes, or NOT-NULL backfills. It survives today only as the one-shot
+    step that reconciles a pre-Alembic database before stamping it; everything from here on is a
+    real migration.
 
 ## Not yet built
 
@@ -510,7 +549,8 @@ Part B):
 
 ```bash
 pip install -r requirements.txt      # needs system Tesseract too: apt-get install tesseract-ocr
-python -m pytest -q          # 198 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
+alembic upgrade head         # optional: the app does this itself on startup (see migrations/README)
+python -m pytest -q          # 518 tests; real OCR/PDF-generation, DB round-trips, and rule-data-backed
                               # classification (including Mixed Use + state checklists), none need network
 export DATABASE_URL=postgresql+psycopg://user:pass@localhost/fire_agent  # optional - defaults to local SQLite
 export GROQ_API_KEY=gsk_...  # free key from console.groq.com/keys - required for /start, /message, and
